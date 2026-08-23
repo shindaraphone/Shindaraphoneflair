@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { supabase } from "./supabaseClient";
+import { useState } from "react";
 
 const WHATSAPP = "2348118294548";
 const TIKTOK = "https://www.tiktok.com/@shindara.communication";
@@ -21,97 +20,6 @@ function App() {
   const [cart, setCart] = useState([]);
   const [accountOpen, setAccountOpen] = useState(false);
 
-  const [user, setUser] = useState(null);
-  const [authMode, setAuthMode] = useState("login");
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [authMessage, setAuthMessage] = useState("");
-  const [authLoading, setAuthLoading] = useState(false);
-
-  useEffect(() => {
-    if (!supabase) {
-      return;
-    }
-
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data?.user ?? null);
-    });
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  async function handleAuth(event) {
-    event.preventDefault();
-
-    if (!supabase) {
-      setAuthMessage(
-        "Supabase connection is unavailable. Please try again shortly."
-      );
-      return;
-    }
-
-    setAuthLoading(true);
-    setAuthMessage("");
-
-    if (authMode === "signup") {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password
-      });
-
-      setAuthLoading(false);
-
-      if (error) {
-        setAuthMessage(error.message);
-        return;
-      }
-
-      setAuthMessage(
-        "Account created! Please check your email to confirm your account."
-      );
-
-      return;
-    }
-
-    const { error } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-    setAuthLoading(false);
-
-    if (error) {
-      setAuthMessage(error.message);
-      return;
-    }
-
-    setEmail("");
-    setPassword("");
-    setAuthMessage("");
-  }
-
-  async function logout() {
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
-
-    setUser(null);
-    setAccountOpen(false);
-  }
-
   function addToCart(product) {
     setCart((items) => [...items, product]);
   }
@@ -124,6 +32,22 @@ function App() {
     window.open(
       `https://wa.me/${WHATSAPP}?text=${message}`,
       "_blank"
+    );
+  }
+
+  function openCart() {
+    if (!cart.length) {
+      alert("Your cart is empty.");
+      return;
+    }
+
+    const total = cart.reduce(
+      (sum, item) => sum + item.price,
+      0
+    );
+
+    alert(
+      `Cart: ${cart.length} item(s) — ${money(total)}`
     );
   }
 
@@ -147,36 +71,20 @@ function App() {
 
           <button
             className="account-button"
-            onClick={() => {
-              setAuthMessage("");
-              setAccountOpen(true);
-            }}
+            onClick={() => setAccountOpen(true)}
           >
-            👤 {user ? "Account" : "Sign in"}
+            👤 Sign in
           </button>
 
           <button
             className="cart-button"
-            onClick={() => {
-              if (!cart.length) {
-                alert("Your cart is empty.");
-                return;
-              }
-
-              const total = cart.reduce(
-                (sum, item) => sum + item.price,
-                0
-              );
-
-              alert(
-                `Cart: ${cart.length} item(s) — ${money(total)}`
-              );
-            }}
+            onClick={openCart}
           >
             🛒 Cart ({cart.length})
           </button>
 
         </div>
+
       </header>
 
       <main>
@@ -200,7 +108,10 @@ function App() {
               power banks and everyday gadgets.
             </p>
 
-            <a href="#shop" className="shop-button">
+            <a
+              href="#shop"
+              className="shop-button"
+            >
               Shop now →
             </a>
 
@@ -275,7 +186,9 @@ function App() {
               >
 
                 <div className="product-image">
-                  <span>{product.icon}</span>
+                  <span>
+                    {product.icon}
+                  </span>
                 </div>
 
                 <div className="product-info">
@@ -315,7 +228,9 @@ function App() {
 
           <div>
             <span>🚚</span>
-            <h3>Reliable delivery</h3>
+            <h3>
+              Reliable delivery
+            </h3>
             <p>
               Get your order delivered safely.
             </p>
@@ -323,7 +238,9 @@ function App() {
 
           <div>
             <span>🔒</span>
-            <h3>Secure shopping</h3>
+            <h3>
+              Secure shopping
+            </h3>
             <p>
               Shop with confidence.
             </p>
@@ -331,7 +248,9 @@ function App() {
 
           <div>
             <span>💬</span>
-            <h3>Customer support</h3>
+            <h3>
+              Customer support
+            </h3>
             <p>
               We're here whenever you need us.
             </p>
@@ -392,9 +311,7 @@ function App() {
 
         <div
           className="modal-backdrop"
-          onClick={() =>
-            setAccountOpen(false)
-          }
+          onClick={() => setAccountOpen(false)}
         >
 
           <div
@@ -413,109 +330,27 @@ function App() {
               ×
             </button>
 
-            {user ? (
+            <p className="eyebrow">
+              SHINDARA ACCOUNT
+            </p>
 
-              <>
-                <p className="eyebrow">
-                  MY ACCOUNT
-                </p>
+            <h2>
+              Customer account
+            </h2>
 
-                <h2>
-                  Welcome back 👋
-                </h2>
+            <p className="account-email">
+              Sign up and login will be connected
+              to your Shindara Phoneflair account.
+            </p>
 
-                <p className="account-email">
-                  {user.email}
-                </p>
-
-                <button
-                  className="modal-action"
-                  onClick={logout}
-                >
-                  Log out
-                </button>
-              </>
-
-            ) : (
-
-              <>
-
-                <p className="eyebrow">
-                  SHINDARA ACCOUNT
-                </p>
-
-                <h2>
-                  {authMode === "signup"
-                    ? "Create your account"
-                    : "Welcome back"}
-                </h2>
-
-                <form
-                  className="auth-form"
-                  onSubmit={handleAuth}
-                >
-
-                  <input
-                    type="email"
-                    placeholder="Email address"
-                    value={email}
-                    onChange={(event) =>
-                      setEmail(event.target.value)
-                    }
-                    required
-                  />
-
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(event) =>
-                      setPassword(event.target.value)
-                    }
-                    minLength={6}
-                    required
-                  />
-
-                  <button
-                    className="modal-action"
-                    type="submit"
-                    disabled={authLoading}
-                  >
-                    {authLoading
-                      ? "Please wait..."
-                      : authMode === "signup"
-                      ? "Create account"
-                      : "Sign in"}
-                  </button>
-
-                </form>
-
-                {authMessage && (
-                  <p className="auth-message">
-                    {authMessage}
-                  </p>
-                )}
-
-                <button
-                  className="modal-secondary"
-                  onClick={() => {
-                    setAuthMessage("");
-
-                    setAuthMode(
-                      authMode === "login"
-                        ? "signup"
-                        : "login"
-                    );
-                  }}
-                >
-                  {authMode === "login"
-                    ? "Create a new account"
-                    : "Already have an account? Sign in"}
-                </button>
-
-              </>
-
-            )}
+            <button
+              className="modal-action"
+              onClick={() =>
+                setAccountOpen(false)
+              }
+            >
+              Continue
+            </button>
 
           </div>
 
