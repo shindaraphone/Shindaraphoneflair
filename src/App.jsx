@@ -5,46 +5,112 @@ const WHATSAPP = "2348118294548";
 const TIKTOK =
   "https://www.tiktok.com/@shindara.communication";
 
+const PAYSTACK_PUBLIC_KEY =
+  import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
+}
+
+function loadPaystackScript() {
+  return new Promise((resolve, reject) => {
+    if (window.PaystackPop) {
+      resolve();
+      return;
+    }
+
+    const existingScript = document.querySelector(
+      'script[src="https://js.paystack.co/v2/inline.js"]'
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () =>
+        resolve()
+      );
+
+      existingScript.addEventListener("error", () =>
+        reject(
+          new Error(
+            "Paystack could not be loaded."
+          )
+        )
+      );
+
+      return;
+    }
+
+    const script =
+      document.createElement("script");
+
+    script.src =
+      "https://js.paystack.co/v2/inline.js";
+
+    script.async = true;
+
+    script.onload = () => resolve();
+
+    script.onerror = () =>
+      reject(
+        new Error(
+          "Unable to load Paystack. Please check your internet connection and try again."
+        )
+      );
+
+    document.body.appendChild(script);
+  });
 }
 
 function App() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] =
+    useState(false);
+  const [accountOpen, setAccountOpen] =
+    useState(false);
 
   const [user, setUser] = useState(null);
-  const [authMode, setAuthMode] = useState("login");
+  const [authMode, setAuthMode] =
+    useState("login");
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] =
+    useState("");
 
-  const [authMessage, setAuthMessage] = useState("");
-  const [authLoading, setAuthLoading] = useState(false);
+  const [authMessage, setAuthMessage] =
+    useState("");
+  const [authLoading, setAuthLoading] =
+    useState(false);
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] =
+    useState([]);
+
   const [productsLoading, setProductsLoading] =
     useState(true);
+
   const [productsError, setProductsError] =
     useState("");
 
   const [customerName, setCustomerName] =
     useState("");
+
   const [customerPhone, setCustomerPhone] =
     useState("");
+
   const [deliveryAddress, setDeliveryAddress] =
     useState("");
+
   const [deliveryCity, setDeliveryCity] =
     useState("");
+
   const [deliveryState, setDeliveryState] =
     useState("");
 
   const [orderLoading, setOrderLoading] =
     useState(false);
+
   const [orderMessage, setOrderMessage] =
     useState("");
+
   const [orderSuccess, setOrderSuccess] =
     useState(false);
 
@@ -114,9 +180,11 @@ function App() {
 
     if (error) {
       console.error(error);
+
       setProductsError(
         "We couldn't load our products right now."
       );
+
       setProducts([]);
     } else {
       setProducts(data || []);
@@ -226,7 +294,8 @@ function App() {
         item.id === id
           ? {
               ...item,
-              quantity: item.quantity + 1
+              quantity:
+                item.quantity + 1
             }
           : item
       )
@@ -240,12 +309,14 @@ function App() {
           item.id === id
             ? {
                 ...item,
-                quantity: item.quantity - 1
+                quantity:
+                  item.quantity - 1
               }
             : item
         )
         .filter(
-          (item) => item.quantity > 0
+          (item) =>
+            item.quantity > 0
         )
     );
   }
@@ -264,7 +335,8 @@ function App() {
 
   const cartCount = cart.reduce(
     (total, item) =>
-      total + Number(item.quantity || 0),
+      total +
+      Number(item.quantity || 0),
     0
   );
 
@@ -277,7 +349,9 @@ function App() {
   );
 
   function openCheckout() {
-    if (!cart.length) return;
+    if (!cart.length) {
+      return;
+    }
 
     setCartOpen(false);
     setOrderMessage("");
@@ -285,13 +359,40 @@ function App() {
 
     if (!user) {
       setAccountOpen(true);
+
       setAuthMessage(
         "Please sign in or create an account before checkout."
       );
+
       return;
     }
 
     setCheckoutOpen(true);
+  }
+
+  async function verifyPayment(reference) {
+    const { data, error } =
+      await supabase.functions.invoke(
+        "verify-paystack-payment",
+        {
+          body: {
+            reference
+          }
+        }
+      );
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(
+        data?.error ||
+          "Payment could not be verified."
+      );
+    }
+
+    return data.data;
   }
 
   async function placeOrder(event) {
@@ -311,10 +412,24 @@ function App() {
       return;
     }
 
+    if (!PAYSTACK_PUBLIC_KEY) {
+      setOrderMessage(
+        "Payment is not configured yet. Please contact support."
+      );
+      return;
+    }
+
     setOrderLoading(true);
     setOrderMessage("");
 
+    let createdOrder = null;
+
     try {
+      /*
+       * STEP 1
+       * Create the order as pending.
+       */
+
       const { data: order, error: orderError } =
         await supabase
           .from("orders")
@@ -331,7 +446,8 @@ function App() {
             delivery_state:
               deliveryState.trim(),
             total: cartTotal,
-            status: "pending"
+            status: "pending",
+            payment_status: "unpaid"
           })
           .select()
           .single();
@@ -339,6 +455,13 @@ function App() {
       if (orderError) {
         throw orderError;
       }
+
+      createdOrder = order;
+
+      /*
+       * STEP 2
+       * Save the products inside the order.
+       */
 
       const items = cart.map((item) => ({
         order_id: order.id,
@@ -366,40 +489,253 @@ function App() {
         throw itemsError;
       }
 
-      setOrderSuccess(true);
-      setOrderMessage(
-        `Order placed successfully! Your order number is ${order.id.slice(
-          0,
-          8
-        ).toUpperCase()}.`
+      /*
+       * STEP 3
+       * Load Paystack.
+       */
+
+      await loadPaystackScript();
+
+      if (!window.PaystackPop) {
+        throw new Error(
+          "Paystack failed to load. Please try again."
+        );
+      }
+
+      /*
+       * Paystack uses the smallest currency unit.
+       * For NGN, that means Kobo.
+       *
+       * Example:
+       * ₦1,000 = 100,000 Kobo
+       */
+
+      const amountInKobo = Math.round(
+        Number(cartTotal) * 100
       );
 
-      setCart([]);
+      if (amountInKobo <= 0) {
+        throw new Error(
+          "Your order total must be greater than ₦0."
+        );
+      }
 
-      setCustomerName("");
-      setCustomerPhone("");
-      setDeliveryAddress("");
-      setDeliveryCity("");
-      setDeliveryState("");
+      /*
+       * STEP 4
+       * Open Paystack checkout.
+       */
+
+      const paystack =
+        new window.PaystackPop();
+
+      const firstName =
+        customerName
+          .trim()
+          .split(" ")[0] ||
+        "Customer";
+
+      const remainingName =
+        customerName
+          .trim()
+          .split(" ")
+          .slice(1)
+          .join(" ");
+
+      paystack.newTransaction({
+        key: PAYSTACK_PUBLIC_KEY,
+
+        email:
+          user.email ||
+          email.trim(),
+
+        amount: amountInKobo,
+
+        currency: "NGN",
+
+        firstName,
+
+        lastName:
+          remainingName || "",
+
+        phone:
+          customerPhone.trim(),
+
+        metadata: {
+          order_id: order.id,
+          customer_name:
+            customerName.trim(),
+          customer_phone:
+            customerPhone.trim(),
+          delivery_city:
+            deliveryCity.trim(),
+          delivery_state:
+            deliveryState.trim()
+        },
+
+        onSuccess: async (transaction) => {
+          try {
+            setOrderLoading(true);
+            setOrderMessage(
+              "Payment successful. Verifying your payment..."
+            );
+
+            /*
+             * STEP 5
+             * Verify the transaction securely
+             * through the Supabase Edge Function.
+             */
+
+            const paymentData =
+              await verifyPayment(
+                transaction.reference
+              );
+
+            /*
+             * Double-check the amount returned
+             * by Paystack before marking the
+             * order as paid.
+             */
+
+            const expectedAmount =
+              Math.round(
+                Number(cartTotal) * 100
+              );
+
+            const paidAmount =
+              Number(
+                paymentData?.amount || 0
+              );
+
+            if (
+              paymentData?.status !==
+                "success" ||
+              paidAmount !==
+                expectedAmount
+            ) {
+              throw new Error(
+                "Payment verification failed because the payment amount does not match the order."
+              );
+            }
+
+            /*
+             * STEP 6
+             * Mark order as paid.
+             */
+
+            const {
+              error: updateError
+            } = await supabase
+              .from("orders")
+              .update({
+                payment_reference:
+                  transaction.reference,
+
+                payment_status:
+                  "paid",
+
+                status: "pending"
+              })
+              .eq("id", order.id);
+
+            if (updateError) {
+              throw updateError;
+            }
+
+            /*
+             * STEP 7
+             * Show success.
+             */
+
+            setOrderSuccess(true);
+
+            setOrderMessage(
+              `Payment successful! Your order number is ${order.id
+                .slice(0, 8)
+                .toUpperCase()}.`
+            );
+
+            setCart([]);
+
+            setCustomerName("");
+            setCustomerPhone("");
+            setDeliveryAddress("");
+            setDeliveryCity("");
+            setDeliveryState("");
+          } catch (error) {
+            console.error(
+              "Payment verification error:",
+              error
+            );
+
+            setOrderMessage(
+              error?.message ||
+                "Payment was received, but we could not verify it automatically. Please contact support."
+            );
+          } finally {
+            setOrderLoading(false);
+          }
+        },
+
+        onCancel: async () => {
+          try {
+            await supabase
+              .from("orders")
+              .update({
+                payment_status:
+                  "cancelled"
+              })
+              .eq("id", order.id);
+          } catch (error) {
+            console.error(
+              "Cancel update error:",
+              error
+            );
+          }
+
+          setOrderLoading(false);
+
+          setOrderMessage(
+            "Payment was cancelled. Your order has not been confirmed."
+          );
+        }
+      });
     } catch (error) {
       console.error(
-        "Order error:",
+        "Checkout error:",
         error
       );
 
+      if (createdOrder?.id) {
+        try {
+          await supabase
+            .from("orders")
+            .update({
+              payment_status:
+                "failed"
+            })
+            .eq("id", createdOrder.id);
+        } catch (updateError) {
+          console.error(
+            "Order status update error:",
+            updateError
+          );
+        }
+      }
+
       setOrderMessage(
         error?.message ||
-          "We couldn't place your order. Please try again."
+          "Something went wrong while starting your payment. Please try again."
       );
-    } finally {
+
       setOrderLoading(false);
     }
   }
 
   function whatsapp() {
-    const message = encodeURIComponent(
-      "Hello Shindara Phoneflair, I would like to make an enquiry."
-    );
+    const message =
+      encodeURIComponent(
+        "Hello Shindara Phoneflair, I would like to make an enquiry."
+      );
 
     window.open(
       `https://wa.me/${WHATSAPP}?text=${message}`,
@@ -424,12 +760,15 @@ function App() {
           <a href="#home">
             Home
           </a>
+
           <a href="#shop">
             Shop
           </a>
+
           <a href="#categories">
             Categories
           </a>
+
           <a href="#contact">
             Contact
           </a>
@@ -530,6 +869,7 @@ function App() {
                   className="category-card"
                   key={name}
                 >
+
                   <span>
                     {icon}
                   </span>
@@ -537,6 +877,7 @@ function App() {
                   <strong>
                     {name}
                   </strong>
+
                 </a>
 
               )
@@ -578,6 +919,7 @@ function App() {
                 textAlign: "center"
               }}
             >
+
               <p>
                 {productsError}
               </p>
@@ -590,6 +932,7 @@ function App() {
               >
                 Try again
               </button>
+
             </div>
 
           ) : products.length === 0 ? (
@@ -600,9 +943,11 @@ function App() {
                 textAlign: "center"
               }}
             >
+
               <p>
                 Products are coming soon.
               </p>
+
             </div>
 
           ) : (
@@ -658,6 +1003,7 @@ function App() {
                       </h3>
 
                       {product.description && (
+
                         <p
                           style={{
                             opacity: 0.7,
@@ -671,6 +1017,7 @@ function App() {
                             product.description
                           }
                         </p>
+
                       )}
 
                       <p className="price">
@@ -721,6 +1068,7 @@ function App() {
         <section className="trust-section">
 
           <div>
+
             <span>
               🚚
             </span>
@@ -733,9 +1081,11 @@ function App() {
               Get your order delivered
               safely.
             </p>
+
           </div>
 
           <div>
+
             <span>
               🔒
             </span>
@@ -747,9 +1097,11 @@ function App() {
             <p>
               Shop with confidence.
             </p>
+
           </div>
 
           <div>
+
             <span>
               💬
             </span>
@@ -762,6 +1114,7 @@ function App() {
               We're here whenever
               you need us.
             </p>
+
           </div>
 
         </section>
@@ -837,6 +1190,7 @@ function App() {
             <div className="cart-header">
 
               <div>
+
                 <p className="eyebrow">
                   SHINDARA
                 </p>
@@ -844,6 +1198,7 @@ function App() {
                 <h2>
                   Your Cart
                 </h2>
+
               </div>
 
               <button
@@ -1054,6 +1409,7 @@ function App() {
         <div
           className="modal-backdrop"
           onClick={() =>
+            !orderLoading &&
             setCheckoutOpen(
               false
             )
@@ -1069,6 +1425,9 @@ function App() {
 
             <button
               className="modal-close"
+              disabled={
+                orderLoading
+              }
               onClick={() =>
                 setCheckoutOpen(
                   false
@@ -1101,17 +1460,26 @@ function App() {
                 </div>
 
                 <p className="eyebrow">
-                  ORDER RECEIVED
+                  PAYMENT SUCCESSFUL
                 </p>
 
                 <h2>
                   Thank you!
                 </h2>
 
-                <p
-                  className="auth-message"
-                >
+                <p className="auth-message">
                   {orderMessage}
+                </p>
+
+                <p
+                  style={{
+                    marginTop:
+                      "10px",
+                    opacity: 0.7
+                  }}
+                >
+                  Your payment has been
+                  verified successfully.
                 </p>
 
                 <button
@@ -1247,6 +1615,7 @@ function App() {
                         "18px"
                     }}
                   >
+
                     <strong>
                       Order total
                     </strong>
@@ -1256,12 +1625,15 @@ function App() {
                         cartTotal
                       )}
                     </strong>
+
                   </div>
 
                   {orderMessage && (
+
                     <p className="auth-message">
                       {orderMessage}
                     </p>
+
                   )}
 
                   <button
@@ -1272,9 +1644,26 @@ function App() {
                     }
                   >
                     {orderLoading
-                      ? "Placing order..."
-                      : "Place order"}
+                      ? "Processing payment..."
+                      : `Pay ${money(
+                          cartTotal
+                        )}`}
                   </button>
+
+                  <p
+                    style={{
+                      textAlign:
+                        "center",
+                      fontSize:
+                        "12px",
+                      opacity: 0.6,
+                      marginTop:
+                        "10px"
+                    }}
+                  >
+                    Secure payment powered
+                    by Paystack
+                  </p>
 
                 </form>
 
@@ -1322,6 +1711,7 @@ function App() {
             {user ? (
 
               <>
+
                 <p className="eyebrow">
                   MY ACCOUNT
                 </p>
@@ -1342,6 +1732,7 @@ function App() {
                 >
                   Log out
                 </button>
+
               </>
 
             ) : (
@@ -1415,19 +1806,19 @@ function App() {
                 </form>
 
                 {authMessage && (
+
                   <p className="auth-message">
                     {
                       authMessage
                     }
                   </p>
+
                 )}
 
                 <button
                   className="modal-secondary"
                   onClick={() => {
-                    setAuthMessage(
-                      ""
-                    );
+                    setAuthMessage("");
 
                     setAuthMode(
                       authMode ===
