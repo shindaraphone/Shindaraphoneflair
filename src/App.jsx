@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
+
 const TIKTOK =
   "https://www.tiktok.com/@shindara.communication";
 
 const PAYSTACK_PUBLIC_KEY =
-  import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+  "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
@@ -15,7 +16,7 @@ function money(value) {
 function loadPaystackScript() {
   return new Promise((resolve, reject) => {
     if (window.PaystackPop) {
-      resolve();
+      resolve(window.PaystackPop);
       return;
     }
 
@@ -25,36 +26,39 @@ function loadPaystackScript() {
 
     if (existingScript) {
       existingScript.addEventListener("load", () =>
-        resolve()
+        resolve(window.PaystackPop)
       );
 
-      existingScript.addEventListener("error", () =>
-        reject(
-          new Error(
-            "Paystack could not be loaded."
-          )
-        )
-      );
-
+      existingScript.addEventListener("error", reject);
       return;
     }
 
-    const script =
-      document.createElement("script");
+    const script = document.createElement("script");
 
     script.src =
       "https://js.paystack.co/v2/inline.js";
 
     script.async = true;
 
-    script.onload = () => resolve();
+    script.onload = () => {
+      if (window.PaystackPop) {
+        resolve(window.PaystackPop);
+      } else {
+        reject(
+          new Error(
+            "Paystack could not be loaded."
+          )
+        );
+      }
+    };
 
-    script.onerror = () =>
+    script.onerror = () => {
       reject(
         new Error(
-          "Unable to load Paystack. Please check your internet connection and try again."
+          "Unable to load Paystack."
         )
       );
+    };
 
     document.body.appendChild(script);
   });
@@ -129,7 +133,7 @@ function App() {
     loadUser();
 
     const {
-      data: { subscription }
+      data: { subscription },
     } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (mounted) {
@@ -154,7 +158,7 @@ function App() {
         {
           event: "*",
           schema: "public",
-          table: "products"
+          table: "products",
         },
         () => {
           loadProducts();
@@ -175,7 +179,7 @@ function App() {
       .from("products")
       .select("*")
       .order("created_at", {
-        ascending: false
+        ascending: false,
       });
 
     if (error) {
@@ -204,7 +208,7 @@ function App() {
         const { data, error } =
           await supabase.auth.signUp({
             email: email.trim(),
-            password
+            password,
           });
 
         if (error) {
@@ -229,7 +233,7 @@ function App() {
       const { error } =
         await supabase.auth.signInWithPassword({
           email: email.trim(),
-          password
+          password,
         });
 
       if (error) {
@@ -270,7 +274,7 @@ function App() {
             ? {
                 ...item,
                 quantity:
-                  item.quantity + 1
+                  item.quantity + 1,
               }
             : item
         );
@@ -280,8 +284,8 @@ function App() {
         ...items,
         {
           ...product,
-          quantity: 1
-        }
+          quantity: 1,
+        },
       ];
     });
 
@@ -295,7 +299,7 @@ function App() {
           ? {
               ...item,
               quantity:
-                item.quantity + 1
+                item.quantity + 1,
             }
           : item
       )
@@ -310,13 +314,12 @@ function App() {
             ? {
                 ...item,
                 quantity:
-                  item.quantity - 1
+                  item.quantity - 1,
               }
             : item
         )
         .filter(
-          (item) =>
-            item.quantity > 0
+          (item) => item.quantity > 0
         )
     );
   }
@@ -370,29 +373,60 @@ function App() {
     setCheckoutOpen(true);
   }
 
-  async function verifyPayment(reference) {
-    const { data, error } =
-      await supabase.functions.invoke(
-        "verify-paystack-payment",
-        {
-          body: {
-            reference
-          }
-        }
-      );
+  async function saveOrder(reference) {
+    const { data: order, error: orderError } =
+      await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          customer_name:
+            customerName.trim(),
+          customer_phone:
+            customerPhone.trim(),
+          delivery_address:
+            deliveryAddress.trim(),
+          delivery_city:
+            deliveryCity.trim(),
+          delivery_state:
+            deliveryState.trim(),
+          total: cartTotal,
+          status: "paid",
+          payment_reference: reference,
+        })
+        .select()
+        .single();
 
-    if (error) {
-      throw error;
+    if (orderError) {
+      throw orderError;
     }
 
-    if (!data?.success) {
-      throw new Error(
-        data?.error ||
-          "Payment could not be verified."
-      );
+    const items = cart.map((item) => ({
+      order_id: order.id,
+      product_id: item.id,
+      product_name: item.name,
+      price: Number(item.price || 0),
+      quantity: Number(
+        item.quantity || 1
+      ),
+      image_url:
+        item.image_url || null,
+    }));
+
+    const { error: itemsError } =
+      await supabase
+        .from("order_items")
+        .insert(items);
+
+    if (itemsError) {
+      await supabase
+        .from("orders")
+        .delete()
+        .eq("id", order.id);
+
+      throw itemsError;
     }
 
-    return data.data;
+    return order;
   }
 
   async function placeOrder(event) {
@@ -414,7 +448,7 @@ function App() {
 
     if (!PAYSTACK_PUBLIC_KEY) {
       setOrderMessage(
-        "Payment is not configured yet. Please contact support."
+        "Paystack public key is missing."
       );
       return;
     }
@@ -422,234 +456,106 @@ function App() {
     setOrderLoading(true);
     setOrderMessage("");
 
-    let createdOrder = null;
-
     try {
-      /*
-       * STEP 1
-       * Create the order as pending.
-       */
+      const PaystackPop =
+        await loadPaystackScript();
 
-      const { data: order, error: orderError } =
-        await supabase
-          .from("orders")
-          .insert({
-            user_id: user.id,
-            customer_name:
-              customerName.trim(),
-            customer_phone:
-              customerPhone.trim(),
-            delivery_address:
-              deliveryAddress.trim(),
-            delivery_city:
-              deliveryCity.trim(),
-            delivery_state:
-              deliveryState.trim(),
-            total: cartTotal,
-            status: "pending",
-            payment_status: "unpaid"
-          })
-          .select()
-          .single();
+      const customerEmail =
+        user.email;
 
-      if (orderError) {
-        throw orderError;
-      }
+      const amountInKobo =
+        Math.round(cartTotal * 100);
 
-      createdOrder = order;
+      const popup =
+        new PaystackPop();
 
-      /*
-       * STEP 2
-       * Save the products inside the order.
-       */
-
-      const items = cart.map((item) => ({
-        order_id: order.id,
-        product_id: item.id,
-        product_name: item.name,
-        price: Number(item.price || 0),
-        quantity: Number(
-          item.quantity || 1
-        ),
-        image_url:
-          item.image_url || null
-      }));
-
-      const { error: itemsError } =
-        await supabase
-          .from("order_items")
-          .insert(items);
-
-      if (itemsError) {
-        await supabase
-          .from("orders")
-          .delete()
-          .eq("id", order.id);
-
-        throw itemsError;
-      }
-
-      /*
-       * STEP 3
-       * Load Paystack.
-       */
-
-      await loadPaystackScript();
-
-      if (!window.PaystackPop) {
-        throw new Error(
-          "Paystack failed to load. Please try again."
-        );
-      }
-
-      /*
-       * Paystack uses the smallest currency unit.
-       * For NGN, that means Kobo.
-       *
-       * Example:
-       * ₦1,000 = 100,000 Kobo
-       */
-
-      const amountInKobo = Math.round(
-        Number(cartTotal) * 100
-      );
-
-      if (amountInKobo <= 0) {
-        throw new Error(
-          "Your order total must be greater than ₦0."
-        );
-      }
-
-      /*
-       * STEP 4
-       * Open Paystack checkout.
-       */
-
-      const paystack =
-        new window.PaystackPop();
-
-      const firstName =
-        customerName
-          .trim()
-          .split(" ")[0] ||
-        "Customer";
-
-      const remainingName =
-        customerName
-          .trim()
-          .split(" ")
-          .slice(1)
-          .join(" ");
-
-      paystack.newTransaction({
+      popup.newTransaction({
         key: PAYSTACK_PUBLIC_KEY,
 
-        email:
-          user.email ||
-          email.trim(),
+        email: customerEmail,
 
         amount: amountInKobo,
 
         currency: "NGN",
 
-        firstName,
-
-        lastName:
-          remainingName || "",
-
-        phone:
-          customerPhone.trim(),
-
         metadata: {
-          order_id: order.id,
           customer_name:
             customerName.trim(),
+
           customer_phone:
             customerPhone.trim(),
+
+          delivery_address:
+            deliveryAddress.trim(),
+
           delivery_city:
             deliveryCity.trim(),
+
           delivery_state:
-            deliveryState.trim()
+            deliveryState.trim(),
+
+          user_id: user.id,
         },
 
         onSuccess: async (transaction) => {
           try {
-            setOrderLoading(true);
             setOrderMessage(
               "Payment successful. Verifying your payment..."
             );
 
-            /*
-             * STEP 5
-             * Verify the transaction securely
-             * through the Supabase Edge Function.
-             */
+            const reference =
+              transaction.reference;
 
-            const paymentData =
-              await verifyPayment(
-                transaction.reference
-              );
-
-            /*
-             * Double-check the amount returned
-             * by Paystack before marking the
-             * order as paid.
-             */
-
-            const expectedAmount =
-              Math.round(
-                Number(cartTotal) * 100
-              );
-
-            const paidAmount =
-              Number(
-                paymentData?.amount || 0
-              );
-
-            if (
-              paymentData?.status !==
-                "success" ||
-              paidAmount !==
-                expectedAmount
-            ) {
+            if (!reference) {
               throw new Error(
-                "Payment verification failed because the payment amount does not match the order."
+                "Paystack did not return a payment reference."
               );
             }
-
-            /*
-             * STEP 6
-             * Mark order as paid.
-             */
 
             const {
-              error: updateError
-            } = await supabase
-              .from("orders")
-              .update({
-                payment_reference:
-                  transaction.reference,
+              data: verificationData,
+              error: verificationError,
+            } = await supabase.functions.invoke(
+              "verify-paystack-payment",
+              {
+                body: {
+                  reference,
+                },
+              }
+            );
 
-                payment_status:
-                  "paid",
+            if (verificationError) {
+              console.error(
+                "Verification error:",
+                verificationError
+              );
 
-                status: "pending"
-              })
-              .eq("id", order.id);
-
-            if (updateError) {
-              throw updateError;
+              throw new Error(
+                verificationError.message ||
+                  "Failed to verify Paystack payment."
+              );
             }
 
-            /*
-             * STEP 7
-             * Show success.
-             */
+            if (
+              !verificationData?.success
+            ) {
+              throw new Error(
+                verificationData?.error ||
+                  "Payment could not be verified."
+              );
+            }
+
+            const order =
+              await saveOrder(
+                reference
+              );
 
             setOrderSuccess(true);
 
             setOrderMessage(
-              `Payment successful! Your order number is ${order.id
+              `Order placed successfully! Your order number is ${String(
+                order.id
+              )
                 .slice(0, 8)
                 .toUpperCase()}.`
             );
@@ -663,68 +569,36 @@ function App() {
             setDeliveryState("");
           } catch (error) {
             console.error(
-              "Payment verification error:",
+              "Payment verification/order error:",
               error
             );
 
             setOrderMessage(
               error?.message ||
-                "Payment was received, but we could not verify it automatically. Please contact support."
+                "Payment was received, but we couldn't complete order verification. Please contact Shindara Phoneflair."
             );
           } finally {
             setOrderLoading(false);
           }
         },
 
-        onCancel: async () => {
-          try {
-            await supabase
-              .from("orders")
-              .update({
-                payment_status:
-                  "cancelled"
-              })
-              .eq("id", order.id);
-          } catch (error) {
-            console.error(
-              "Cancel update error:",
-              error
-            );
-          }
-
+        onCancel: () => {
           setOrderLoading(false);
 
           setOrderMessage(
-            "Payment was cancelled. Your order has not been confirmed."
+            "Payment was cancelled. Your order has not been placed."
           );
-        }
+        },
       });
     } catch (error) {
       console.error(
-        "Checkout error:",
+        "Paystack error:",
         error
       );
 
-      if (createdOrder?.id) {
-        try {
-          await supabase
-            .from("orders")
-            .update({
-              payment_status:
-                "failed"
-            })
-            .eq("id", createdOrder.id);
-        } catch (updateError) {
-          console.error(
-            "Order status update error:",
-            updateError
-          );
-        }
-      }
-
       setOrderMessage(
         error?.message ||
-          "Something went wrong while starting your payment. Please try again."
+          "Unable to open Paystack. Please try again."
       );
 
       setOrderLoading(false);
@@ -732,10 +606,9 @@ function App() {
   }
 
   function whatsapp() {
-    const message =
-      encodeURIComponent(
-        "Hello Shindara Phoneflair, I would like to make an enquiry."
-      );
+    const message = encodeURIComponent(
+      "Hello Shindara Phoneflair, I would like to make an enquiry."
+    );
 
     window.open(
       `https://wa.me/${WHATSAPP}?text=${message}`,
@@ -860,7 +733,7 @@ function App() {
               ["⚡", "Chargers"],
               ["🎧", "Audio"],
               ["🔋", "Power Banks"],
-              ["✨", "Gadgets"]
+              ["✨", "Gadgets"],
             ].map(
               ([icon, name]) => (
 
@@ -869,7 +742,6 @@ function App() {
                   className="category-card"
                   key={name}
                 >
-
                   <span>
                     {icon}
                   </span>
@@ -877,7 +749,6 @@ function App() {
                   <strong>
                     {name}
                   </strong>
-
                 </a>
 
               )
@@ -905,7 +776,8 @@ function App() {
             <div
               style={{
                 padding: "50px",
-                textAlign: "center"
+                textAlign:
+                  "center",
               }}
             >
               Loading products...
@@ -916,7 +788,8 @@ function App() {
             <div
               style={{
                 padding: "50px",
-                textAlign: "center"
+                textAlign:
+                  "center",
               }}
             >
 
@@ -935,19 +808,19 @@ function App() {
 
             </div>
 
-          ) : products.length === 0 ? (
+          ) : products.length ===
+            0 ? (
 
             <div
               style={{
                 padding: "50px",
-                textAlign: "center"
+                textAlign:
+                  "center",
               }}
             >
-
               <p>
                 Products are coming soon.
               </p>
-
             </div>
 
           ) : (
@@ -974,10 +847,12 @@ function App() {
                             product.name
                           }
                           style={{
-                            width: "100%",
-                            height: "100%",
+                            width:
+                              "100%",
+                            height:
+                              "100%",
                             objectFit:
-                              "cover"
+                              "cover",
                           }}
                         />
 
@@ -1003,21 +878,20 @@ function App() {
                       </h3>
 
                       {product.description && (
-
                         <p
                           style={{
-                            opacity: 0.7,
+                            opacity:
+                              0.7,
                             fontSize:
                               "14px",
                             lineHeight:
-                              "1.5"
+                              "1.5",
                           }}
                         >
                           {
                             product.description
                           }
                         </p>
-
                       )}
 
                       <p className="price">
@@ -1027,7 +901,8 @@ function App() {
                       </p>
 
                       {Number(
-                        product.stock || 0
+                        product.stock ||
+                          0
                       ) > 0 ? (
 
                         <button
@@ -1068,10 +943,7 @@ function App() {
         <section className="trust-section">
 
           <div>
-
-            <span>
-              🚚
-            </span>
+            <span>🚚</span>
 
             <h3>
               Reliable delivery
@@ -1081,14 +953,10 @@ function App() {
               Get your order delivered
               safely.
             </p>
-
           </div>
 
           <div>
-
-            <span>
-              🔒
-            </span>
+            <span>🔒</span>
 
             <h3>
               Secure shopping
@@ -1097,14 +965,10 @@ function App() {
             <p>
               Shop with confidence.
             </p>
-
           </div>
 
           <div>
-
-            <span>
-              💬
-            </span>
+            <span>💬</span>
 
             <h3>
               Customer support
@@ -1114,7 +978,6 @@ function App() {
               We're here whenever
               you need us.
             </p>
-
           </div>
 
         </section>
@@ -1219,14 +1082,14 @@ function App() {
                   textAlign:
                     "center",
                   padding:
-                    "60px 20px"
+                    "60px 20px",
                 }}
               >
 
                 <div
                   style={{
                     fontSize:
-                      "55px"
+                      "55px",
                   }}
                 >
                   🛒
@@ -1425,10 +1288,8 @@ function App() {
 
             <button
               className="modal-close"
-              disabled={
-                orderLoading
-              }
               onClick={() =>
+                !orderLoading &&
                 setCheckoutOpen(
                   false
                 )
@@ -1444,7 +1305,7 @@ function App() {
                   textAlign:
                     "center",
                   padding:
-                    "25px 5px"
+                    "25px 5px",
                 }}
               >
 
@@ -1453,14 +1314,14 @@ function App() {
                     fontSize:
                       "60px",
                     marginBottom:
-                      "15px"
+                      "15px",
                   }}
                 >
                   ✅
                 </div>
 
                 <p className="eyebrow">
-                  PAYMENT SUCCESSFUL
+                  ORDER RECEIVED
                 </p>
 
                 <h2>
@@ -1469,17 +1330,6 @@ function App() {
 
                 <p className="auth-message">
                   {orderMessage}
-                </p>
-
-                <p
-                  style={{
-                    marginTop:
-                      "10px",
-                    opacity: 0.7
-                  }}
-                >
-                  Your payment has been
-                  verified successfully.
                 </p>
 
                 <button
@@ -1512,7 +1362,7 @@ function App() {
                     opacity:
                       0.7,
                     marginBottom:
-                      "20px"
+                      "20px",
                   }}
                 >
                   Tell us where to
@@ -1612,7 +1462,7 @@ function App() {
                       padding:
                         "15px 0",
                       fontSize:
-                        "18px"
+                        "18px",
                     }}
                   >
 
@@ -1629,11 +1479,9 @@ function App() {
                   </div>
 
                   {orderMessage && (
-
                     <p className="auth-message">
                       {orderMessage}
                     </p>
-
                   )}
 
                   <button
@@ -1644,26 +1492,11 @@ function App() {
                     }
                   >
                     {orderLoading
-                      ? "Processing payment..."
+                      ? "Opening Paystack..."
                       : `Pay ${money(
                           cartTotal
                         )}`}
                   </button>
-
-                  <p
-                    style={{
-                      textAlign:
-                        "center",
-                      fontSize:
-                        "12px",
-                      opacity: 0.6,
-                      marginTop:
-                        "10px"
-                    }}
-                  >
-                    Secure payment powered
-                    by Paystack
-                  </p>
 
                 </form>
 
@@ -1711,7 +1544,6 @@ function App() {
             {user ? (
 
               <>
-
                 <p className="eyebrow">
                   MY ACCOUNT
                 </p>
@@ -1732,7 +1564,6 @@ function App() {
                 >
                   Log out
                 </button>
-
               </>
 
             ) : (
@@ -1806,19 +1637,19 @@ function App() {
                 </form>
 
                 {authMessage && (
-
                   <p className="auth-message">
                     {
                       authMessage
                     }
                   </p>
-
                 )}
 
                 <button
                   className="modal-secondary"
                   onClick={() => {
-                    setAuthMessage("");
+                    setAuthMessage(
+                      ""
+                    );
 
                     setAuthMode(
                       authMode ===
