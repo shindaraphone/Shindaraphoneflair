@@ -2,37 +2,107 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 export default function Admin() {
+  const [status, setStatus] = useState("checking");
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function checkUser() {
-      const { data } = await supabase.auth.getUser();
+    async function checkAdmin() {
+      try {
+        const {
+          data: { user },
+          error: userError
+        } = await supabase.auth.getUser();
 
-      setUser(data?.user ?? null);
-      setLoading(false);
+        if (userError || !user) {
+          setStatus("not-authenticated");
+          return;
+        }
+
+        const { data: profile, error: profileError } =
+          await supabase
+            .from("profiles")
+            .select("is_admin")
+            .eq("id", user.id)
+            .single();
+
+        if (profileError || !profile?.is_admin) {
+          setStatus("not-admin");
+          return;
+        }
+
+        setUser(user);
+        setStatus("admin");
+      } catch (error) {
+        console.error(error);
+        setStatus("error");
+      }
     }
 
-    checkUser();
+    checkAdmin();
   }, []);
 
-  if (loading) {
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
+  if (status === "checking") {
     return (
       <div style={styles.center}>
-        <h2>Loading Admin...</h2>
+        <h2>Checking admin access...</h2>
       </div>
     );
   }
 
-  if (!user) {
+  if (status === "not-authenticated") {
     return (
       <div style={styles.center}>
         <div style={styles.card}>
           <h1>Shindara Admin</h1>
+          <p>Please sign in to access the admin dashboard.</p>
+          <a href="/" style={styles.button}>
+            Back to store
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "not-admin") {
+    return (
+      <div style={styles.center}>
+        <div style={styles.card}>
+          <div style={styles.icon}>🔒</div>
+
+          <h1>Access denied</h1>
+
           <p>
-            You must be signed in to access the
-            administration area.
+            This account does not have administrator
+            permissions.
           </p>
+
+          <a href="/" style={styles.button}>
+            Back to store
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div style={styles.center}>
+        <div style={styles.card}>
+          <h1>Something went wrong</h1>
+
+          <p>
+            We couldn't verify your administrator
+            account.
+          </p>
+
+          <a href="/" style={styles.button}>
+            Back to store
+          </a>
         </div>
       </div>
     );
@@ -40,7 +110,6 @@ export default function Admin() {
 
   return (
     <div style={styles.page}>
-
       <header style={styles.header}>
         <div>
           <p style={styles.eyebrow}>
@@ -54,42 +123,42 @@ export default function Admin() {
 
         <button
           style={styles.logout}
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.href = "/";
-          }}
+          onClick={logout}
         >
           Log out
         </button>
       </header>
 
       <main style={styles.main}>
-
         <section style={styles.hero}>
           <p style={styles.eyebrow}>
             CONTROL CENTER
           </p>
 
           <h2>
-            Welcome to your store,
-            <br />
-            {user.email}
+            Welcome, Admin 👑
           </h2>
 
-          <p>
-            Manage your Shindara Phoneflair
-            store from one place.
+          <p style={styles.muted}>
+            {user?.email}
           </p>
         </section>
 
         <section style={styles.grid}>
-
           <div style={styles.card}>
             <div style={styles.icon}>📦</div>
             <h3>Products</h3>
             <p>
-              Add, edit and manage your products,
+              Add, edit, delete products and manage
               prices and stock.
+            </p>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.icon}>🖼️</div>
+            <h3>Product Images</h3>
+            <p>
+              Upload and manage your product images.
             </p>
           </div>
 
@@ -97,8 +166,8 @@ export default function Admin() {
             <div style={styles.icon}>🛒</div>
             <h3>Orders</h3>
             <p>
-              View customer orders and update
-              their status.
+              View customer orders and update their
+              status.
             </p>
           </div>
 
@@ -106,8 +175,15 @@ export default function Admin() {
             <div style={styles.icon}>👥</div>
             <h3>Customers</h3>
             <p>
-              View customers who have created
-              accounts.
+              View registered Shindara customers.
+            </p>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.icon}>🏷️</div>
+            <h3>Categories</h3>
+            <p>
+              Manage your store categories.
             </p>
           </div>
 
@@ -115,14 +191,11 @@ export default function Admin() {
             <div style={styles.icon}>📊</div>
             <h3>Analytics</h3>
             <p>
-              Track sales and store performance.
+              Track store activity and sales.
             </p>
           </div>
-
         </section>
-
       </main>
-
     </div>
   );
 }
@@ -188,6 +261,10 @@ const styles = {
     margin: "5px 0"
   },
 
+  muted: {
+    color: "var(--muted)"
+  },
+
   logout: {
     padding: "12px 20px",
     borderRadius: "999px",
@@ -197,6 +274,16 @@ const styles = {
     cursor: "pointer"
   },
 
+  button: {
+    display: "inline-block",
+    marginTop: "20px",
+    padding: "12px 20px",
+    borderRadius: "999px",
+    background: "var(--accent)",
+    color: "#fff",
+    textDecoration: "none"
+  },
+
   center: {
     minHeight: "100vh",
     display: "flex",
@@ -204,6 +291,7 @@ const styles = {
     justifyContent: "center",
     background: "var(--bg)",
     color: "var(--text)",
-    padding: "20px"
+    padding: "20px",
+    textAlign: "center"
   }
 };
