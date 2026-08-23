@@ -17,6 +17,9 @@ function money(value) {
 }
 
 function App() {
+    const supabaseConfigured =
+    Boolean(import.meta.env.VITE_SUPABASE_URL) &&
+    Boolean(import.meta.env.VITE_SUPABASE_ANON_KEY);
   const [cart, setCart] = useState([]);
   const [accountOpen, setAccountOpen] = useState(false);
 
