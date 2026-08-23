@@ -31,13 +31,9 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
-  if (!supabase) {
-    setAuthMessage("Supabase client is missing.");
-    return;
-  }
-
-  setAuthMessage("Supabase client loaded successfully.");
-}, []);
+    if (!supabase) {
+      return;
+    }
 
     supabase.auth.getUser().then(({ data }) => {
       setUser(data?.user ?? null);
@@ -45,9 +41,11 @@ function App() {
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
 
     return () => {
       subscription.unsubscribe();
@@ -55,47 +53,14 @@ function App() {
   }, []);
 
   async function handleAuth(event) {
-  event.preventDefault();
+    event.preventDefault();
 
-  setAuthLoading(true);
-  setAuthMessage("");
-
-  if (authMode === "signup") {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password
-    });
-
-    setAuthLoading(false);
-
-    if (error) {
-      setAuthMessage(error.message);
+    if (!supabase) {
+      setAuthMessage(
+        "Supabase connection is unavailable. Please try again shortly."
+      );
       return;
     }
-
-    setAuthMessage(
-      "Account created! Please check your email to confirm your account."
-    );
-
-    return;
-  }
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  setAuthLoading(false);
-
-  if (error) {
-    setAuthMessage(error.message);
-    return;
-  }
-
-  setEmail("");
-  setPassword("");
-  setAuthMessage("");
-}
 
     setAuthLoading(true);
     setAuthMessage("");
@@ -120,10 +85,11 @@ function App() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    const { error } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
     setAuthLoading(false);
 
@@ -143,6 +109,7 @@ function App() {
     }
 
     setUser(null);
+    setAccountOpen(false);
   }
 
   function addToCart(product) {
@@ -180,25 +147,31 @@ function App() {
 
           <button
             className="account-button"
-            onClick={() => setAccountOpen(true)}
+            onClick={() => {
+              setAuthMessage("");
+              setAccountOpen(true);
+            }}
           >
             👤 {user ? "Account" : "Sign in"}
           </button>
 
           <button
             className="cart-button"
-            onClick={() =>
+            onClick={() => {
+              if (!cart.length) {
+                alert("Your cart is empty.");
+                return;
+              }
+
+              const total = cart.reduce(
+                (sum, item) => sum + item.price,
+                0
+              );
+
               alert(
-                cart.length
-                  ? `Cart: ${cart.length} item(s) — ${money(
-                      cart.reduce(
-                        (sum, item) => sum + item.price,
-                        0
-                      )
-                    )}`
-                  : "Your cart is empty."
-              )
-            }
+                `Cart: ${cart.length} item(s) — ${money(total)}`
+              );
+            }}
           >
             🛒 Cart ({cart.length})
           </button>
@@ -235,11 +208,18 @@ function App() {
 
         </section>
 
-        <section className="section" id="categories">
+        <section
+          className="section"
+          id="categories"
+        >
 
-          <p className="eyebrow">EXPLORE</p>
+          <p className="eyebrow">
+            EXPLORE
+          </p>
 
-          <h2>Shop by category</h2>
+          <h2>
+            Shop by category
+          </h2>
 
           <div className="category-grid">
 
@@ -251,27 +231,39 @@ function App() {
               ["🔋", "Power Banks"],
               ["✨", "Gadgets"]
             ].map(([icon, name]) => (
+
               <a
                 href="#shop"
                 className="category-card"
                 key={name}
               >
+
                 <span>{icon}</span>
-                <strong>{name}</strong>
+
+                <strong>
+                  {name}
+                </strong>
+
               </a>
+
             ))}
 
           </div>
 
         </section>
 
-        <section className="section" id="shop">
+        <section
+          className="section"
+          id="shop"
+        >
 
           <p className="eyebrow">
             FEATURED PRODUCTS
           </p>
 
-          <h2>Popular picks</h2>
+          <h2>
+            Popular picks
+          </h2>
 
           <div className="product-grid">
 
@@ -292,7 +284,9 @@ function App() {
                     Accessories
                   </p>
 
-                  <h3>{product.name}</h3>
+                  <h3>
+                    {product.name}
+                  </h3>
 
                   <p className="price">
                     {money(product.price)}
@@ -300,7 +294,9 @@ function App() {
 
                   <button
                     className="add-button"
-                    onClick={() => addToCart(product)}
+                    onClick={() =>
+                      addToCart(product)
+                    }
                   >
                     Add to cart
                   </button>
@@ -320,19 +316,25 @@ function App() {
           <div>
             <span>🚚</span>
             <h3>Reliable delivery</h3>
-            <p>Get your order delivered safely.</p>
+            <p>
+              Get your order delivered safely.
+            </p>
           </div>
 
           <div>
             <span>🔒</span>
             <h3>Secure shopping</h3>
-            <p>Shop with confidence.</p>
+            <p>
+              Shop with confidence.
+            </p>
           </div>
 
           <div>
             <span>💬</span>
             <h3>Customer support</h3>
-            <p>We're here whenever you need us.</p>
+            <p>
+              We're here whenever you need us.
+            </p>
           </div>
 
         </section>
@@ -373,7 +375,9 @@ function App() {
 
         </div>
 
-        <p>© 2026 Shindara Phoneflair</p>
+        <p>
+          © 2026 Shindara Phoneflair
+        </p>
 
       </footer>
 
@@ -388,17 +392,23 @@ function App() {
 
         <div
           className="modal-backdrop"
-          onClick={() => setAccountOpen(false)}
+          onClick={() =>
+            setAccountOpen(false)
+          }
         >
 
           <div
             className="account-modal"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
 
             <button
               className="modal-close"
-              onClick={() => setAccountOpen(false)}
+              onClick={() =>
+                setAccountOpen(false)
+              }
             >
               ×
             </button>
@@ -429,6 +439,7 @@ function App() {
             ) : (
 
               <>
+
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
                 </p>
