@@ -6,31 +6,23 @@ function money(value) {
 }
 
 function Admin() {
+  const [activeSection, setActiveSection] =
+    useState("orders");
+
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [customers, setCustomers] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+  const [customersLoading, setCustomersLoading] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
 
   useEffect(() => {
     loadOrders();
-
-    const channel = supabase
-      .channel("admin-orders")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders"
-        },
-        () => {
-          loadOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   async function loadOrders() {
@@ -54,17 +46,78 @@ function Admin() {
       });
 
     if (error) {
-      console.error(error);
-      setMessage(
-        error.message ||
-          "Unable to load orders."
-      );
+      setMessage(error.message);
       setOrders([]);
     } else {
       setOrders(data || []);
     }
 
     setLoading(false);
+  }
+
+  async function loadCustomers() {
+    setCustomersLoading(true);
+    setMessage("");
+
+    /*
+      Supabase does not allow the browser
+      to directly read auth.users.
+
+      We therefore load customer information
+      from orders, which safely gives us the
+      customers who have actually placed orders.
+    */
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        "user_id, customer_name, customer_phone, delivery_city, delivery_state, created_at"
+      )
+      .order("created_at", {
+        ascending: false
+      });
+
+    if (error) {
+      setMessage(error.message);
+      setCustomers([]);
+      setCustomersLoading(false);
+      return;
+    }
+
+    const uniqueCustomers = [];
+
+    for (const customer of data || []) {
+      const exists =
+        uniqueCustomers.some(
+          (item) =>
+            item.user_id ===
+            customer.user_id
+        );
+
+      if (!exists) {
+        uniqueCustomers.push(
+          customer
+        );
+      }
+    }
+
+    setCustomers(
+      uniqueCustomers
+    );
+
+    setCustomersLoading(false);
+  }
+
+  function openCustomers() {
+    setActiveSection(
+      "customers"
+    );
+    loadCustomers();
+  }
+
+  function openOrders() {
+    setActiveSection("orders");
+    loadOrders();
   }
 
   async function updateStatus(
@@ -94,24 +147,23 @@ function Admin() {
   }
 
   function formatDate(date) {
-    return new Date(date).toLocaleString(
-      "en-NG",
-      {
-        dateStyle: "medium",
-        timeStyle: "short"
-      }
-    );
+    return new Date(
+      date
+    ).toLocaleString("en-NG", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    });
   }
 
-  if (loading) {
-    return (
-      <div className="admin-page">
-        <div className="admin-container">
-          <p>Loading orders...</p>
-        </div>
-      </div>
+  const totalRevenue =
+    orders.reduce(
+      (sum, order) =>
+        sum +
+        Number(
+          order.total || 0
+        ),
+      0
     );
-  }
 
   return (
     <div className="admin-page">
@@ -121,28 +173,67 @@ function Admin() {
         <header className="admin-header">
 
           <div>
+
             <p className="admin-eyebrow">
               SHINDARA PHONEFLAIR
             </p>
 
             <h1>
-              Orders
+              Control Center
             </h1>
 
             <p>
-              Manage customer orders
-              and delivery status.
+              Manage your store
+              from one place.
             </p>
+
           </div>
 
           <button
             className="admin-refresh"
-            onClick={loadOrders}
+            onClick={
+              activeSection ===
+              "orders"
+                ? loadOrders
+                : loadCustomers
+            }
           >
             ↻ Refresh
           </button>
 
         </header>
+
+        <nav className="admin-nav">
+
+          <button
+            className={
+              activeSection ===
+              "orders"
+                ? "admin-nav-active"
+                : ""
+            }
+            onClick={
+              openOrders
+            }
+          >
+            🛒 Orders
+          </button>
+
+          <button
+            className={
+              activeSection ===
+              "customers"
+                ? "admin-nav-active"
+                : ""
+            }
+            onClick={
+              openCustomers
+            }
+          >
+            👥 Customers
+          </button>
+
+        </nav>
 
         {message && (
           <div className="admin-message">
@@ -150,251 +241,412 @@ function Admin() {
           </div>
         )}
 
-        <div className="admin-stats">
+        {activeSection ===
+        "orders" ? (
 
-          <div className="admin-stat">
-            <span>
-              Total orders
-            </span>
+          <>
+            <div className="admin-stats">
 
-            <strong>
-              {orders.length}
-            </strong>
-          </div>
+              <div className="admin-stat">
+                <span>
+                  Total orders
+                </span>
 
-          <div className="admin-stat">
-            <span>
-              Pending
-            </span>
+                <strong>
+                  {orders.length}
+                </strong>
+              </div>
 
-            <strong>
-              {
-                orders.filter(
-                  (order) =>
-                    order.status ===
-                    "pending"
-                ).length
-              }
-            </strong>
-          </div>
+              <div className="admin-stat">
+                <span>
+                  Pending
+                </span>
 
-          <div className="admin-stat">
-            <span>
-              Delivered
-            </span>
+                <strong>
+                  {
+                    orders.filter(
+                      (order) =>
+                        order.status ===
+                        "pending"
+                    ).length
+                  }
+                </strong>
+              </div>
 
-            <strong>
-              {
-                orders.filter(
-                  (order) =>
-                    order.status ===
-                    "delivered"
-                ).length
-              }
-            </strong>
-          </div>
+              <div className="admin-stat">
+                <span>
+                  Revenue
+                </span>
 
-        </div>
+                <strong>
+                  {money(
+                    totalRevenue
+                  )}
+                </strong>
+              </div>
 
-        {orders.length === 0 ? (
-
-          <div className="admin-empty">
-
-            <div>
-              📦
             </div>
 
-            <h2>
-              No orders yet
-            </h2>
+            {loading ? (
 
-            <p>
-              New customer orders
-              will appear here.
-            </p>
+              <div className="admin-empty">
+                Loading orders...
+              </div>
 
-          </div>
+            ) : orders.length ===
+              0 ? (
 
-        ) : (
+              <div className="admin-empty">
 
-          <div className="orders-grid">
-
-            {orders.map((order) => (
-
-              <article
-                className="order-card"
-                key={order.id}
-              >
-
-                <div className="order-top">
-
-                  <div>
-
-                    <span className="order-number">
-                      #
-                      {order.id
-                        .slice(0, 8)
-                        .toUpperCase()}
-                    </span>
-
-                    <p className="order-date">
-                      {formatDate(
-                        order.created_at
-                      )}
-                    </p>
-
-                  </div>
-
-                  <select
-                    value={
-                      order.status ||
-                      "pending"
-                    }
-                    onChange={(event) =>
-                      updateStatus(
-                        order.id,
-                        event.target
-                          .value
-                      )
-                    }
-                    className={`order-status status-${order.status}`}
-                  >
-                    <option value="pending">
-                      Pending
-                    </option>
-
-                    <option value="confirmed">
-                      Confirmed
-                    </option>
-
-                    <option value="shipped">
-                      Shipped
-                    </option>
-
-                    <option value="delivered">
-                      Delivered
-                    </option>
-
-                    <option value="cancelled">
-                      Cancelled
-                    </option>
-                  </select>
-
+                <div>
+                  📦
                 </div>
 
-                <div className="order-customer">
+                <h2>
+                  No orders yet
+                </h2>
 
-                  <h3>
-                    Customer
-                  </h3>
+                <p>
+                  New customer
+                  orders will
+                  appear here.
+                </p>
 
-                  <p>
-                    👤{" "}
-                    {order.customer_name}
-                  </p>
+              </div>
 
-                  <p>
-                    📱{" "}
-                    {order.customer_phone}
-                  </p>
+            ) : (
 
-                  <p>
-                    📍{" "}
-                    {order.delivery_address}
-                  </p>
+              <div className="orders-grid">
 
-                  <p>
-                    {order.delivery_city}
-                    {order.delivery_city &&
-                    order.delivery_state
-                      ? ", "
-                      : ""}
-                    {order.delivery_state}
-                  </p>
+                {orders.map(
+                  (order) => (
 
-                </div>
+                    <article
+                      className="order-card"
+                      key={
+                        order.id
+                      }
+                    >
 
-                <div className="order-products">
-
-                  <h3>
-                    Products
-                  </h3>
-
-                  {order.order_items?.map(
-                    (item) => (
-
-                      <div
-                        className="order-product"
-                        key={item.id}
-                      >
-
-                        <div className="order-product-image">
-
-                          {item.image_url ? (
-
-                            <img
-                              src={
-                                item.image_url
-                              }
-                              alt={
-                                item.product_name
-                              }
-                            />
-
-                          ) : (
-
-                            <span>
-                              📦
-                            </span>
-
-                          )}
-
-                        </div>
+                      <div className="order-top">
 
                         <div>
 
-                          <strong>
-                            {
-                              item.product_name
-                            }
-                          </strong>
+                          <span className="order-number">
+                            #
+                            {order.id
+                              .slice(
+                                0,
+                                8
+                              )
+                              .toUpperCase()}
+                          </span>
 
-                          <p>
-                            {item.quantity}
-                            {" × "}
-                            {money(
-                              item.price
+                          <p className="order-date">
+                            {formatDate(
+                              order.created_at
                             )}
                           </p>
 
                         </div>
 
+                        <select
+                          value={
+                            order.status ||
+                            "pending"
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateStatus(
+                              order.id,
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          className={`order-status status-${order.status}`}
+                        >
+
+                          <option value="pending">
+                            Pending
+                          </option>
+
+                          <option value="confirmed">
+                            Confirmed
+                          </option>
+
+                          <option value="shipped">
+                            Shipped
+                          </option>
+
+                          <option value="delivered">
+                            Delivered
+                          </option>
+
+                          <option value="cancelled">
+                            Cancelled
+                          </option>
+
+                        </select>
+
                       </div>
 
-                    )
-                  )}
+                      <div className="order-customer">
 
+                        <h3>
+                          Customer
+                        </h3>
+
+                        <p>
+                          👤{" "}
+                          {
+                            order.customer_name
+                          }
+                        </p>
+
+                        <p>
+                          📱{" "}
+                          {
+                            order.customer_phone
+                          }
+                        </p>
+
+                        <p>
+                          📍{" "}
+                          {
+                            order.delivery_address
+                          }
+                        </p>
+
+                        <p>
+                          {
+                            order.delivery_city
+                          }
+
+                          {order.delivery_city &&
+                          order.delivery_state
+                            ? ", "
+                            : ""}
+
+                          {
+                            order.delivery_state
+                          }
+                        </p>
+
+                      </div>
+
+                      <div className="order-products">
+
+                        <h3>
+                          Products
+                        </h3>
+
+                        {order.order_items?.map(
+                          (
+                            item
+                          ) => (
+
+                            <div
+                              className="order-product"
+                              key={
+                                item.id
+                              }
+                            >
+
+                              <div className="order-product-image">
+
+                                {item.image_url ? (
+
+                                  <img
+                                    src={
+                                      item.image_url
+                                    }
+                                    alt={
+                                      item.product_name
+                                    }
+                                  />
+
+                                ) : (
+
+                                  <span>
+                                    📦
+                                  </span>
+
+                                )}
+
+                              </div>
+
+                              <div>
+
+                                <strong>
+                                  {
+                                    item.product_name
+                                  }
+                                </strong>
+
+                                <p>
+                                  {
+                                    item.quantity
+                                  }
+                                  {" × "}
+                                  {money(
+                                    item.price
+                                  )}
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                          )
+                        )}
+
+                      </div>
+
+                      <div className="order-total">
+
+                        <span>
+                          Total
+                        </span>
+
+                        <strong>
+                          {money(
+                            order.total
+                          )}
+                        </strong>
+
+                      </div>
+
+                    </article>
+
+                  )
+                )}
+
+              </div>
+
+            )}
+
+          </>
+
+        ) : (
+
+          <>
+            <div className="admin-stats">
+
+              <div className="admin-stat">
+
+                <span>
+                  Customers
+                </span>
+
+                <strong>
+                  {
+                    customers.length
+                  }
+                </strong>
+
+              </div>
+
+            </div>
+
+            {customersLoading ? (
+
+              <div className="admin-empty">
+                Loading customers...
+              </div>
+
+            ) : customers.length ===
+              0 ? (
+
+              <div className="admin-empty">
+
+                <div>
+                  👥
                 </div>
 
-                <div className="order-total">
+                <h2>
+                  No customers yet
+                </h2>
 
-                  <span>
-                    Total
-                  </span>
+                <p>
+                  Customers who place
+                  orders will appear
+                  here.
+                </p>
 
-                  <strong>
-                    {money(
-                      order.total
-                    )}
-                  </strong>
+              </div>
 
-                </div>
+            ) : (
 
-              </article>
+              <div className="customers-grid">
 
-            ))}
+                {customers.map(
+                  (
+                    customer
+                  ) => (
 
-          </div>
+                    <article
+                      className="customer-card"
+                      key={
+                        customer.user_id
+                      }
+                    >
+
+                      <div className="customer-avatar">
+                        👤
+                      </div>
+
+                      <div>
+
+                        <h3>
+                          {
+                            customer.customer_name
+                          }
+                        </h3>
+
+                        <p>
+                          📱{" "}
+                          {
+                            customer.customer_phone
+                          }
+                        </p>
+
+                        <p>
+                          📍{" "}
+                          {
+                            customer.delivery_city
+                          }
+
+                          {customer.delivery_city &&
+                          customer.delivery_state
+                            ? ", "
+                            : ""}
+
+                          {
+                            customer.delivery_state
+                          }
+                        </p>
+
+                        <small>
+                          Last order:{" "}
+                          {formatDate(
+                            customer.created_at
+                          )}
+                        </small>
+
+                      </div>
+
+                    </article>
+
+                  )
+                )}
+
+              </div>
+
+            )}
+
+          </>
 
         )}
 
