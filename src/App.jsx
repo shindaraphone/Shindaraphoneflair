@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./supabaseClient";
 
 const products = [
   {
@@ -45,6 +46,10 @@ const products = [
   },
 ];
 
+const WHATSAPP_NUMBER = "2348118294548";
+const TIKTOK_URL =
+  "https://www.tiktok.com/@shindara.communication";
+
 function formatPrice(price) {
   return `₦${price.toLocaleString("en-NG")}`;
 }
@@ -52,12 +57,116 @@ function formatPrice(price) {
 function App() {
   const [cart, setCart] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  const [showAccount, setShowAccount] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function getUser() {
+      const { data } = await supabase.auth.getUser();
+
+      if (mounted) {
+        setUser(data.user ?? null);
+      }
+    }
+
+    getUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   function addToCart(product) {
     setCart((current) => [...current, product]);
   }
 
-  const cartTotal = cart.reduce((total, item) => total + item.price, 0);
+  async function handleSignup(event) {
+    event.preventDefault();
+
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage(
+      "Account created! Check your email to confirm your account."
+    );
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setEmail("");
+    setPassword("");
+    setShowLogin(false);
+    setShowAccount(true);
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+
+    setUser(null);
+    setShowAccount(false);
+  }
+
+  const cartTotal = cart.reduce(
+    (total, item) => total + item.price,
+    0
+  );
+
+  function openWhatsApp() {
+    const text = encodeURIComponent(
+      "Hello Shindara Phoneflair, I would like to make an enquiry."
+    );
+
+    window.open(
+      `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`,
+      "_blank"
+    );
+  }
 
   return (
     <div className="app">
@@ -75,29 +184,48 @@ function App() {
             Shop
           </a>
 
-          <a href="#categories" onClick={() => setMenuOpen(false)}>
+          <a
+            href="#categories"
+            onClick={() => setMenuOpen(false)}
+          >
             Categories
           </a>
 
-          <a href="#contact" onClick={() => setMenuOpen(false)}>
+          <a
+            href="#contact"
+            onClick={() => setMenuOpen(false)}
+          >
             Contact
           </a>
         </nav>
 
-        <button
-          className="cart-button"
-          onClick={() =>
-            alert(
-              cart.length
-                ? `You have ${cart.length} item(s) in your cart. Total: ${formatPrice(
-                    cartTotal
-                  )}`
-                : "Your cart is empty."
-            )
-          }
-        >
-          🛒 Cart ({cart.length})
-        </button>
+        <div className="header-actions">
+          <button
+            className="account-button"
+            onClick={() => {
+              setShowAccount(true);
+              setShowLogin(false);
+              setShowSignup(false);
+            }}
+          >
+            👤 {user ? "Account" : "Sign in"}
+          </button>
+
+          <button
+            className="cart-button"
+            onClick={() =>
+              alert(
+                cart.length
+                  ? `You have ${cart.length} item(s) in your cart. Total: ${formatPrice(
+                      cartTotal
+                    )}`
+                  : "Your cart is empty."
+              )
+            }
+          >
+            🛒 Cart ({cart.length})
+          </button>
+        </div>
 
         <button
           className="menu-button"
@@ -120,8 +248,8 @@ function App() {
             </h1>
 
             <p className="hero-text">
-              Discover smartphones, accessories, chargers, audio
-              products, power banks and everyday gadgets.
+              Discover smartphones, accessories, chargers,
+              audio products, power banks and everyday gadgets.
             </p>
 
             <a href="#shop" className="shop-button">
@@ -221,10 +349,198 @@ function App() {
           <p>
             Phones • Accessories • Gadgets • Electronics
           </p>
+
+          <div className="social-links">
+            <button
+              className="social-button"
+              onClick={openWhatsApp}
+            >
+              📲 WhatsApp
+            </button>
+
+            <a
+              className="social-button"
+              href={TIKTOK_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              🎵 TikTok
+            </a>
+          </div>
         </div>
 
         <p>© 2026 Shindara Phoneflair. All rights reserved.</p>
       </footer>
+
+      <button
+        className="whatsapp-floating"
+        onClick={openWhatsApp}
+        aria-label="Chat with Shindara Phoneflair on WhatsApp"
+      >
+        💬
+      </button>
+
+      {(showAccount || showLogin || showSignup) && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setShowAccount(false);
+            setShowLogin(false);
+            setShowSignup(false);
+            setMessage("");
+          }}
+        >
+          <div
+            className="account-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {showAccount && !showLogin && !showSignup && (
+              <>
+                <button
+                  className="modal-close"
+                  onClick={() => setShowAccount(false)}
+                >
+                  ×
+                </button>
+
+                {user ? (
+                  <>
+                    <p className="eyebrow">MY ACCOUNT</p>
+
+                    <h2>Welcome back 👋</h2>
+
+                    <p className="account-email">
+                      {user.email}
+                    </p>
+
+                    <button
+                      className="modal-action"
+                      onClick={handleLogout}
+                    >
+                      Log out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="eyebrow">SHINDARA ACCOUNT</p>
+
+                    <h2>Welcome</h2>
+
+                    <p>
+                      Create an account to manage your orders
+                      and shopping experience.
+                    </p>
+
+                    <button
+                      className="modal-action"
+                      onClick={() => {
+                        setShowAccount(false);
+                        setShowSignup(true);
+                      }}
+                    >
+                      Create account
+                    </button>
+
+                    <button
+                      className="modal-secondary"
+                      onClick={() => {
+                        setShowAccount(false);
+                        setShowLogin(true);
+                      }}
+                    >
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+
+            {(showLogin || showSignup) && (
+              <>
+                <button
+                  className="modal-close"
+                  onClick={() => {
+                    setShowLogin(false);
+                    setShowSignup(false);
+                    setMessage("");
+                  }}
+                >
+                  ×
+                </button>
+
+                <p className="eyebrow">
+                  {showSignup ? "CREATE ACCOUNT" : "WELCOME BACK"}
+                </p>
+
+                <h2>
+                  {showSignup
+                    ? "Create your account"
+                    : "Sign in"}
+                </h2>
+
+                <form
+                  onSubmit={
+                    showSignup
+                      ? handleSignup
+                      : handleLogin
+                  }
+                  className="auth-form"
+                >
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={email}
+                    onChange={(event) =>
+                      setEmail(event.target.value)
+                    }
+                    required
+                  />
+
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(event) =>
+                      setPassword(event.target.value)
+                    }
+                    minLength={6}
+                    required
+                  />
+
+                  <button
+                    type="submit"
+                    className="modal-action"
+                    disabled={loading}
+                  >
+                    {loading
+                      ? "Please wait..."
+                      : showSignup
+                      ? "Create account"
+                      : "Sign in"}
+                  </button>
+                </form>
+
+                {message && (
+                  <p className="auth-message">{message}</p>
+                )}
+
+                <button
+                  className="modal-secondary"
+                  onClick={() => {
+                    setShowLogin(!showLogin);
+                    setShowSignup(!showSignup);
+                    setMessage("");
+                  }}
+                >
+                  {showSignup
+                    ? "Already have an account? Sign in"
+                    : "Need an account? Create one"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
