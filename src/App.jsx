@@ -2,19 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
-const TIKTOK = "https://www.tiktok.com/@shindara.communication";
-
-const products = [
-  { id: 1, name: "20W Fast Charger", price: 15000, icon: "⚡" },
-  { id: 2, name: "Premium USB-C Cable", price: 8000, icon: "🔌" },
-  { id: 3, name: "Wireless Earbuds", price: 35000, icon: "🎧" },
-  { id: 4, name: "Power Bank", price: 28000, icon: "🔋" },
-  { id: 5, name: "Premium Phone Case", price: 12000, icon: "📱" },
-  { id: 6, name: "Bluetooth Speaker", price: 45000, icon: "🔊" }
-];
+const TIKTOK =
+  "https://www.tiktok.com/@shindara.communication";
 
 function money(value) {
-  return `₦${value.toLocaleString("en-NG")}`;
+  return `₦${Number(value || 0).toLocaleString("en-NG")}`;
 }
 
 function App() {
@@ -30,11 +22,18 @@ function App() {
   const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] =
+    useState(true);
+  const [productsError, setProductsError] =
+    useState("");
+
   useEffect(() => {
     let mounted = true;
 
     async function loadUser() {
-      const { data } = await supabase.auth.getUser();
+      const { data } =
+        await supabase.auth.getUser();
 
       if (mounted) {
         setUser(data?.user ?? null);
@@ -58,6 +57,58 @@ function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    loadProducts();
+
+    const channel = supabase
+      .channel("store-products")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "products"
+        },
+        () => {
+          loadProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  async function loadProducts() {
+    setProductsLoading(true);
+    setProductsError("");
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", {
+        ascending: false
+      });
+
+    if (error) {
+      console.error(
+        "Failed to load products:",
+        error
+      );
+
+      setProductsError(
+        "We couldn't load our products right now."
+      );
+
+      setProducts([]);
+    } else {
+      setProducts(data || []);
+    }
+
+    setProductsLoading(false);
+  }
 
   async function handleAuth(event) {
     event.preventDefault();
@@ -111,7 +162,7 @@ function App() {
     } catch (error) {
       setAuthMessage(
         error?.message ||
-        "Something went wrong. Please try again."
+          "Something went wrong. Please try again."
       );
     } finally {
       setAuthLoading(false);
@@ -147,7 +198,8 @@ function App() {
     }
 
     const total = cart.reduce(
-      (sum, item) => sum + item.price,
+      (sum, item) =>
+        sum + Number(item.price || 0),
       0
     );
 
@@ -168,7 +220,9 @@ function App() {
         <nav className="nav">
           <a href="#home">Home</a>
           <a href="#shop">Shop</a>
-          <a href="#categories">Categories</a>
+          <a href="#categories">
+            Categories
+          </a>
           <a href="#contact">Contact</a>
         </nav>
 
@@ -192,11 +246,15 @@ function App() {
           </button>
 
         </div>
+
       </header>
 
       <main>
 
-        <section className="hero" id="home">
+        <section
+          className="hero"
+          id="home"
+        >
 
           <div className="hero-content">
 
@@ -211,8 +269,9 @@ function App() {
             </h1>
 
             <p className="hero-text">
-              Phones, accessories, chargers, audio products,
-              power banks and everyday gadgets.
+              Phones, accessories, chargers,
+              audio products, power banks
+              and everyday gadgets.
             </p>
 
             <a
@@ -276,58 +335,156 @@ function App() {
         >
 
           <p className="eyebrow">
-            FEATURED PRODUCTS
+            SHINDARA STORE
           </p>
 
           <h2>
             Popular picks
           </h2>
 
-          <div className="product-grid">
+          {productsLoading ? (
 
-            {products.map((product) => (
+            <div
+              className="products-loading"
+              style={{
+                padding: "50px 20px",
+                textAlign: "center"
+              }}
+            >
+              <p>
+                Loading products...
+              </p>
+            </div>
 
-              <article
-                className="product-card"
-                key={product.id}
+          ) : productsError ? (
+
+            <div
+              className="products-error"
+              style={{
+                padding: "50px 20px",
+                textAlign: "center"
+              }}
+            >
+              <p>
+                {productsError}
+              </p>
+
+              <button
+                className="add-button"
+                onClick={loadProducts}
               >
+                Try again
+              </button>
+            </div>
 
-                <div className="product-image">
-                  <span>
-                    {product.icon}
-                  </span>
-                </div>
+          ) : products.length === 0 ? (
 
-                <div className="product-info">
+            <div
+              className="products-empty"
+              style={{
+                padding: "50px 20px",
+                textAlign: "center"
+              }}
+            >
+              <p>
+                Products are coming soon.
+              </p>
+            </div>
 
-                  <p className="product-category">
-                    Accessories
-                  </p>
+          ) : (
 
-                  <h3>
-                    {product.name}
-                  </h3>
+            <div className="product-grid">
 
-                  <p className="price">
-                    {money(product.price)}
-                  </p>
+              {products.map((product) => (
 
-                  <button
-                    className="add-button"
-                    onClick={() =>
-                      addToCart(product)
-                    }
-                  >
-                    Add to cart
-                  </button>
+                <article
+                  className="product-card"
+                  key={product.id}
+                >
 
-                </div>
+                  <div className="product-image">
 
-              </article>
+                    {product.image_url ? (
 
-            ))}
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover"
+                        }}
+                      />
 
-          </div>
+                    ) : (
+
+                      <span>
+                        📦
+                      </span>
+
+                    )}
+
+                  </div>
+
+                  <div className="product-info">
+
+                    <p className="product-category">
+                      {product.category ||
+                        "Electronics"}
+                    </p>
+
+                    <h3>
+                      {product.name}
+                    </h3>
+
+                    {product.description && (
+                      <p
+                        style={{
+                          opacity: 0.7,
+                          fontSize: "14px",
+                          lineHeight: "1.5"
+                        }}
+                      >
+                        {product.description}
+                      </p>
+                    )}
+
+                    <p className="price">
+                      {money(product.price)}
+                    </p>
+
+                    {Number(product.stock || 0) >
+                    0 ? (
+
+                      <button
+                        className="add-button"
+                        onClick={() =>
+                          addToCart(product)
+                        }
+                      >
+                        Add to cart
+                      </button>
+
+                    ) : (
+
+                      <button
+                        className="add-button"
+                        disabled
+                      >
+                        Out of stock
+                      </button>
+
+                    )}
+
+                  </div>
+
+                </article>
+
+              ))}
+
+            </div>
+
+          )}
 
         </section>
 
@@ -335,9 +492,11 @@ function App() {
 
           <div>
             <span>🚚</span>
+
             <h3>
               Reliable delivery
             </h3>
+
             <p>
               Get your order delivered safely.
             </p>
@@ -345,9 +504,11 @@ function App() {
 
           <div>
             <span>🔒</span>
+
             <h3>
               Secure shopping
             </h3>
+
             <p>
               Shop with confidence.
             </p>
@@ -355,9 +516,11 @@ function App() {
 
           <div>
             <span>💬</span>
+
             <h3>
               Customer support
             </h3>
+
             <p>
               We're here whenever you need us.
             </p>
@@ -376,7 +539,8 @@ function App() {
           </strong>
 
           <p>
-            Phones • Accessories • Gadgets • Electronics
+            Phones • Accessories • Gadgets •
+            Electronics
           </p>
 
           <div className="social-links">
@@ -486,7 +650,9 @@ function App() {
                     placeholder="Email address"
                     value={email}
                     onChange={(event) =>
-                      setEmail(event.target.value)
+                      setEmail(
+                        event.target.value
+                      )
                     }
                     required
                   />
@@ -496,7 +662,9 @@ function App() {
                     placeholder="Password"
                     value={password}
                     onChange={(event) =>
-                      setPassword(event.target.value)
+                      setPassword(
+                        event.target.value
+                      )
                     }
                     minLength={6}
                     required
