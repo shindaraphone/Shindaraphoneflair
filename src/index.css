@@ -1629,3 +1629,87 @@ footer {
     min-height: 46px;
   }
 }
+ /* SHINDARA ADMIN PRODUCT GRID */
+
+.admin-products {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+}
+
+.admin-product {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 14px !important;
+  gap: 0 !important;
+  border-radius: 24px !important;
+  overflow: hidden !important;
+}
+
+.admin-product-image {
+  width: 100% !important;
+  height: 220px !important;
+  margin-bottom: 15px !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+}
+
+.admin-product-image img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.admin-product-info {
+  padding: 0 4px 14px !important;
+}
+
+.admin-product-actions {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+  margin-top: auto !important;
+}
+
+.admin-product-actions button {
+  width: 100% !important;
+}
+
+/* TABLET */
+
+@media (max-width: 900px) {
+  .admin-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .admin-product-image {
+    height: 190px !important;
+  }
+}
+
+/* IPHONE */
+
+@media (max-width: 600px) {
+  .admin-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .admin-product {
+    padding: 10px !important;
+    border-radius: 18px !important;
+  }
+
+  .admin-product-image {
+    height: 145px !important;
+    border-radius: 14px !important;
+  }
+
+  .admin-product-info h3 {
+    font-size: 15px !important;
+  }
+
+  .admin-product-actions {
+    grid-template-columns: 1fr !important;
+  }
+}
