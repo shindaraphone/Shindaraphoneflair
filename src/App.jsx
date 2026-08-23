@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
-const TIKTOK =
-  "https://www.tiktok.com/@shindara.communication";
+const TIKTOK = "https://www.tiktok.com/@shindara.communication";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
@@ -11,6 +10,7 @@ function money(value) {
 
 function App() {
   const [cart, setCart] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
   const [user, setUser] = useState(null);
@@ -23,17 +23,14 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
 
   const [products, setProducts] = useState([]);
-  const [productsLoading, setProductsLoading] =
-    useState(true);
-  const [productsError, setProductsError] =
-    useState("");
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState("");
 
   useEffect(() => {
     let mounted = true;
 
     async function loadUser() {
-      const { data } =
-        await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
 
       if (mounted) {
         setUser(data?.user ?? null);
@@ -93,15 +90,10 @@ function App() {
       });
 
     if (error) {
-      console.error(
-        "Failed to load products:",
-        error
-      );
-
+      console.error(error);
       setProductsError(
         "We couldn't load our products right now."
       );
-
       setProducts([]);
     } else {
       setProducts(data || []);
@@ -177,8 +169,86 @@ function App() {
   }
 
   function addToCart(product) {
-    setCart((items) => [...items, product]);
+    setCart((items) => {
+      const existing = items.find(
+        (item) => item.id === product.id
+      );
+
+      if (existing) {
+        return items.map((item) =>
+          item.id === product.id
+            ? {
+                ...item,
+                quantity:
+                  item.quantity + 1
+              }
+            : item
+        );
+      }
+
+      return [
+        ...items,
+        {
+          ...product,
+          quantity: 1
+        }
+      ];
+    });
+
+    setCartOpen(true);
   }
+
+  function increaseQuantity(id) {
+    setCart((items) =>
+      items.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              quantity: item.quantity + 1
+            }
+          : item
+      )
+    );
+  }
+
+  function decreaseQuantity(id) {
+    setCart((items) =>
+      items
+        .map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                quantity: item.quantity - 1
+              }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  }
+
+  function removeFromCart(id) {
+    setCart((items) =>
+      items.filter((item) => item.id !== id)
+    );
+  }
+
+  function clearCart() {
+    setCart([]);
+  }
+
+  const cartCount = cart.reduce(
+    (total, item) =>
+      total + Number(item.quantity || 0),
+    0
+  );
+
+  const cartTotal = cart.reduce(
+    (total, item) =>
+      total +
+      Number(item.price || 0) *
+        Number(item.quantity || 0),
+    0
+  );
 
   function whatsapp() {
     const message = encodeURIComponent(
@@ -188,23 +258,6 @@ function App() {
     window.open(
       `https://wa.me/${WHATSAPP}?text=${message}`,
       "_blank"
-    );
-  }
-
-  function openCart() {
-    if (!cart.length) {
-      alert("Your cart is empty.");
-      return;
-    }
-
-    const total = cart.reduce(
-      (sum, item) =>
-        sum + Number(item.price || 0),
-      0
-    );
-
-    alert(
-      `Cart: ${cart.length} item(s) — ${money(total)}`
     );
   }
 
@@ -240,9 +293,9 @@ function App() {
 
           <button
             className="cart-button"
-            onClick={openCart}
+            onClick={() => setCartOpen(true)}
           >
-            🛒 Cart ({cart.length})
+            🛒 Cart ({cartCount})
           </button>
 
         </div>
@@ -314,13 +367,11 @@ function App() {
                 className="category-card"
                 key={name}
               >
-
                 <span>{icon}</span>
 
                 <strong>
                   {name}
                 </strong>
-
               </a>
 
             ))}
@@ -345,23 +396,19 @@ function App() {
           {productsLoading ? (
 
             <div
-              className="products-loading"
               style={{
-                padding: "50px 20px",
+                padding: "50px",
                 textAlign: "center"
               }}
             >
-              <p>
-                Loading products...
-              </p>
+              Loading products...
             </div>
 
           ) : productsError ? (
 
             <div
-              className="products-error"
               style={{
-                padding: "50px 20px",
+                padding: "50px",
                 textAlign: "center"
               }}
             >
@@ -380,9 +427,8 @@ function App() {
           ) : products.length === 0 ? (
 
             <div
-              className="products-empty"
               style={{
-                padding: "50px 20px",
+                padding: "50px",
                 textAlign: "center"
               }}
             >
@@ -577,6 +623,219 @@ function App() {
       >
         💬
       </button>
+
+      {/* CART DRAWER */}
+
+      {cartOpen && (
+
+        <div
+          className="cart-overlay"
+          onClick={() =>
+            setCartOpen(false)
+          }
+        >
+
+          <aside
+            className="cart-drawer"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            <div className="cart-header">
+
+              <div>
+                <p className="eyebrow">
+                  SHINDARA
+                </p>
+
+                <h2>
+                  Your Cart
+                </h2>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={() =>
+                  setCartOpen(false)
+                }
+              >
+                ×
+              </button>
+
+            </div>
+
+            {cart.length === 0 ? (
+
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "60px 20px"
+                }}
+              >
+
+                <div
+                  style={{
+                    fontSize: "55px"
+                  }}
+                >
+                  🛒
+                </div>
+
+                <h3>
+                  Your cart is empty
+                </h3>
+
+                <p>
+                  Add something you love
+                  from our store.
+                </p>
+
+                <button
+                  className="modal-action"
+                  onClick={() =>
+                    setCartOpen(false)
+                  }
+                >
+                  Continue shopping
+                </button>
+
+              </div>
+
+            ) : (
+
+              <>
+
+                <div className="cart-items">
+
+                  {cart.map((item) => (
+
+                    <div
+                      className="cart-item"
+                      key={item.id}
+                    >
+
+                      <div className="cart-item-image">
+
+                        {item.image_url ? (
+
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                          />
+
+                        ) : (
+
+                          <span>
+                            📦
+                          </span>
+
+                        )}
+
+                      </div>
+
+                      <div className="cart-item-info">
+
+                        <h3>
+                          {item.name}
+                        </h3>
+
+                        <p>
+                          {money(item.price)}
+                        </p>
+
+                        <div className="quantity-controls">
+
+                          <button
+                            onClick={() =>
+                              decreaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            −
+                          </button>
+
+                          <strong>
+                            {item.quantity}
+                          </strong>
+
+                          <button
+                            onClick={() =>
+                              increaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            +
+                          </button>
+
+                        </div>
+
+                        <button
+                          className="remove-cart-item"
+                          onClick={() =>
+                            removeFromCart(
+                              item.id
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  ))}
+
+                </div>
+
+                <div className="cart-footer">
+
+                  <div className="cart-total">
+
+                    <span>
+                      Total
+                    </span>
+
+                    <strong>
+                      {money(cartTotal)}
+                    </strong>
+
+                  </div>
+
+                  <button
+                    className="checkout-button"
+                    onClick={() => {
+                      alert(
+                        "Checkout is the next step. Your cart is ready!"
+                      );
+                    }}
+                  >
+                    Continue to checkout →
+                  </button>
+
+                  <button
+                    className="clear-cart-button"
+                    onClick={clearCart}
+                  >
+                    Clear cart
+                  </button>
+
+                </div>
+
+              </>
+
+            )}
+
+          </aside>
+
+        </div>
+
+      )}
+
+      {/* ACCOUNT */}
 
       {accountOpen && (
 
