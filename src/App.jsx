@@ -56,6 +56,19 @@ function App() {
 
   return (
     <div className="app">
+            {!supabaseConfigured && (
+        <div
+          style={{
+            padding: "15px",
+            background: "#ffe5e5",
+            color: "#990000",
+            textAlign: "center",
+            fontWeight: "bold"
+          }}
+        >
+          Supabase environment variables are NOT reaching this Vercel build.
+        </div>
+      )}
 
       <header className="header">
 
