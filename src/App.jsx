@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
 const TIKTOK = "https://www.tiktok.com/@shindara.communication";
@@ -20,6 +21,91 @@ function App() {
   const [cart, setCart] = useState([]);
   const [accountOpen, setAccountOpen] = useState(false);
 
+  const [user, setUser] = useState(null);
+  const [authMode, setAuthMode] = useState("login");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [authMessage, setAuthMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data?.user ?? null);
+    });
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleAuth(event) {
+    event.preventDefault();
+
+    if (!supabase) {
+      setAuthMessage(
+        "Customer accounts are temporarily unavailable. Please try again shortly."
+      );
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthMessage("");
+
+    if (authMode === "signup") {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      setAuthLoading(false);
+
+      if (error) {
+        setAuthMessage(error.message);
+        return;
+      }
+
+      setAuthMessage(
+        "Account created! Please check your email to confirm your account."
+      );
+
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    setAuthLoading(false);
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    setEmail("");
+    setPassword("");
+    setAuthMessage("");
+  }
+
+  async function logout() {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+
+    setUser(null);
+  }
+
   function addToCart(product) {
     setCart((items) => [...items, product]);
   }
@@ -39,6 +125,7 @@ function App() {
     <div className="app">
 
       <header className="header">
+
         <a href="#home" className="logo">
           Shindara<span>Phoneflair</span>
         </a>
@@ -51,11 +138,12 @@ function App() {
         </nav>
 
         <div className="header-actions">
+
           <button
             className="account-button"
             onClick={() => setAccountOpen(true)}
           >
-            👤 Account
+            👤 {user ? "Account" : "Sign in"}
           </button>
 
           <button
@@ -64,7 +152,10 @@ function App() {
               alert(
                 cart.length
                   ? `Cart: ${cart.length} item(s) — ${money(
-                      cart.reduce((sum, item) => sum + item.price, 0)
+                      cart.reduce(
+                        (sum, item) => sum + item.price,
+                        0
+                      )
                     )}`
                   : "Your cart is empty."
               )
@@ -72,14 +163,19 @@ function App() {
           >
             🛒 Cart ({cart.length})
           </button>
+
         </div>
       </header>
 
       <main>
 
         <section className="hero" id="home">
+
           <div className="hero-content">
-            <p className="eyebrow">SHINDARA PHONEFLAIR</p>
+
+            <p className="eyebrow">
+              SHINDARA PHONEFLAIR
+            </p>
 
             <h1>
               Technology,
@@ -95,14 +191,19 @@ function App() {
             <a href="#shop" className="shop-button">
               Shop now →
             </a>
+
           </div>
+
         </section>
 
         <section className="section" id="categories">
+
           <p className="eyebrow">EXPLORE</p>
+
           <h2>Shop by category</h2>
 
           <div className="category-grid">
+
             {[
               ["📱", "Smartphones"],
               ["🛡️", "Phone Cases"],
@@ -111,27 +212,43 @@ function App() {
               ["🔋", "Power Banks"],
               ["✨", "Gadgets"]
             ].map(([icon, name]) => (
-              <a href="#shop" className="category-card" key={name}>
+              <a
+                href="#shop"
+                className="category-card"
+                key={name}
+              >
                 <span>{icon}</span>
                 <strong>{name}</strong>
               </a>
             ))}
+
           </div>
+
         </section>
 
         <section className="section" id="shop">
-          <p className="eyebrow">FEATURED PRODUCTS</p>
+
+          <p className="eyebrow">
+            FEATURED PRODUCTS
+          </p>
+
           <h2>Popular picks</h2>
 
           <div className="product-grid">
+
             {products.map((product) => (
-              <article className="product-card" key={product.id}>
+
+              <article
+                className="product-card"
+                key={product.id}
+              >
 
                 <div className="product-image">
                   <span>{product.icon}</span>
                 </div>
 
                 <div className="product-info">
+
                   <p className="product-category">
                     Accessories
                   </p>
@@ -148,14 +265,19 @@ function App() {
                   >
                     Add to cart
                   </button>
+
                 </div>
 
               </article>
+
             ))}
+
           </div>
+
         </section>
 
         <section className="trust-section">
+
           <div>
             <span>🚚</span>
             <h3>Reliable delivery</h3>
@@ -173,6 +295,7 @@ function App() {
             <h3>Customer support</h3>
             <p>We're here whenever you need us.</p>
           </div>
+
         </section>
 
       </main>
@@ -180,6 +303,7 @@ function App() {
       <footer id="contact">
 
         <div>
+
           <strong className="footer-logo">
             Shindara Phoneflair
           </strong>
@@ -207,6 +331,7 @@ function App() {
             </a>
 
           </div>
+
         </div>
 
         <p>© 2026 Shindara Phoneflair</p>
@@ -221,13 +346,15 @@ function App() {
       </button>
 
       {accountOpen && (
+
         <div
           className="modal-backdrop"
           onClick={() => setAccountOpen(false)}
         >
+
           <div
             className="account-modal"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
 
             <button
@@ -237,27 +364,113 @@ function App() {
               ×
             </button>
 
-            <p className="eyebrow">
-              SHINDARA ACCOUNT
-            </p>
+            {user ? (
 
-            <h2>Coming next 👤</h2>
+              <>
+                <p className="eyebrow">
+                  MY ACCOUNT
+                </p>
 
-            <p>
-              Customer accounts are being connected to
-              Supabase. You'll be able to create an account,
-              sign in, view orders and manage your profile.
-            </p>
+                <h2>
+                  Welcome back 👋
+                </h2>
 
-            <button
-              className="modal-action"
-              onClick={() => setAccountOpen(false)}
-            >
-              Continue shopping
-            </button>
+                <p className="account-email">
+                  {user.email}
+                </p>
+
+                <button
+                  className="modal-action"
+                  onClick={logout}
+                >
+                  Log out
+                </button>
+              </>
+
+            ) : (
+
+              <>
+                <p className="eyebrow">
+                  SHINDARA ACCOUNT
+                </p>
+
+                <h2>
+                  {authMode === "signup"
+                    ? "Create your account"
+                    : "Welcome back"}
+                </h2>
+
+                <form
+                  className="auth-form"
+                  onSubmit={handleAuth}
+                >
+
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={email}
+                    onChange={(event) =>
+                      setEmail(event.target.value)
+                    }
+                    required
+                  />
+
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(event) =>
+                      setPassword(event.target.value)
+                    }
+                    minLength={6}
+                    required
+                  />
+
+                  <button
+                    className="modal-action"
+                    type="submit"
+                    disabled={authLoading}
+                  >
+                    {authLoading
+                      ? "Please wait..."
+                      : authMode === "signup"
+                      ? "Create account"
+                      : "Sign in"}
+                  </button>
+
+                </form>
+
+                {authMessage && (
+                  <p className="auth-message">
+                    {authMessage}
+                  </p>
+                )}
+
+                <button
+                  className="modal-secondary"
+                  onClick={() => {
+                    setAuthMessage("");
+
+                    setAuthMode(
+                      authMode === "login"
+                        ? "signup"
+                        : "login"
+                    );
+                  }}
+                >
+                  {authMode === "login"
+                    ? "Create a new account"
+                    : "Already have an account? Sign in"}
+                </button>
+
+              </>
+
+            )}
 
           </div>
+
         </div>
+
       )}
 
     </div>
