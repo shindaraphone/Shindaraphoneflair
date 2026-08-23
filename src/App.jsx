@@ -49,14 +49,47 @@ function App() {
   }, []);
 
   async function handleAuth(event) {
-    event.preventDefault();
+  event.preventDefault();
 
-    if (!supabase) {
-      setAuthMessage(
-        "Customer accounts are temporarily unavailable. Please try again shortly."
-      );
+  setAuthLoading(true);
+  setAuthMessage("");
+
+  if (authMode === "signup") {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    setAuthLoading(false);
+
+    if (error) {
+      setAuthMessage(error.message);
       return;
     }
+
+    setAuthMessage(
+      "Account created! Please check your email to confirm your account."
+    );
+
+    return;
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  setAuthLoading(false);
+
+  if (error) {
+    setAuthMessage(error.message);
+    return;
+  }
+
+  setEmail("");
+  setPassword("");
+  setAuthMessage("");
+}
 
     setAuthLoading(true);
     setAuthMessage("");
