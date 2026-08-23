@@ -31,7 +31,13 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
-    if (!supabase) return;
+  if (!supabase) {
+    setAuthMessage("Supabase client is missing.");
+    return;
+  }
+
+  setAuthMessage("Supabase client loaded successfully.");
+}, []);
 
     supabase.auth.getUser().then(({ data }) => {
       setUser(data?.user ?? null);
