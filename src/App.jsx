@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
 const TIKTOK = "https://www.tiktok.com/@shindara.communication";
@@ -17,11 +18,112 @@ function money(value) {
 }
 
 function App() {
-    const supabaseConfigured =
-    Boolean(import.meta.env.VITE_SUPABASE_URL) &&
-    Boolean(import.meta.env.VITE_SUPABASE_ANON_KEY);
   const [cart, setCart] = useState([]);
   const [accountOpen, setAccountOpen] = useState(false);
+
+  const [user, setUser] = useState(null);
+  const [authMode, setAuthMode] = useState("login");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [authMessage, setAuthMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser();
+
+      if (mounted) {
+        setUser(data?.user ?? null);
+      }
+    }
+
+    loadUser();
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (mounted) {
+          setUser(session?.user ?? null);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleAuth(event) {
+    event.preventDefault();
+
+    setAuthLoading(true);
+    setAuthMessage("");
+
+    try {
+      if (authMode === "signup") {
+        const { data, error } =
+          await supabase.auth.signUp({
+            email: email.trim(),
+            password
+          });
+
+        if (error) {
+          setAuthMessage(error.message);
+          return;
+        }
+
+        if (data?.user && !data.session) {
+          setAuthMessage(
+            "Account created successfully! Please check your email to confirm your account."
+          );
+        } else {
+          setAuthMessage(
+            "Account created successfully!"
+          );
+        }
+
+        setPassword("");
+        return;
+      }
+
+      const { error } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password
+        });
+
+      if (error) {
+        setAuthMessage(error.message);
+        return;
+      }
+
+      setEmail("");
+      setPassword("");
+      setAuthMessage("");
+      setAccountOpen(false);
+
+    } catch (error) {
+      setAuthMessage(
+        error?.message ||
+        "Something went wrong. Please try again."
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+
+    setUser(null);
+    setAccountOpen(false);
+  }
 
   function addToCart(product) {
     setCart((items) => [...items, product]);
@@ -56,19 +158,6 @@ function App() {
 
   return (
     <div className="app">
-            {!supabaseConfigured && (
-        <div
-          style={{
-            padding: "15px",
-            background: "#ffe5e5",
-            color: "#990000",
-            textAlign: "center",
-            fontWeight: "bold"
-          }}
-        >
-          Supabase environment variables are NOT reaching this Vercel build.
-        </div>
-      )}
 
       <header className="header">
 
@@ -87,9 +176,12 @@ function App() {
 
           <button
             className="account-button"
-            onClick={() => setAccountOpen(true)}
+            onClick={() => {
+              setAuthMessage("");
+              setAccountOpen(true);
+            }}
           >
-            👤 Sign in
+            👤 {user ? "Account" : "Sign in"}
           </button>
 
           <button
@@ -100,7 +192,6 @@ function App() {
           </button>
 
         </div>
-
       </header>
 
       <main>
@@ -327,7 +418,9 @@ function App() {
 
         <div
           className="modal-backdrop"
-          onClick={() => setAccountOpen(false)}
+          onClick={() =>
+            setAccountOpen(false)
+          }
         >
 
           <div
@@ -346,27 +439,109 @@ function App() {
               ×
             </button>
 
-            <p className="eyebrow">
-              SHINDARA ACCOUNT
-            </p>
+            {user ? (
 
-            <h2>
-              Customer account
-            </h2>
+              <>
+                <p className="eyebrow">
+                  MY ACCOUNT
+                </p>
 
-            <p className="account-email">
-              Sign up and login will be connected
-              to your Shindara Phoneflair account.
-            </p>
+                <h2>
+                  Welcome back 👋
+                </h2>
 
-            <button
-              className="modal-action"
-              onClick={() =>
-                setAccountOpen(false)
-              }
-            >
-              Continue
-            </button>
+                <p className="account-email">
+                  {user.email}
+                </p>
+
+                <button
+                  className="modal-action"
+                  onClick={logout}
+                >
+                  Log out
+                </button>
+              </>
+
+            ) : (
+
+              <>
+
+                <p className="eyebrow">
+                  SHINDARA ACCOUNT
+                </p>
+
+                <h2>
+                  {authMode === "signup"
+                    ? "Create your account"
+                    : "Welcome back"}
+                </h2>
+
+                <form
+                  className="auth-form"
+                  onSubmit={handleAuth}
+                >
+
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={email}
+                    onChange={(event) =>
+                      setEmail(event.target.value)
+                    }
+                    required
+                  />
+
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(event) =>
+                      setPassword(event.target.value)
+                    }
+                    minLength={6}
+                    required
+                  />
+
+                  <button
+                    className="modal-action"
+                    type="submit"
+                    disabled={authLoading}
+                  >
+                    {authLoading
+                      ? "Please wait..."
+                      : authMode === "signup"
+                      ? "Create account"
+                      : "Sign in"}
+                  </button>
+
+                </form>
+
+                {authMessage && (
+                  <p className="auth-message">
+                    {authMessage}
+                  </p>
+                )}
+
+                <button
+                  className="modal-secondary"
+                  onClick={() => {
+                    setAuthMessage("");
+
+                    setAuthMode(
+                      authMode === "login"
+                        ? "signup"
+                        : "login"
+                    );
+                  }}
+                >
+                  {authMode === "login"
+                    ? "Create a new account"
+                    : "Already have an account? Sign in"}
+                </button>
+
+              </>
+
+            )}
 
           </div>
 
