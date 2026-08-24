@@ -69,8 +69,12 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] =
     useState(false);
+
   const [accountOpen, setAccountOpen] =
     useState(false);
+
+  const [accountTab, setAccountTab] =
+    useState("profile");
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] =
@@ -82,15 +86,51 @@ function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] =
     useState("");
+
   const [fullName, setFullName] =
     useState("");
+
   const [phone, setPhone] =
     useState("");
 
   const [authMessage, setAuthMessage] =
     useState("");
+
   const [authLoading, setAuthLoading] =
     useState(false);
+
+  const [profileName, setProfileName] =
+    useState("");
+
+  const [profilePhone, setProfilePhone] =
+    useState("");
+
+  const [settingsMessage, setSettingsMessage] =
+    useState("");
+
+  const [settingsLoading, setSettingsLoading] =
+    useState(false);
+
+  const [newPassword, setNewPassword] =
+    useState("");
+
+  const [passwordMessage, setPasswordMessage] =
+    useState("");
+
+  const [passwordLoading, setPasswordLoading] =
+    useState(false);
+
+  const [orders, setOrders] =
+    useState([]);
+
+  const [ordersLoading, setOrdersLoading] =
+    useState(false);
+
+  const [ordersError, setOrdersError] =
+    useState("");
+
+  const [expandedOrder, setExpandedOrder] =
+    useState(null);
 
   const [products, setProducts] =
     useState([]);
@@ -165,6 +205,7 @@ function App() {
           );
         } else {
           setProfile(null);
+          setOrders([]);
         }
       }
     );
@@ -193,12 +234,22 @@ function App() {
 
     setProfile(data || null);
 
-    if (data?.name) {
-      setCustomerName(data.name);
-    }
+    if (data) {
+      setProfileName(
+        data.name || ""
+      );
 
-    if (data?.phone) {
-      setCustomerPhone(data.phone);
+      setProfilePhone(
+        data.phone || ""
+      );
+
+      setCustomerName(
+        data.name || ""
+      );
+
+      setCustomerPhone(
+        data.phone || ""
+      );
     }
   }
 
@@ -252,6 +303,61 @@ function App() {
     setProductsLoading(false);
   }
 
+  async function loadOrders() {
+    if (!user) return;
+
+    setOrdersLoading(true);
+    setOrdersError("");
+
+    const { data, error } =
+      await supabase
+        .from("orders")
+        .select(`
+          *,
+          order_items (
+            id,
+            product_id,
+            product_name,
+            price,
+            quantity,
+            image_url
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", {
+          ascending: false,
+        });
+
+    if (error) {
+      console.error(
+        "Orders loading error:",
+        error
+      );
+
+      setOrdersError(
+        "We couldn't load your orders right now."
+      );
+
+      setOrders([]);
+    } else {
+      setOrders(data || []);
+    }
+
+    setOrdersLoading(false);
+  }
+
+  async function openAccount() {
+    setAuthMessage("");
+    setSettingsMessage("");
+    setPasswordMessage("");
+    setAccountOpen(true);
+
+    if (user) {
+      await loadProfile(user.id);
+      await loadOrders();
+    }
+  }
+
   async function handleAuth(event) {
     event.preventDefault();
 
@@ -302,24 +408,17 @@ function App() {
           return;
         }
 
-        /*
-         * Save customer information
-         * into the profiles table.
-         *
-         * If email confirmation is enabled,
-         * the profile is saved after the
-         * account is confirmed/logged in.
-         */
         if (data?.user) {
-          const { error: profileError } =
-            await supabase
-              .from("profiles")
-              .upsert({
-                id: data.user.id,
-                name: cleanName,
-                phone: cleanPhone,
-                email: cleanEmail,
-              });
+          const {
+            error: profileError,
+          } = await supabase
+            .from("profiles")
+            .upsert({
+              id: data.user.id,
+              name: cleanName,
+              phone: cleanPhone,
+              email: cleanEmail,
+            });
 
           if (profileError) {
             console.error(
@@ -403,21 +502,132 @@ function App() {
     }
   }
 
+  async function saveProfileSettings(
+    event
+  ) {
+    event.preventDefault();
+
+    if (!user) return;
+
+    setSettingsLoading(true);
+    setSettingsMessage("");
+
+    try {
+      const cleanName =
+        profileName.trim();
+
+      const cleanPhone =
+        profilePhone.trim();
+
+      if (!cleanName) {
+        setSettingsMessage(
+          "Please enter your name."
+        );
+        return;
+      }
+
+      if (!cleanPhone) {
+        setSettingsMessage(
+          "Please enter your phone number."
+        );
+        return;
+      }
+
+      const { error } =
+        await supabase
+          .from("profiles")
+          .upsert({
+            id: user.id,
+            name: cleanName,
+            phone: cleanPhone,
+            email:
+              user.email || "",
+          });
+
+      if (error) {
+        throw error;
+      }
+
+      await loadProfile(
+        user.id
+      );
+
+      setSettingsMessage(
+        "Your account details have been updated successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Settings error:",
+        error
+      );
+
+      setSettingsMessage(
+        error?.message ||
+          "Unable to update your details."
+      );
+    } finally {
+      setSettingsLoading(false);
+    }
+  }
+
+  async function changePassword(
+    event
+  ) {
+    event.preventDefault();
+
+    setPasswordLoading(true);
+    setPasswordMessage("");
+
+    try {
+      if (
+        !newPassword ||
+        newPassword.length < 6
+      ) {
+        setPasswordMessage(
+          "Password must be at least 6 characters."
+        );
+        return;
+      }
+
+      const { error } =
+        await supabase.auth.updateUser({
+          password:
+            newPassword,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      setNewPassword("");
+
+      setPasswordMessage(
+        "Your password has been changed successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Password change error:",
+        error
+      );
+
+      setPasswordMessage(
+        error?.message ||
+          "Unable to change your password."
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
   async function logout() {
     await supabase.auth.signOut();
 
     setUser(null);
     setProfile(null);
+    setOrders([]);
     setAccountOpen(false);
   }
 
-  /*
-   * IMPORTANT:
-   * Adding a product to the cart NO LONGER
-   * opens the cart automatically.
-   *
-   * Customers can continue shopping.
-   */
   function addToCart(product) {
     setCart((items) => {
       const existing = items.find(
@@ -515,9 +725,7 @@ function App() {
   );
 
   function openCheckout() {
-    if (!cart.length) {
-      return;
-    }
+    if (!cart.length) return;
 
     setCartOpen(false);
     setOrderMessage("");
@@ -700,11 +908,6 @@ function App() {
               if (
                 verificationError
               ) {
-                console.error(
-                  "Verification error:",
-                  verificationError
-                );
-
                 throw new Error(
                   verificationError.message ||
                     "Failed to verify Paystack payment."
@@ -763,13 +966,13 @@ function App() {
               );
             } catch (error) {
               console.error(
-                "Payment verification/order error:",
+                "Payment/order error:",
                 error
               );
 
               setOrderMessage(
                 error?.message ||
-                  "Payment was received, but we couldn't complete order verification. Please contact Shindara Phoneflair."
+                  "Payment was received, but we couldn't complete the order. Please contact Shindara Phoneflair."
               );
             } finally {
               setOrderLoading(
@@ -815,6 +1018,32 @@ function App() {
     );
   }
 
+  function formatDate(date) {
+    if (!date) return "";
+
+    return new Date(
+      date
+    ).toLocaleDateString(
+      "en-NG",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    );
+  }
+
+  function statusLabel(status) {
+    if (!status) {
+      return "Pending";
+    }
+
+    return (
+      status.charAt(0).toUpperCase() +
+      status.slice(1)
+    );
+  }
+
   return (
     <div className="app">
 
@@ -854,12 +1083,9 @@ function App() {
 
           <button
             className="account-button"
-            onClick={() => {
-              setAuthMessage("");
-              setAccountOpen(
-                true
-              );
-            }}
+            onClick={
+              openAccount
+            }
           >
             👤{" "}
             {user
@@ -1750,7 +1976,7 @@ function App() {
 
       )}
 
-      {/* ACCOUNT */}
+      {/* CUSTOMER ACCOUNT */}
 
       {accountOpen && (
 
@@ -1765,6 +1991,10 @@ function App() {
 
           <div
             className="account-modal"
+            style={{
+              maxWidth:
+                "620px",
+            }}
             onClick={(event) =>
               event.stopPropagation()
             }
@@ -1784,44 +2014,664 @@ function App() {
             {user ? (
 
               <>
+
                 <p className="eyebrow">
-                  MY ACCOUNT
+                  SHINDARA ACCOUNT
                 </p>
 
                 <h2>
-                  Welcome back 👋
+                  {profile?.name
+                    ? `Hello, ${
+                        profile.name.split(
+                          " "
+                        )[0]
+                      } 👋`
+                    : "My Account"}
                 </h2>
 
-                <p className="account-email">
-                  {profile?.name ||
-                    fullName ||
-                    "Customer"}
-                </p>
+                {/* ACCOUNT NAVIGATION */}
 
-                <p className="account-email">
-                  {user.email}
-                </p>
+                <div
+                  style={{
+                    display:
+                      "grid",
+                    gridTemplateColumns:
+                      "repeat(3, 1fr)",
+                    gap:
+                      "8px",
+                    margin:
+                      "25px 0",
+                  }}
+                >
 
-                {profile?.phone && (
-                  <p className="account-email">
-                    {profile.phone}
-                  </p>
+                  <button
+                    className={
+                      accountTab ===
+                      "profile"
+                        ? "modal-action"
+                        : "modal-secondary"
+                    }
+                    onClick={() => {
+                      setAccountTab(
+                        "profile"
+                      );
+                      setSettingsMessage(
+                        ""
+                      );
+                    }}
+                  >
+                    👤 Profile
+                  </button>
+
+                  <button
+                    className={
+                      accountTab ===
+                      "orders"
+                        ? "modal-action"
+                        : "modal-secondary"
+                    }
+                    onClick={() => {
+                      setAccountTab(
+                        "orders"
+                      );
+                      loadOrders();
+                    }}
+                  >
+                    📦 Orders
+                  </button>
+
+                  <button
+                    className={
+                      accountTab ===
+                      "settings"
+                        ? "modal-action"
+                        : "modal-secondary"
+                    }
+                    onClick={() => {
+                      setAccountTab(
+                        "settings"
+                      );
+                      setSettingsMessage(
+                        ""
+                      );
+                      setPasswordMessage(
+                        ""
+                      );
+                    }}
+                  >
+                    ⚙️ Settings
+                  </button>
+
+                </div>
+
+                {/* PROFILE */}
+
+                {accountTab ===
+                  "profile" && (
+
+                  <div>
+
+                    <div
+                      style={{
+                        padding:
+                          "20px",
+                        borderRadius:
+                          "18px",
+                        background:
+                          "rgba(128,128,128,0.08)",
+                        marginBottom:
+                          "15px",
+                      }}
+                    >
+
+                      <p className="eyebrow">
+                        PERSONAL INFORMATION
+                      </p>
+
+                      <h3>
+                        {profile?.name ||
+                          "Customer"}
+                      </h3>
+
+                      <p>
+                        📧{" "}
+                        {user.email}
+                      </p>
+
+                      <p>
+                        📱{" "}
+                        {profile?.phone ||
+                          "Phone number not added"}
+                      </p>
+
+                    </div>
+
+                    <button
+                      className="modal-action"
+                      onClick={() =>
+                        setAccountTab(
+                          "settings"
+                        )
+                      }
+                    >
+                      Edit profile
+                    </button>
+
+                    <button
+                      className="modal-secondary"
+                      style={{
+                        marginTop:
+                          "10px",
+                      }}
+                      onClick={() => {
+                        setAccountTab(
+                          "orders"
+                        );
+                        loadOrders();
+                      }}
+                    >
+                      View my orders
+                    </button>
+
+                  </div>
                 )}
 
-                <button
-                  className="modal-action"
-                  onClick={
-                    logout
-                  }
-                >
-                  Log out
-                </button>
+                {/* ORDERS */}
+
+                {accountTab ===
+                  "orders" && (
+
+                  <div>
+
+                    <p className="eyebrow">
+                      ORDER HISTORY
+                    </p>
+
+                    <h3>
+                      My Orders
+                    </h3>
+
+                    {ordersLoading ? (
+
+                      <div
+                        style={{
+                          padding:
+                            "35px 10px",
+                          textAlign:
+                            "center",
+                        }}
+                      >
+                        Loading your orders...
+                      </div>
+
+                    ) : ordersError ? (
+
+                      <div
+                        style={{
+                          padding:
+                            "20px",
+                          textAlign:
+                            "center",
+                        }}
+                      >
+
+                        <p>
+                          {ordersError}
+                        </p>
+
+                        <button
+                          className="modal-action"
+                          onClick={
+                            loadOrders
+                          }
+                        >
+                          Try again
+                        </button>
+
+                      </div>
+
+                    ) : orders.length ===
+                      0 ? (
+
+                      <div
+                        style={{
+                          textAlign:
+                            "center",
+                          padding:
+                            "35px 10px",
+                        }}
+                      >
+
+                        <div
+                          style={{
+                            fontSize:
+                              "50px",
+                          }}
+                        >
+                          📦
+                        </div>
+
+                        <h3>
+                          No orders yet
+                        </h3>
+
+                        <p>
+                          Your completed orders
+                          will appear here.
+                        </p>
+
+                        <button
+                          className="modal-action"
+                          onClick={() => {
+                            setAccountOpen(
+                              false
+                            );
+
+                            window.location.hash =
+                              "shop";
+                          }}
+                        >
+                          Start shopping
+                        </button>
+
+                      </div>
+
+                    ) : (
+
+                      <div>
+
+                        {orders.map(
+                          (order) => (
+
+                            <div
+                              key={
+                                order.id
+                              }
+                              style={{
+                                padding:
+                                  "18px",
+                                border:
+                                  "1px solid rgba(128,128,128,0.2)",
+                                borderRadius:
+                                  "18px",
+                                marginBottom:
+                                  "12px",
+                              }}
+                            >
+
+                              <div
+                                style={{
+                                  display:
+                                    "flex",
+                                  justifyContent:
+                                    "space-between",
+                                  gap:
+                                    "12px",
+                                  alignItems:
+                                    "flex-start",
+                                }}
+                              >
+
+                                <div>
+
+                                  <strong>
+                                    Order #
+                                    {String(
+                                      order.id
+                                    )
+                                      .slice(
+                                        0,
+                                        8
+                                      )
+                                      .toUpperCase()}
+                                  </strong>
+
+                                  <p
+                                    style={{
+                                      opacity:
+                                        0.65,
+                                      fontSize:
+                                        "13px",
+                                      margin:
+                                        "5px 0",
+                                    }}
+                                  >
+                                    {formatDate(
+                                      order.created_at
+                                    )}
+                                  </p>
+
+                                </div>
+
+                                <span
+                                  style={{
+                                    padding:
+                                      "6px 10px",
+                                    borderRadius:
+                                      "999px",
+                                    background:
+                                      "rgba(128,128,128,0.12)",
+                                    fontSize:
+                                      "12px",
+                                  }}
+                                >
+                                  {statusLabel(
+                                    order.status
+                                  )}
+                                </span>
+
+                              </div>
+
+                              <div
+                                style={{
+                                  display:
+                                    "flex",
+                                  justifyContent:
+                                    "space-between",
+                                  alignItems:
+                                    "center",
+                                  marginTop:
+                                    "12px",
+                                }}
+                              >
+
+                                <strong>
+                                  {money(
+                                    order.total
+                                  )}
+                                </strong>
+
+                                <button
+                                  className="modal-secondary"
+                                  onClick={() =>
+                                    setExpandedOrder(
+                                      expandedOrder ===
+                                        order.id
+                                        ? null
+                                        : order.id
+                                    )
+                                  }
+                                >
+                                  {expandedOrder ===
+                                  order.id
+                                    ? "Hide items"
+                                    : "View items"}
+                                </button>
+
+                              </div>
+
+                              {expandedOrder ===
+                                order.id && (
+
+                                <div
+                                  style={{
+                                    marginTop:
+                                      "15px",
+                                    paddingTop:
+                                      "15px",
+                                    borderTop:
+                                      "1px solid rgba(128,128,128,0.15)",
+                                  }}
+                                >
+
+                                  {order.order_items?.map(
+                                    (
+                                      item
+                                    ) => (
+
+                                      <div
+                                        key={
+                                          item.id
+                                        }
+                                        style={{
+                                          display:
+                                            "flex",
+                                          justifyContent:
+                                            "space-between",
+                                          gap:
+                                            "10px",
+                                          padding:
+                                            "8px 0",
+                                        }}
+                                      >
+
+                                        <div>
+
+                                          <strong>
+                                            {
+                                              item.product_name
+                                            }
+                                          </strong>
+
+                                          <div
+                                            style={{
+                                              opacity:
+                                                0.65,
+                                              fontSize:
+                                                "13px",
+                                            }}
+                                          >
+                                            Qty:{" "}
+                                            {
+                                              item.quantity
+                                            }
+                                          </div>
+
+                                        </div>
+
+                                        <strong>
+                                          {money(
+                                            Number(
+                                              item.price
+                                            ) *
+                                              Number(
+                                                item.quantity
+                                              )
+                                          )}
+                                        </strong>
+
+                                      </div>
+
+                                    )
+                                  )}
+
+                                </div>
+
+                              )}
+
+                            </div>
+
+                          )
+                        )}
+
+                      </div>
+
+                    )}
+
+                  </div>
+                )}
+
+                {/* SETTINGS */}
+
+                {accountTab ===
+                  "settings" && (
+
+                  <div>
+
+                    <p className="eyebrow">
+                      ACCOUNT SETTINGS
+                    </p>
+
+                    <h3>
+                      Personal details
+                    </h3>
+
+                    <form
+                      className="auth-form"
+                      onSubmit={
+                        saveProfileSettings
+                      }
+                    >
+
+                      <input
+                        type="text"
+                        placeholder="Full name"
+                        value={
+                          profileName
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setProfileName(
+                            event
+                              .target
+                              .value
+                          )
+                        }
+                        required
+                      />
+
+                      <input
+                        type="tel"
+                        placeholder="Phone number"
+                        value={
+                          profilePhone
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setProfilePhone(
+                            event
+                              .target
+                              .value
+                          )
+                        }
+                        required
+                      />
+
+                      <input
+                        type="email"
+                        value={
+                          user.email ||
+                          ""
+                        }
+                        disabled
+                      />
+
+                      <button
+                        className="modal-action"
+                        type="submit"
+                        disabled={
+                          settingsLoading
+                        }
+                      >
+                        {settingsLoading
+                          ? "Saving..."
+                          : "Save changes"}
+                      </button>
+
+                    </form>
+
+                    {settingsMessage && (
+                      <p className="auth-message">
+                        {
+                          settingsMessage
+                        }
+                      </p>
+                    )}
+
+                    <div
+                      style={{
+                        marginTop:
+                          "30px",
+                        paddingTop:
+                          "25px",
+                        borderTop:
+                          "1px solid rgba(128,128,128,0.15)",
+                      }}
+                    >
+
+                      <p className="eyebrow">
+                        SECURITY
+                      </p>
+
+                      <h3>
+                        Change password
+                      </h3>
+
+                      <form
+                        className="auth-form"
+                        onSubmit={
+                          changePassword
+                        }
+                      >
+
+                        <input
+                          type="password"
+                          placeholder="New password"
+                          value={
+                            newPassword
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setNewPassword(
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          minLength={
+                            6
+                          }
+                          required
+                        />
+
+                        <button
+                          className="modal-action"
+                          type="submit"
+                          disabled={
+                            passwordLoading
+                          }
+                        >
+                          {passwordLoading
+                            ? "Changing..."
+                            : "Change password"}
+                        </button>
+
+                      </form>
+
+                      {passwordMessage && (
+                        <p className="auth-message">
+                          {
+                            passwordMessage
+                          }
+                        </p>
+                      )}
+
+                    </div>
+
+                    <button
+                      className="modal-secondary"
+                      style={{
+                        marginTop:
+                          "25px",
+                      }}
+                      onClick={
+                        logout
+                      }
+                    >
+                      🚪 Log out
+                    </button>
+
+                  </div>
+                )}
+
               </>
 
             ) : (
 
               <>
-
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
                 </p>
