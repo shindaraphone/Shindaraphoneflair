@@ -1,1680 +1,557 @@
-import { useEffect, useState } from "react";
-import { supabase } from "./supabaseClient";
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-const WHATSAPP = "2348118294548";
+// ====================== SUPABASE CONFIG ======================
+// Replace these two values with your real ones from Supabase → Settings → API
+const supabaseUrl = 'YOUR_SUPABASE_URL';
+const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
 
-const TIKTOK =
-  "https://www.tiktok.com/@shindara.communication";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const PAYSTACK_PUBLIC_KEY =
-  "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
-
-function money(value) {
-  return `₦${Number(value || 0).toLocaleString("en-NG")}`;
-}
-
-function loadPaystackScript() {
-  return new Promise((resolve, reject) => {
-    if (window.PaystackPop) {
-      resolve(window.PaystackPop);
-      return;
-    }
-
-    const existingScript = document.querySelector(
-      'script[src="https://js.paystack.co/v2/inline.js"]'
-    );
-
-    if (existingScript) {
-      existingScript.addEventListener("load", () =>
-        resolve(window.PaystackPop)
-      );
-
-      existingScript.addEventListener("error", reject);
-      return;
-    }
-
-    const script = document.createElement("script");
-
-    script.src =
-      "https://js.paystack.co/v2/inline.js";
-
-    script.async = true;
-
-    script.onload = () => {
-      if (window.PaystackPop) {
-        resolve(window.PaystackPop);
-      } else {
-        reject(
-          new Error(
-            "Paystack could not be loaded."
-          )
-        );
-      }
-    };
-
-    script.onerror = () => {
-      reject(
-        new Error(
-          "Unable to load Paystack."
-        )
-      );
-    };
-
-    document.body.appendChild(script);
-  });
-}
+// ====================== SAMPLE PRODUCTS ======================
+const PRODUCTS = [
+  {
+    id: 1,
+    name: 'iPhone 16 Pro Max',
+    price: 1850000,
+    category: 'Phones',
+    image: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400',
+    description: 'Latest Apple flagship'
+  },
+  {
+    id: 2,
+    name: 'Samsung Galaxy S25 Ultra',
+    price: 1650000,
+    category: 'Phones',
+    image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=400',
+    description: 'Powerful Android flagship'
+  },
+  {
+    id: 3,
+    name: 'AirPods Pro 2',
+    price: 285000,
+    category: 'Accessories',
+    image: 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=400',
+    description: 'Active Noise Cancellation'
+  },
+  {
+    id: 4,
+    name: 'MagSafe Charger',
+    price: 45000,
+    category: 'Accessories',
+    image: 'https://images.unsplash.com/photo-1609091839311-b67e6aa3e0a9?w=400',
+    description: 'Fast wireless charging'
+  }
+];
 
 function App() {
-  const [cart, setCart] = useState([]);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] =
-    useState(false);
-  const [accountOpen, setAccountOpen] =
-    useState(false);
-
+  // ====================== STATE ======================
   const [user, setUser] = useState(null);
-  const [authMode, setAuthMode] =
-    useState("login");
+  const [profile, setProfile] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [wishlist, setWishlist] = useState([]);
+  const [darkMode, setDarkMode] = useState(false);
+  const [currentPage, setCurrentPage] = useState('shop'); // shop | cart | account | wishlist
+  const [authMode, setAuthMode] = useState('signin'); // signin | signup
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] =
-    useState("");
+  // Form states
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
 
-  const [authMessage, setAuthMessage] =
-    useState("");
-  const [authLoading, setAuthLoading] =
-    useState(false);
-
-  const [products, setProducts] =
-    useState([]);
-
-  const [productsLoading, setProductsLoading] =
-    useState(true);
-
-  const [productsError, setProductsError] =
-    useState("");
-
-  const [customerName, setCustomerName] =
-    useState("");
-
-  const [customerPhone, setCustomerPhone] =
-    useState("");
-
-  const [deliveryAddress, setDeliveryAddress] =
-    useState("");
-
-  const [deliveryCity, setDeliveryCity] =
-    useState("");
-
-  const [deliveryState, setDeliveryState] =
-    useState("");
-
-  const [orderLoading, setOrderLoading] =
-    useState(false);
-
-  const [orderMessage, setOrderMessage] =
-    useState("");
-
-  const [orderSuccess, setOrderSuccess] =
-    useState(false);
-
+  // ====================== AUTH ======================
   useEffect(() => {
-    let mounted = true;
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
+    });
 
-    async function loadUser() {
-      const { data } =
-        await supabase.auth.getUser();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
+      else setProfile(null);
+    });
 
-      if (mounted) {
-        setUser(data?.user ?? null);
-      }
-    }
-
-    loadUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (mounted) {
-          setUser(session?.user ?? null);
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    loadProducts();
+  const fetchProfile = async (userId) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    setProfile(data);
+  };
 
-    const channel = supabase
-      .channel("store-products")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "products",
-        },
-        () => {
-          loadProducts();
+  // ====================== CREATE ACCOUNT ======================
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          phone: phone
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  async function loadProducts() {
-    setProductsLoading(true);
-    setProductsError("");
-
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("created_at", {
-        ascending: false,
-      });
+      }
+    });
 
     if (error) {
-      console.error(error);
-
-      setProductsError(
-        "We couldn't load our products right now."
-      );
-
-      setProducts([]);
+      setMessage(error.message);
     } else {
-      setProducts(data || []);
+      setMessage('Account created successfully! Check your email to confirm (if required).');
+      setFullName('');
+      setEmail('');
+      setPhone('');
+      setPassword('');
+      setAuthMode('signin');
     }
+    setLoading(false);
+  };
 
-    setProductsLoading(false);
-  }
+  // ====================== SIGN IN ======================
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
 
-  async function handleAuth(event) {
-    event.preventDefault();
+    // Try email first
+    let { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
 
-    setAuthLoading(true);
-    setAuthMessage("");
+    // If email fails and phone looks like a number, we can later add phone login
+    // For now we only support email login (phone login needs SMS setup)
 
-    try {
-      if (authMode === "signup") {
-        const { data, error } =
-          await supabase.auth.signUp({
-            email: email.trim(),
-            password,
-          });
-
-        if (error) {
-          setAuthMessage(error.message);
-          return;
-        }
-
-        if (data?.user && !data.session) {
-          setAuthMessage(
-            "Account created successfully! Please check your email to confirm your account."
-          );
-        } else {
-          setAuthMessage(
-            "Account created successfully!"
-          );
-        }
-
-        setPassword("");
-        return;
-      }
-
-      const { error } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-
-      if (error) {
-        setAuthMessage(error.message);
-        return;
-      }
-
-      setEmail("");
-      setPassword("");
-      setAuthMessage("");
-      setAccountOpen(false);
-    } catch (error) {
-      setAuthMessage(
-        error?.message ||
-          "Something went wrong. Please try again."
-      );
-    } finally {
-      setAuthLoading(false);
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setMessage('Signed in successfully!');
+      setCurrentPage('shop');
     }
-  }
+    setLoading(false);
+  };
 
-  async function logout() {
+  const handleSignOut = async () => {
     await supabase.auth.signOut();
+    setCurrentPage('shop');
+  };
 
-    setUser(null);
-    setAccountOpen(false);
-  }
-
-  function addToCart(product) {
-    setCart((items) => {
-      const existing = items.find(
-        (item) => item.id === product.id
-      );
-
+  // ====================== CART ======================
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return items.map((item) =>
+        return prev.map(item =>
           item.id === product.id
-            ? {
-                ...item,
-                quantity:
-                  item.quantity + 1,
-              }
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-
-      return [
-        ...items,
-        {
-          ...product,
-          quantity: 1,
-        },
-      ];
+      return [...prev, { ...product, quantity: 1 }];
     });
+    // Important: we stay on the shop page (no automatic cart open)
+    setMessage(`${product.name} added to cart`);
+    setTimeout(() => setMessage(''), 2000);
+  };
 
-    setCartOpen(true);
-  }
+  const removeFromCart = (id) => {
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
 
-  function increaseQuantity(id) {
-    setCart((items) =>
-      items.map((item) =>
+  const updateQuantity = (id, delta) => {
+    setCart(prev =>
+      prev.map(item =>
         item.id === id
-          ? {
-              ...item,
-              quantity:
-                item.quantity + 1,
-            }
+          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
           : item
       )
     );
-  }
+  };
 
-  function decreaseQuantity(id) {
-    setCart((items) =>
-      items
-        .map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                quantity:
-                  item.quantity - 1,
-              }
-            : item
-        )
-        .filter(
-          (item) => item.quantity > 0
-        )
-    );
-  }
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-  function removeFromCart(id) {
-    setCart((items) =>
-      items.filter(
-        (item) => item.id !== id
-      )
-    );
-  }
+  // ====================== WISHLIST ======================
+  const toggleWishlist = (product) => {
+    setWishlist(prev => {
+      const exists = prev.find(item => item.id === product.id);
+      if (exists) return prev.filter(item => item.id !== product.id);
+      return [...prev, product];
+    });
+  };
 
-  function clearCart() {
-    setCart([]);
-  }
+  // ====================== UI HELPERS ======================
+  const formatPrice = (price) =>
+    new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0
+    }).format(price);
 
-  const cartCount = cart.reduce(
-    (total, item) =>
-      total +
-      Number(item.quantity || 0),
-    0
-  );
-
-  const cartTotal = cart.reduce(
-    (total, item) =>
-      total +
-      Number(item.price || 0) *
-        Number(item.quantity || 0),
-    0
-  );
-
-  function openCheckout() {
-    if (!cart.length) {
-      return;
-    }
-
-    setCartOpen(false);
-    setOrderMessage("");
-    setOrderSuccess(false);
-
-    if (!user) {
-      setAccountOpen(true);
-
-      setAuthMessage(
-        "Please sign in or create an account before checkout."
-      );
-
-      return;
-    }
-
-    setCheckoutOpen(true);
-  }
-
-  async function saveOrder(reference) {
-    const { data: order, error: orderError } =
-      await supabase
-        .from("orders")
-        .insert({
-          user_id: user.id,
-          customer_name:
-            customerName.trim(),
-          customer_phone:
-            customerPhone.trim(),
-          delivery_address:
-            deliveryAddress.trim(),
-          delivery_city:
-            deliveryCity.trim(),
-          delivery_state:
-            deliveryState.trim(),
-          total: cartTotal,
-          status: "paid",
-          payment_reference: reference,
-        })
-        .select()
-        .single();
-
-    if (orderError) {
-      throw orderError;
-    }
-
-    const items = cart.map((item) => ({
-      order_id: order.id,
-      product_id: item.id,
-      product_name: item.name,
-      price: Number(item.price || 0),
-      quantity: Number(
-        item.quantity || 1
-      ),
-      image_url:
-        item.image_url || null,
-    }));
-
-    const { error: itemsError } =
-      await supabase
-        .from("order_items")
-        .insert(items);
-
-    if (itemsError) {
-      await supabase
-        .from("orders")
-        .delete()
-        .eq("id", order.id);
-
-      throw itemsError;
-    }
-
-    return order;
-  }
-
-  async function placeOrder(event) {
-    event.preventDefault();
-
-    if (!user) {
-      setOrderMessage(
-        "Please sign in before placing your order."
-      );
-      return;
-    }
-
-    if (!cart.length) {
-      setOrderMessage(
-        "Your cart is empty."
-      );
-      return;
-    }
-
-    if (!PAYSTACK_PUBLIC_KEY) {
-      setOrderMessage(
-        "Paystack public key is missing."
-      );
-      return;
-    }
-
-    setOrderLoading(true);
-    setOrderMessage("");
-
-    try {
-      const PaystackPop =
-        await loadPaystackScript();
-
-      const customerEmail =
-        user.email;
-
-      const amountInKobo =
-        Math.round(cartTotal * 100);
-
-      const popup =
-        new PaystackPop();
-
-      popup.newTransaction({
-        key: PAYSTACK_PUBLIC_KEY,
-
-        email: customerEmail,
-
-        amount: amountInKobo,
-
-        currency: "NGN",
-
-        metadata: {
-          customer_name:
-            customerName.trim(),
-
-          customer_phone:
-            customerPhone.trim(),
-
-          delivery_address:
-            deliveryAddress.trim(),
-
-          delivery_city:
-            deliveryCity.trim(),
-
-          delivery_state:
-            deliveryState.trim(),
-
-          user_id: user.id,
-        },
-
-        onSuccess: async (transaction) => {
-          try {
-            setOrderMessage(
-              "Payment successful. Verifying your payment..."
-            );
-
-            const reference =
-              transaction.reference;
-
-            if (!reference) {
-              throw new Error(
-                "Paystack did not return a payment reference."
-              );
-            }
-
-            const {
-              data: verificationData,
-              error: verificationError,
-            } = await supabase.functions.invoke(
-              "verify-paystack-payment",
-              {
-                body: {
-                  reference,
-                },
-              }
-            );
-
-            if (verificationError) {
-              console.error(
-                "Verification error:",
-                verificationError
-              );
-
-              throw new Error(
-                verificationError.message ||
-                  "Failed to verify Paystack payment."
-              );
-            }
-
-            if (
-              !verificationData?.success
-            ) {
-              throw new Error(
-                verificationData?.error ||
-                  "Payment could not be verified."
-              );
-            }
-
-            const order =
-              await saveOrder(
-                reference
-              );
-
-            setOrderSuccess(true);
-
-            setOrderMessage(
-              `Order placed successfully! Your order number is ${String(
-                order.id
-              )
-                .slice(0, 8)
-                .toUpperCase()}.`
-            );
-
-            setCart([]);
-
-            setCustomerName("");
-            setCustomerPhone("");
-            setDeliveryAddress("");
-            setDeliveryCity("");
-            setDeliveryState("");
-          } catch (error) {
-            console.error(
-              "Payment verification/order error:",
-              error
-            );
-
-            setOrderMessage(
-              error?.message ||
-                "Payment was received, but we couldn't complete order verification. Please contact Shindara Phoneflair."
-            );
-          } finally {
-            setOrderLoading(false);
-          }
-        },
-
-        onCancel: () => {
-          setOrderLoading(false);
-
-          setOrderMessage(
-            "Payment was cancelled. Your order has not been placed."
-          );
-        },
-      });
-    } catch (error) {
-      console.error(
-        "Paystack error:",
-        error
-      );
-
-      setOrderMessage(
-        error?.message ||
-          "Unable to open Paystack. Please try again."
-      );
-
-      setOrderLoading(false);
-    }
-  }
-
-  function whatsapp() {
-    const message = encodeURIComponent(
-      "Hello Shindara Phoneflair, I would like to make an enquiry."
-    );
-
-    window.open(
-      `https://wa.me/${WHATSAPP}?text=${message}`,
-      "_blank"
-    );
-  }
-
+  // ====================== RENDER ======================
   return (
-    <div className="app">
-
-      <header className="header">
-
-        <a
-          href="#home"
-          className="logo"
-        >
-          Shindara
-          <span>Phoneflair</span>
-        </a>
-
-        <nav className="nav">
-          <a href="#home">
-            Home
-          </a>
-
-          <a href="#shop">
-            Shop
-          </a>
-
-          <a href="#categories">
-            Categories
-          </a>
-
-          <a href="#contact">
-            Contact
-          </a>
-        </nav>
-
-        <div className="header-actions">
-
-          <button
-            className="account-button"
-            onClick={() => {
-              setAuthMessage("");
-              setAccountOpen(true);
-            }}
-          >
-            👤{" "}
-            {user
-              ? "Account"
-              : "Sign in"}
-          </button>
-
-          <button
-            className="cart-button"
-            onClick={() =>
-              setCartOpen(true)
-            }
-          >
-            🛒 Cart ({cartCount})
-          </button>
-
-        </div>
-
-      </header>
-
-      <main>
-
-        <section
-          className="hero"
-          id="home"
-        >
-
-          <div className="hero-content">
-
-            <p className="eyebrow">
-              SHINDARA PHONEFLAIR
-            </p>
-
-            <h1>
-              Technology,
-              <br />
-              beautifully selected.
-            </h1>
-
-            <p className="hero-text">
-              Phones, accessories,
-              chargers, audio products,
-              power banks and everyday
-              gadgets.
-            </p>
-
-            <a
-              href="#shop"
-              className="shop-button"
-            >
-              Shop now →
-            </a>
-
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+      {/* Header */}
+      <header className={`sticky top-0 z-50 border-b ${darkMode ? 'bg-gray-900/90 border-gray-800' : 'bg-white/90 border-gray-200'} backdrop-blur-md`}>
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('shop')}>
+            <span className="text-2xl font-bold tracking-tight">Shindara</span>
+            <span className="text-sm opacity-70">Phoneflair</span>
           </div>
 
-        </section>
-
-        <section
-          className="section"
-          id="categories"
-        >
-
-          <p className="eyebrow">
-            EXPLORE
-          </p>
-
-          <h2>
-            Shop by category
-          </h2>
-
-          <div className="category-grid">
-
-            {[
-              ["📱", "Smartphones"],
-              ["🛡️", "Phone Cases"],
-              ["⚡", "Chargers"],
-              ["🎧", "Audio"],
-              ["🔋", "Power Banks"],
-              ["✨", "Gadgets"],
-            ].map(
-              ([icon, name]) => (
-
-                <a
-                  href="#shop"
-                  className="category-card"
-                  key={name}
-                >
-                  <span>
-                    {icon}
-                  </span>
-
-                  <strong>
-                    {name}
-                  </strong>
-                </a>
-
-              )
-            )}
-
-          </div>
-
-        </section>
-
-        <section
-          className="section"
-          id="shop"
-        >
-
-          <p className="eyebrow">
-            SHINDARA STORE
-          </p>
-
-          <h2>
-            Popular picks
-          </h2>
-
-          {productsLoading ? (
-
-            <div
-              style={{
-                padding: "50px",
-                textAlign:
-                  "center",
-              }}
-            >
-              Loading products...
-            </div>
-
-          ) : productsError ? (
-
-            <div
-              style={{
-                padding: "50px",
-                textAlign:
-                  "center",
-              }}
-            >
-
-              <p>
-                {productsError}
-              </p>
-
-              <button
-                className="add-button"
-                onClick={
-                  loadProducts
-                }
-              >
-                Try again
-              </button>
-
-            </div>
-
-          ) : products.length ===
-            0 ? (
-
-            <div
-              style={{
-                padding: "50px",
-                textAlign:
-                  "center",
-              }}
-            >
-              <p>
-                Products are coming soon.
-              </p>
-            </div>
-
-          ) : (
-
-            <div className="product-grid">
-
-              {products.map(
-                (product) => (
-
-                  <article
-                    className="product-card"
-                    key={product.id}
-                  >
-
-                    <div className="product-image">
-
-                      {product.image_url ? (
-
-                        <img
-                          src={
-                            product.image_url
-                          }
-                          alt={
-                            product.name
-                          }
-                          style={{
-                            width:
-                              "100%",
-                            height:
-                              "100%",
-                            objectFit:
-                              "cover",
-                          }}
-                        />
-
-                      ) : (
-
-                        <span>
-                          📦
-                        </span>
-
-                      )}
-
-                    </div>
-
-                    <div className="product-info">
-
-                      <p className="product-category">
-                        {product.category ||
-                          "Electronics"}
-                      </p>
-
-                      <h3>
-                        {product.name}
-                      </h3>
-
-                      {product.description && (
-                        <p
-                          style={{
-                            opacity:
-                              0.7,
-                            fontSize:
-                              "14px",
-                            lineHeight:
-                              "1.5",
-                          }}
-                        >
-                          {
-                            product.description
-                          }
-                        </p>
-                      )}
-
-                      <p className="price">
-                        {money(
-                          product.price
-                        )}
-                      </p>
-
-                      {Number(
-                        product.stock ||
-                          0
-                      ) > 0 ? (
-
-                        <button
-                          className="add-button"
-                          onClick={() =>
-                            addToCart(
-                              product
-                            )
-                          }
-                        >
-                          Add to cart
-                        </button>
-
-                      ) : (
-
-                        <button
-                          className="add-button"
-                          disabled
-                        >
-                          Out of stock
-                        </button>
-
-                      )}
-
-                    </div>
-
-                  </article>
-
-                )
-              )}
-
-            </div>
-
-          )}
-
-        </section>
-
-        <section className="trust-section">
-
-          <div>
-            <span>🚚</span>
-
-            <h3>
-              Reliable delivery
-            </h3>
-
-            <p>
-              Get your order delivered
-              safely.
-            </p>
-          </div>
-
-          <div>
-            <span>🔒</span>
-
-            <h3>
-              Secure shopping
-            </h3>
-
-            <p>
-              Shop with confidence.
-            </p>
-          </div>
-
-          <div>
-            <span>💬</span>
-
-            <h3>
-              Customer support
-            </h3>
-
-            <p>
-              We're here whenever
-              you need us.
-            </p>
-          </div>
-
-        </section>
-
-      </main>
-
-      <footer id="contact">
-
-        <div>
-
-          <strong className="footer-logo">
-            Shindara Phoneflair
-          </strong>
-
-          <p>
-            Phones • Accessories •
-            Gadgets • Electronics
-          </p>
-
-          <div className="social-links">
-
-            <button
-              className="social-button"
-              onClick={whatsapp}
-            >
-              📲 WhatsApp
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+            <button onClick={() => setCurrentPage('shop')} className={currentPage === 'shop' ? 'opacity-100' : 'opacity-60 hover:opacity-100'}>
+              Shop
             </button>
-
-            <a
-              className="social-button"
-              href={TIKTOK}
-              target="_blank"
-              rel="noreferrer"
-            >
-              🎵 TikTok
-            </a>
-
-          </div>
-
-        </div>
-
-        <p>
-          © 2026 Shindara Phoneflair
-        </p>
-
-      </footer>
-
-      <button
-        className="whatsapp-floating"
-        onClick={whatsapp}
-      >
-        💬
-      </button>
-
-      {/* CART */}
-
-      {cartOpen && (
-
-        <div
-          className="cart-overlay"
-          onClick={() =>
-            setCartOpen(false)
-          }
-        >
-
-          <aside
-            className="cart-drawer"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
-            <div className="cart-header">
-
-              <div>
-
-                <p className="eyebrow">
-                  SHINDARA
-                </p>
-
-                <h2>
-                  Your Cart
-                </h2>
-
-              </div>
-
-              <button
-                className="modal-close"
-                onClick={() =>
-                  setCartOpen(false)
-                }
-              >
-                ×
-              </button>
-
-            </div>
-
-            {cart.length === 0 ? (
-
-              <div
-                style={{
-                  textAlign:
-                    "center",
-                  padding:
-                    "60px 20px",
-                }}
-              >
-
-                <div
-                  style={{
-                    fontSize:
-                      "55px",
-                  }}
-                >
-                  🛒
-                </div>
-
-                <h3>
-                  Your cart is empty
-                </h3>
-
-                <p>
-                  Add something you
-                  love from our
-                  store.
-                </p>
-
-                <button
-                  className="modal-action"
-                  onClick={() =>
-                    setCartOpen(
-                      false
-                    )
-                  }
-                >
-                  Continue shopping
-                </button>
-
-              </div>
-
-            ) : (
-
-              <>
-
-                <div className="cart-items">
-
-                  {cart.map(
-                    (item) => (
-
-                      <div
-                        className="cart-item"
-                        key={item.id}
-                      >
-
-                        <div className="cart-item-image">
-
-                          {item.image_url ? (
-
-                            <img
-                              src={
-                                item.image_url
-                              }
-                              alt={
-                                item.name
-                              }
-                            />
-
-                          ) : (
-
-                            <span>
-                              📦
-                            </span>
-
-                          )}
-
-                        </div>
-
-                        <div className="cart-item-info">
-
-                          <h3>
-                            {
-                              item.name
-                            }
-                          </h3>
-
-                          <p>
-                            {money(
-                              item.price
-                            )}
-                          </p>
-
-                          <div className="quantity-controls">
-
-                            <button
-                              onClick={() =>
-                                decreaseQuantity(
-                                  item.id
-                                )
-                              }
-                            >
-                              −
-                            </button>
-
-                            <strong>
-                              {
-                                item.quantity
-                              }
-                            </strong>
-
-                            <button
-                              onClick={() =>
-                                increaseQuantity(
-                                  item.id
-                                )
-                              }
-                            >
-                              +
-                            </button>
-
-                          </div>
-
-                          <button
-                            className="remove-cart-item"
-                            onClick={() =>
-                              removeFromCart(
-                                item.id
-                              )
-                            }
-                          >
-                            Remove
-                          </button>
-
-                        </div>
-
-                      </div>
-
-                    )
-                  )}
-
-                </div>
-
-                <div className="cart-footer">
-
-                  <div className="cart-total">
-
-                    <span>
-                      Total
-                    </span>
-
-                    <strong>
-                      {money(
-                        cartTotal
-                      )}
-                    </strong>
-
-                  </div>
-
-                  <button
-                    className="checkout-button"
-                    onClick={
-                      openCheckout
-                    }
-                  >
-                    Continue to checkout →
-                  </button>
-
-                  <button
-                    className="clear-cart-button"
-                    onClick={
-                      clearCart
-                    }
-                  >
-                    Clear cart
-                  </button>
-
-                </div>
-
-              </>
-
-            )}
-
-          </aside>
-
-        </div>
-
-      )}
-
-      {/* CHECKOUT */}
-
-      {checkoutOpen && (
-
-        <div
-          className="modal-backdrop"
-          onClick={() =>
-            !orderLoading &&
-            setCheckoutOpen(
-              false
-            )
-          }
-        >
-
-          <div
-            className="account-modal checkout-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
-            <button
-              className="modal-close"
-              onClick={() =>
-                !orderLoading &&
-                setCheckoutOpen(
-                  false
-                )
-              }
-            >
-              ×
+            <button onClick={() => setCurrentPage('wishlist')} className={currentPage === 'wishlist' ? 'opacity-100' : 'opacity-60 hover:opacity-100'}>
+              Wishlist ({wishlist.length})
             </button>
+            <button onClick={() => setCurrentPage('cart')} className={currentPage === 'cart' ? 'opacity-100' : 'opacity-60 hover:opacity-100'}>
+              Cart ({cart.reduce((s, i) => s + i.quantity, 0)})
+            </button>
+          </nav>
 
-            {orderSuccess ? (
-
-              <div
-                style={{
-                  textAlign:
-                    "center",
-                  padding:
-                    "25px 5px",
-                }}
-              >
-
-                <div
-                  style={{
-                    fontSize:
-                      "60px",
-                    marginBottom:
-                      "15px",
-                  }}
-                >
-                  ✅
-                </div>
-
-                <p className="eyebrow">
-                  ORDER RECEIVED
-                </p>
-
-                <h2>
-                  Thank you!
-                </h2>
-
-                <p className="auth-message">
-                  {orderMessage}
-                </p>
-
-                <button
-                  className="modal-action"
-                  onClick={() =>
-                    setCheckoutOpen(
-                      false
-                    )
-                  }
-                >
-                  Continue shopping
-                </button>
-
-              </div>
-
-            ) : (
-
-              <>
-
-                <p className="eyebrow">
-                  SHINDARA CHECKOUT
-                </p>
-
-                <h2>
-                  Delivery details
-                </h2>
-
-                <p
-                  style={{
-                    opacity:
-                      0.7,
-                    marginBottom:
-                      "20px",
-                  }}
-                >
-                  Tell us where to
-                  deliver your order.
-                </p>
-
-                <form
-                  className="auth-form"
-                  onSubmit={
-                    placeOrder
-                  }
-                >
-
-                  <input
-                    type="text"
-                    placeholder="Full name"
-                    value={
-                      customerName
-                    }
-                    onChange={(event) =>
-                      setCustomerName(
-                        event.target
-                          .value
-                      )
-                    }
-                    required
-                  />
-
-                  <input
-                    type="tel"
-                    placeholder="Phone number"
-                    value={
-                      customerPhone
-                    }
-                    onChange={(event) =>
-                      setCustomerPhone(
-                        event.target
-                          .value
-                      )
-                    }
-                    required
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="Delivery address"
-                    value={
-                      deliveryAddress
-                    }
-                    onChange={(event) =>
-                      setDeliveryAddress(
-                        event.target
-                          .value
-                      )
-                    }
-                    required
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="City"
-                    value={
-                      deliveryCity
-                    }
-                    onChange={(event) =>
-                      setDeliveryCity(
-                        event.target
-                          .value
-                      )
-                    }
-                    required
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="State"
-                    value={
-                      deliveryState
-                    }
-                    onChange={(event) =>
-                      setDeliveryState(
-                        event.target
-                          .value
-                      )
-                    }
-                    required
-                  />
-
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "center",
-                      padding:
-                        "15px 0",
-                      fontSize:
-                        "18px",
-                    }}
-                  >
-
-                    <strong>
-                      Order total
-                    </strong>
-
-                    <strong>
-                      {money(
-                        cartTotal
-                      )}
-                    </strong>
-
-                  </div>
-
-                  {orderMessage && (
-                    <p className="auth-message">
-                      {orderMessage}
-                    </p>
-                  )}
-
-                  <button
-                    className="modal-action"
-                    type="submit"
-                    disabled={
-                      orderLoading
-                    }
-                  >
-                    {orderLoading
-                      ? "Opening Paystack..."
-                      : `Pay ${money(
-                          cartTotal
-                        )}`}
-                  </button>
-
-                </form>
-
-              </>
-
-            )}
-
-          </div>
-
-        </div>
-
-      )}
-
-      {/* ACCOUNT */}
-
-      {accountOpen && (
-
-        <div
-          className="modal-backdrop"
-          onClick={() =>
-            setAccountOpen(
-              false
-            )
-          }
-        >
-
-          <div
-            className="account-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
+          <div className="flex items-center gap-3">
             <button
-              className="modal-close"
-              onClick={() =>
-                setAccountOpen(
-                  false
-                )
-              }
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition"
             >
-              ×
+              {darkMode ? '☀️' : '🌙'}
             </button>
 
             {user ? (
-
-              <>
-                <p className="eyebrow">
-                  MY ACCOUNT
-                </p>
-
-                <h2>
-                  Welcome back 👋
-                </h2>
-
-                <p className="account-email">
-                  {user.email}
-                </p>
-
+              <div className="flex items-center gap-2">
                 <button
-                  className="modal-action"
-                  onClick={
-                    logout
-                  }
+                  onClick={() => setCurrentPage('account')}
+                  className="text-sm font-medium opacity-80 hover:opacity-100"
                 >
-                  Log out
+                  {profile?.full_name || user.email}
                 </button>
-              </>
-
+                <button
+                  onClick={handleSignOut}
+                  className="text-xs px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                >
+                  Sign out
+                </button>
+              </div>
             ) : (
-
-              <>
-
-                <p className="eyebrow">
-                  SHINDARA ACCOUNT
-                </p>
-
-                <h2>
-                  {authMode ===
-                  "signup"
-                    ? "Create your account"
-                    : "Welcome back"}
-                </h2>
-
-                <form
-                  className="auth-form"
-                  onSubmit={
-                    handleAuth
-                  }
-                >
-
-                  <input
-                    type="email"
-                    placeholder="Email address"
-                    value={email}
-                    onChange={(event) =>
-                      setEmail(
-                        event.target
-                          .value
-                      )
-                    }
-                    required
-                  />
-
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={
-                      password
-                    }
-                    onChange={(event) =>
-                      setPassword(
-                        event.target
-                          .value
-                      )
-                    }
-                    minLength={
-                      6
-                    }
-                    required
-                  />
-
-                  <button
-                    className="modal-action"
-                    type="submit"
-                    disabled={
-                      authLoading
-                    }
-                  >
-                    {authLoading
-                      ? "Please wait..."
-                      : authMode ===
-                        "signup"
-                      ? "Create account"
-                      : "Sign in"}
-                  </button>
-
-                </form>
-
-                {authMessage && (
-                  <p className="auth-message">
-                    {
-                      authMessage
-                    }
-                  </p>
-                )}
-
-                <button
-                  className="modal-secondary"
-                  onClick={() => {
-                    setAuthMessage(
-                      ""
-                    );
-
-                    setAuthMode(
-                      authMode ===
-                        "login"
-                        ? "signup"
-                        : "login"
-                    );
-                  }}
-                >
-                  {authMode ===
-                  "login"
-                    ? "Create a new account"
-                    : "Already have an account? Sign in"}
-                </button>
-
-              </>
-
+              <button
+                onClick={() => {
+                  setCurrentPage('account');
+                  setAuthMode('signin');
+                }}
+                className="text-sm font-medium px-4 py-2 rounded-full bg-black text-white dark:bg-white dark:text-black"
+              >
+                Account
+              </button>
             )}
-
           </div>
-
         </div>
+      </header>
 
+      {/* Message toast */}
+      {message && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full bg-black text-white text-sm shadow-lg">
+          {message}
+        </div>
       )}
 
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* ====================== SHOP PAGE ====================== */}
+        {currentPage === 'shop' && (
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Shop</h1>
+            <p className="opacity-60 mb-8">Premium phones & accessories</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {PRODUCTS.map(product => (
+                <div
+                  key={product.id}
+                  className={`rounded-2xl overflow-hidden border transition hover:shadow-xl ${
+                    darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  }`}
+                >
+                  <div className="aspect-square overflow-hidden bg-gray-100 dark:bg-gray-700">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover hover:scale-105 transition duration-500"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="font-semibold text-lg leading-tight">{product.name}</h3>
+                      <button
+                        onClick={() => toggleWishlist(product)}
+                        className="text-xl"
+                      >
+                        {wishlist.find(w => w.id === product.id) ? '❤️' : '🤍'}
+                      </button>
+                    </div>
+                    <p className="text-sm opacity-60 mb-3">{product.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-lg">{formatPrice(product.price)}</span>
+                      <button
+                        onClick={() => addToCart(product)}
+                        className="px-4 py-2 rounded-full bg-black text-white text-sm font-medium hover:scale-105 transition dark:bg-white dark:text-black"
+                      >
+                        Add to cart
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ====================== CART PAGE ====================== */}
+        {currentPage === 'cart' && (
+          <div>
+            <h1 className="text-3xl font-bold mb-8">Your Cart</h1>
+            {cart.length === 0 ? (
+              <p className="opacity-60">Your cart is empty.</p>
+            ) : (
+              <div className="space-y-4">
+                {cart.map(item => (
+                  <div
+                    key={item.id}
+                    className={`flex gap-4 p-4 rounded-2xl border ${
+                      darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                    }`}
+                  >
+                    <img src={item.image} alt={item.name} className="w-24 h-24 object-cover rounded-xl" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{item.name}</h3>
+                      <p className="text-sm opacity-60">{formatPrice(item.price)}</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 rounded-full border">−</button>
+                        <span>{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 rounded-full border">+</button>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">{formatPrice(item.price * item.quantity)}</p>
+                      <button onClick={() => removeFromCart(item.id)} className="text-sm text-red-500 mt-2">
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-6 border-t flex justify-between items-center">
+                  <span className="text-xl font-bold">Total: {formatPrice(cartTotal)}</span>
+                  <button className="px-8 py-3 rounded-full bg-black text-white font-medium dark:bg-white dark:text-black">
+                    Checkout via WhatsApp
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ====================== WISHLIST ====================== */}
+        {currentPage === 'wishlist' && (
+          <div>
+            <h1 className="text-3xl font-bold mb-8">Wishlist</h1>
+            {wishlist.length === 0 ? (
+              <p className="opacity-60">No items in wishlist yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {wishlist.map(product => (
+                  <div key={product.id} className={`rounded-2xl overflow-hidden border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <img src={product.image} alt={product.name} className="w-full aspect-square object-cover" />
+                    <div className="p-4">
+                      <h3 className="font-semibold">{product.name}</h3>
+                      <p className="font-bold mt-1">{formatPrice(product.price)}</p>
+                      <button
+                        onClick={() => addToCart(product)}
+                        className="mt-3 w-full py-2 rounded-full bg-black text-white text-sm dark:bg-white dark:text-black"
+                      >
+                        Add to cart
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ====================== ACCOUNT PAGE ====================== */}
+        {currentPage === 'account' && (
+          <div className="max-w-md mx-auto">
+            {user ? (
+              <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h1 className="text-2xl font-bold mb-6">My Account</h1>
+                <div className="space-y-3 text-sm">
+                  <p><span className="opacity-60">Name:</span> {profile?.full_name || '—'}</p>
+                  <p><span className="opacity-60">Email:</span> {user.email}</p>
+                  <p><span className="opacity-60">Phone:</span> {profile?.phone || '—'}</p>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="mt-8 w-full py-3 rounded-full bg-red-500 text-white font-medium"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className="flex gap-4 mb-8">
+                  <button
+                    onClick={() => setAuthMode('signin')}
+                    className={`flex-1 py-2 rounded-full text-sm font-medium ${
+                      authMode === 'signin'
+                        ? 'bg-black text-white dark:bg-white dark:text-black'
+                        : 'opacity-50'
+                    }`}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    onClick={() => setAuthMode('signup')}
+                    className={`flex-1 py-2 rounded-full text-sm font-medium ${
+                      authMode === 'signup'
+                        ? 'bg-black text-white dark:bg-white dark:text-black'
+                        : 'opacity-50'
+                    }`}
+                  >
+                    Create account
+                  </button>
+                </div>
+
+                {authMode === 'signup' ? (
+                  <form onSubmit={handleSignUp} className="space-y-4">
+                    <div>
+                      <label className="text-sm opacity-70">Full name</label>
+                      <input
+                        type="text"
+                        required
+                        value={fullName}
+                        onChange={e => setFullName(e.target.value)}
+                        className={`w-full mt-1 px-4 py-3 rounded-xl border outline-none ${
+                          darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm opacity-70">Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        className={`w-full mt-1 px-4 py-3 rounded-xl border outline-none ${
+                          darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm opacity-70">Phone number</label>
+                      <input
+                        type="tel"
+                        required
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="e.g. 08012345678"
+                        className={`w-full mt-1 px-4 py-3 rounded-xl border outline-none ${
+                          darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm opacity-70">Password</label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className={`w-full mt-1 px-4 py-3 rounded-xl border outline-none ${
+                          darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-3 rounded-full bg-black text-white font-medium dark:bg-white dark:text-black disabled:opacity-50"
+                    >
+                      {loading ? 'Creating...' : 'Create account'}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <div>
+                      <label className="text-sm opacity-70">Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        className={`w-full mt-1 px-4 py-3 rounded-xl border outline-none ${
+                          darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm opacity-70">Password</label>
+                      <input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className={`w-full mt-1 px-4 py-3 rounded-xl border outline-none ${
+                          darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-3 rounded-full bg-black text-white font-medium dark:bg-white dark:text-black disabled:opacity-50"
+                    >
+                      {loading ? 'Signing in...' : 'Sign in'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Mobile bottom nav */}
+      <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <div className="flex justify-around py-3 text-xs">
+          <button onClick={() => setCurrentPage('shop')} className="flex flex-col items-center gap-1">
+            <span>🛍️</span>
+            <span>Shop</span>
+          </button>
+          <button onClick={() => setCurrentPage('wishlist')} className="flex flex-col items-center gap-1">
+            <span>❤️</span>
+            <span>Wishlist</span>
+          </button>
+          <button onClick={() => setCurrentPage('cart')} className="flex flex-col items-center gap-1">
+            <span>🛒</span>
+            <span>Cart</span>
+          </button>
+          <button onClick={() => setCurrentPage('account')} className="flex flex-col items-center gap-1">
+            <span>👤</span>
+            <span>Account</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }
