@@ -28,16 +28,13 @@ function loadPaystackScript() {
       existingScript.addEventListener("load", () =>
         resolve(window.PaystackPop)
       );
-
       existingScript.addEventListener("error", reject);
       return;
     }
 
     const script = document.createElement("script");
 
-    script.src =
-      "https://js.paystack.co/v2/inline.js";
-
+    script.src = "https://js.paystack.co/v2/inline.js";
     script.async = true;
 
     script.onload = () => {
@@ -45,18 +42,14 @@ function loadPaystackScript() {
         resolve(window.PaystackPop);
       } else {
         reject(
-          new Error(
-            "Paystack could not be loaded."
-          )
+          new Error("Paystack could not be loaded.")
         );
       }
     };
 
     script.onerror = () => {
       reject(
-        new Error(
-          "Unable to load Paystack."
-        )
+        new Error("Unable to load Paystack.")
       );
     };
 
@@ -67,122 +60,63 @@ function loadPaystackScript() {
 function App() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] =
-    useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  const [accountOpen, setAccountOpen] =
-    useState(false);
-
-  const [accountTab, setAccountTab] =
-    useState("profile");
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountTab, setAccountTab] = useState("profile");
 
   const [user, setUser] = useState(null);
-  const [profile, setProfile] =
-    useState(null);
+  const [profile, setProfile] = useState(null);
 
-  const [authMode, setAuthMode] =
-    useState("login");
-
+  const [authMode, setAuthMode] = useState("login");
   const [email, setEmail] = useState("");
-  const [password, setPassword] =
-    useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
 
-  const [fullName, setFullName] =
-    useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
-  const [phone, setPhone] =
-    useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
-  const [authMessage, setAuthMessage] =
-    useState("");
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+  const [expandedOrder, setExpandedOrder] = useState(null);
 
-  const [authLoading, setAuthLoading] =
-    useState(false);
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState("");
 
-  const [profileName, setProfileName] =
-    useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
 
-  const [profilePhone, setProfilePhone] =
-    useState("");
-
-  const [settingsMessage, setSettingsMessage] =
-    useState("");
-
-  const [settingsLoading, setSettingsLoading] =
-    useState(false);
-
-  const [newPassword, setNewPassword] =
-    useState("");
-
-  const [passwordMessage, setPasswordMessage] =
-    useState("");
-
-  const [passwordLoading, setPasswordLoading] =
-    useState(false);
-
-  const [orders, setOrders] =
-    useState([]);
-
-  const [ordersLoading, setOrdersLoading] =
-    useState(false);
-
-  const [ordersError, setOrdersError] =
-    useState("");
-
-  const [expandedOrder, setExpandedOrder] =
-    useState(null);
-
-  const [products, setProducts] =
-    useState([]);
-
-  const [productsLoading, setProductsLoading] =
-    useState(true);
-
-  const [productsError, setProductsError] =
-    useState("");
-
-  const [customerName, setCustomerName] =
-    useState("");
-
-  const [customerPhone, setCustomerPhone] =
-    useState("");
-
-  const [deliveryAddress, setDeliveryAddress] =
-    useState("");
-
-  const [deliveryCity, setDeliveryCity] =
-    useState("");
-
-  const [deliveryState, setDeliveryState] =
-    useState("");
-
-  const [orderLoading, setOrderLoading] =
-    useState(false);
-
-  const [orderMessage, setOrderMessage] =
-    useState("");
-
-  const [orderSuccess, setOrderSuccess] =
-    useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
+  const [orderSuccess, setOrderSuccess] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     async function loadUser() {
-      const { data } =
-        await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
 
       if (!mounted) return;
 
-      const currentUser =
-        data?.user ?? null;
-
+      const currentUser = data?.user ?? null;
       setUser(currentUser);
 
       if (currentUser) {
-        await loadProfile(
-          currentUser.id
-        );
+        await loadProfile(currentUser.id);
       }
     }
 
@@ -194,15 +128,11 @@ function App() {
       async (_event, session) => {
         if (!mounted) return;
 
-        const currentUser =
-          session?.user ?? null;
-
+        const currentUser = session?.user ?? null;
         setUser(currentUser);
 
         if (currentUser) {
-          await loadProfile(
-            currentUser.id
-          );
+          await loadProfile(currentUser.id);
         } else {
           setProfile(null);
           setOrders([]);
@@ -217,39 +147,24 @@ function App() {
   }, []);
 
   async function loadProfile(userId) {
-    const { data, error } =
-      await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
 
     if (error) {
-      console.error(
-        "Profile loading error:",
-        error
-      );
+      console.error("Profile loading error:", error);
       return;
     }
 
     setProfile(data || null);
 
     if (data) {
-      setProfileName(
-        data.name || ""
-      );
-
-      setProfilePhone(
-        data.phone || ""
-      );
-
-      setCustomerName(
-        data.name || ""
-      );
-
-      setCustomerPhone(
-        data.phone || ""
-      );
+      setProfileName(data.name || "");
+      setProfilePhone(data.phone || "");
+      setCustomerName(data.name || "");
+      setCustomerPhone(data.phone || "");
     }
   }
 
@@ -280,13 +195,12 @@ function App() {
     setProductsLoading(true);
     setProductsError("");
 
-    const { data, error } =
-      await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
       console.error(error);
@@ -309,30 +223,26 @@ function App() {
     setOrdersLoading(true);
     setOrdersError("");
 
-    const { data, error } =
-      await supabase
-        .from("orders")
-        .select(`
-          *,
-          order_items (
-            id,
-            product_id,
-            product_name,
-            price,
-            quantity,
-            image_url
-          )
-        `)
-        .eq("user_id", user.id)
-        .order("created_at", {
-          ascending: false,
-        });
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        order_items (
+          id,
+          product_id,
+          product_name,
+          price,
+          quantity,
+          image_url
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
-      console.error(
-        "Orders loading error:",
-        error
-      );
+      console.error("Orders loading error:", error);
 
       setOrdersError(
         "We couldn't load your orders right now."
@@ -366,26 +276,17 @@ function App() {
 
     try {
       if (authMode === "signup") {
-        const cleanEmail =
-          email.trim();
-
-        const cleanName =
-          fullName.trim();
-
-        const cleanPhone =
-          phone.trim();
+        const cleanEmail = email.trim();
+        const cleanName = fullName.trim();
+        const cleanPhone = phone.trim();
 
         if (!cleanName) {
-          setAuthMessage(
-            "Please enter your full name."
-          );
+          setAuthMessage("Please enter your full name.");
           return;
         }
 
         if (!cleanPhone) {
-          setAuthMessage(
-            "Please enter your phone number."
-          );
+          setAuthMessage("Please enter your phone number.");
           return;
         }
 
@@ -402,23 +303,20 @@ function App() {
           });
 
         if (error) {
-          setAuthMessage(
-            error.message
-          );
+          setAuthMessage(error.message);
           return;
         }
 
         if (data?.user) {
-          const {
-            error: profileError,
-          } = await supabase
-            .from("profiles")
-            .upsert({
-              id: data.user.id,
-              name: cleanName,
-              phone: cleanPhone,
-              email: cleanEmail,
-            });
+          const { error: profileError } =
+            await supabase
+              .from("profiles")
+              .upsert({
+                id: data.user.id,
+                name: cleanName,
+                phone: cleanPhone,
+                email: cleanEmail,
+              });
 
           if (profileError) {
             console.error(
@@ -428,10 +326,7 @@ function App() {
           }
         }
 
-        if (
-          data?.user &&
-          !data.session
-        ) {
+        if (data?.user && !data.session) {
           setAuthMessage(
             "Account created successfully! Please check your email to confirm your account."
           );
@@ -444,13 +339,8 @@ function App() {
         setPassword("");
 
         if (data?.session) {
-          setCustomerName(
-            cleanName
-          );
-
-          setCustomerPhone(
-            cleanPhone
-          );
+          setCustomerName(cleanName);
+          setCustomerPhone(cleanPhone);
 
           setFullName("");
           setEmail("");
@@ -463,24 +353,18 @@ function App() {
       }
 
       const { data, error } =
-        await supabase.auth.signInWithPassword(
-          {
-            email: email.trim(),
-            password,
-          }
-        );
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
       if (error) {
-        setAuthMessage(
-          error.message
-        );
+        setAuthMessage(error.message);
         return;
       }
 
       if (data?.user) {
-        await loadProfile(
-          data.user.id
-        );
+        await loadProfile(data.user.id);
       }
 
       setEmail("");
@@ -488,10 +372,7 @@ function App() {
       setAuthMessage("");
       setAccountOpen(false);
     } catch (error) {
-      console.error(
-        "Authentication error:",
-        error
-      );
+      console.error("Authentication error:", error);
 
       setAuthMessage(
         error?.message ||
@@ -502,9 +383,7 @@ function App() {
     }
   }
 
-  async function saveProfileSettings(
-    event
-  ) {
+  async function saveProfileSettings(event) {
     event.preventDefault();
 
     if (!user) return;
@@ -513,16 +392,11 @@ function App() {
     setSettingsMessage("");
 
     try {
-      const cleanName =
-        profileName.trim();
-
-      const cleanPhone =
-        profilePhone.trim();
+      const cleanName = profileName.trim();
+      const cleanPhone = profilePhone.trim();
 
       if (!cleanName) {
-        setSettingsMessage(
-          "Please enter your name."
-        );
+        setSettingsMessage("Please enter your name.");
         return;
       }
 
@@ -533,33 +407,26 @@ function App() {
         return;
       }
 
-      const { error } =
-        await supabase
-          .from("profiles")
-          .upsert({
-            id: user.id,
-            name: cleanName,
-            phone: cleanPhone,
-            email:
-              user.email || "",
-          });
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({
+          id: user.id,
+          name: cleanName,
+          phone: cleanPhone,
+          email: user.email || "",
+        });
 
       if (error) {
         throw error;
       }
 
-      await loadProfile(
-        user.id
-      );
+      await loadProfile(user.id);
 
       setSettingsMessage(
         "Your account details have been updated successfully."
       );
     } catch (error) {
-      console.error(
-        "Settings error:",
-        error
-      );
+      console.error("Settings error:", error);
 
       setSettingsMessage(
         error?.message ||
@@ -570,19 +437,14 @@ function App() {
     }
   }
 
-  async function changePassword(
-    event
-  ) {
+  async function changePassword(event) {
     event.preventDefault();
 
     setPasswordLoading(true);
     setPasswordMessage("");
 
     try {
-      if (
-        !newPassword ||
-        newPassword.length < 6
-      ) {
+      if (!newPassword || newPassword.length < 6) {
         setPasswordMessage(
           "Password must be at least 6 characters."
         );
@@ -591,8 +453,7 @@ function App() {
 
       const { error } =
         await supabase.auth.updateUser({
-          password:
-            newPassword,
+          password: newPassword,
         });
 
       if (error) {
@@ -628,11 +489,11 @@ function App() {
     setAccountOpen(false);
   }
 
+  // ADD PRODUCT TO CART AND AUTOMATICALLY OPEN CART
   function addToCart(product) {
     setCart((items) => {
       const existing = items.find(
-        (item) =>
-          item.id === product.id
+        (item) => item.id === product.id
       );
 
       if (existing) {
@@ -640,8 +501,7 @@ function App() {
           item.id === product.id
             ? {
                 ...item,
-                quantity:
-                  item.quantity + 1,
+                quantity: item.quantity + 1,
               }
             : item
         );
@@ -655,6 +515,9 @@ function App() {
         },
       ];
     });
+
+    // Automatically open the cart after adding
+    setCartOpen(true);
   }
 
   function increaseQuantity(id) {
@@ -663,8 +526,7 @@ function App() {
         item.id === id
           ? {
               ...item,
-              quantity:
-                item.quantity + 1,
+              quantity: item.quantity + 1,
             }
           : item
       )
@@ -678,14 +540,12 @@ function App() {
           item.id === id
             ? {
                 ...item,
-                quantity:
-                  item.quantity - 1,
+                quantity: item.quantity - 1,
               }
             : item
         )
         .filter(
-          (item) =>
-            item.quantity > 0
+          (item) => item.quantity > 0
         )
     );
   }
@@ -693,8 +553,7 @@ function App() {
   function removeFromCart(id) {
     setCart((items) =>
       items.filter(
-        (item) =>
-          item.id !== id
+        (item) => item.id !== id
       )
     );
   }
@@ -705,22 +564,15 @@ function App() {
 
   const cartCount = cart.reduce(
     (total, item) =>
-      total +
-      Number(
-        item.quantity || 0
-      ),
+      total + Number(item.quantity || 0),
     0
   );
 
   const cartTotal = cart.reduce(
     (total, item) =>
       total +
-      Number(
-        item.price || 0
-      ) *
-        Number(
-          item.quantity || 0
-        ),
+      Number(item.price || 0) *
+        Number(item.quantity || 0),
     0
   );
 
@@ -744,28 +596,21 @@ function App() {
     setCheckoutOpen(true);
   }
 
-  async function saveOrder(
-    reference
-  ) {
+  async function saveOrder(reference) {
     const { data: order, error: orderError } =
       await supabase
         .from("orders")
         .insert({
           user_id: user.id,
-          customer_name:
-            customerName.trim(),
-          customer_phone:
-            customerPhone.trim(),
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
           delivery_address:
             deliveryAddress.trim(),
-          delivery_city:
-            deliveryCity.trim(),
-          delivery_state:
-            deliveryState.trim(),
+          delivery_city: deliveryCity.trim(),
+          delivery_state: deliveryState.trim(),
           total: cartTotal,
           status: "paid",
-          payment_reference:
-            reference,
+          payment_reference: reference,
         })
         .select()
         .single();
@@ -774,23 +619,14 @@ function App() {
       throw orderError;
     }
 
-    const items = cart.map(
-      (item) => ({
-        order_id: order.id,
-        product_id: item.id,
-        product_name:
-          item.name,
-        price: Number(
-          item.price || 0
-        ),
-        quantity: Number(
-          item.quantity || 1
-        ),
-        image_url:
-          item.image_url ||
-          null,
-      })
-    );
+    const items = cart.map((item) => ({
+      order_id: order.id,
+      product_id: item.id,
+      product_name: item.name,
+      price: Number(item.price || 0),
+      quantity: Number(item.quantity || 1),
+      image_url: item.image_url || null,
+    }));
 
     const { error: itemsError } =
       await supabase
@@ -801,10 +637,7 @@ function App() {
       await supabase
         .from("orders")
         .delete()
-        .eq(
-          "id",
-          order.id
-        );
+        .eq("id", order.id);
 
       throw itemsError;
     }
@@ -823,9 +656,7 @@ function App() {
     }
 
     if (!cart.length) {
-      setOrderMessage(
-        "Your cart is empty."
-      );
+      setOrderMessage("Your cart is empty.");
       return;
     }
 
@@ -836,155 +667,109 @@ function App() {
       const PaystackPop =
         await loadPaystackScript();
 
-      const amountInKobo =
-        Math.round(
-          cartTotal * 100
-        );
+      const amountInKobo = Math.round(
+        cartTotal * 100
+      );
 
-      const popup =
-        new PaystackPop();
+      const popup = new PaystackPop();
 
       popup.newTransaction({
         key: PAYSTACK_PUBLIC_KEY,
-
         email: user.email,
-
         amount: amountInKobo,
-
         currency: "NGN",
 
         metadata: {
           customer_name:
             customerName.trim(),
-
           customer_phone:
             customerPhone.trim(),
-
           delivery_address:
             deliveryAddress.trim(),
-
           delivery_city:
             deliveryCity.trim(),
-
           delivery_state:
             deliveryState.trim(),
-
           user_id: user.id,
         },
 
-        onSuccess:
-          async (
-            transaction
-          ) => {
-            try {
-              setOrderMessage(
-                "Payment successful. Verifying your payment..."
-              );
+        onSuccess: async (transaction) => {
+          try {
+            setOrderMessage(
+              "Payment successful. Verifying your payment..."
+            );
 
-              const reference =
-                transaction.reference;
+            const reference =
+              transaction.reference;
 
-              if (!reference) {
-                throw new Error(
-                  "Paystack did not return a payment reference."
-                );
-              }
-
-              const {
-                data:
-                  verificationData,
-                error:
-                  verificationError,
-              } =
-                await supabase.functions.invoke(
-                  "verify-paystack-payment",
-                  {
-                    body: {
-                      reference,
-                    },
-                  }
-                );
-
-              if (
-                verificationError
-              ) {
-                throw new Error(
-                  verificationError.message ||
-                    "Failed to verify Paystack payment."
-                );
-              }
-
-              if (
-                !verificationData?.success
-              ) {
-                throw new Error(
-                  verificationData?.error ||
-                    "Payment could not be verified."
-                );
-              }
-
-              const order =
-                await saveOrder(
-                  reference
-                );
-
-              setOrderSuccess(
-                true
-              );
-
-              setOrderMessage(
-                `Order placed successfully! Your order number is ${String(
-                  order.id
-                )
-                  .slice(
-                    0,
-                    8
-                  )
-                  .toUpperCase()}.`
-              );
-
-              setCart([]);
-
-              setCustomerName(
-                ""
-              );
-
-              setCustomerPhone(
-                ""
-              );
-
-              setDeliveryAddress(
-                ""
-              );
-
-              setDeliveryCity(
-                ""
-              );
-
-              setDeliveryState(
-                ""
-              );
-            } catch (error) {
-              console.error(
-                "Payment/order error:",
-                error
-              );
-
-              setOrderMessage(
-                error?.message ||
-                  "Payment was received, but we couldn't complete the order. Please contact Shindara Phoneflair."
-              );
-            } finally {
-              setOrderLoading(
-                false
+            if (!reference) {
+              throw new Error(
+                "Paystack did not return a payment reference."
               );
             }
-          },
+
+            const {
+              data: verificationData,
+              error: verificationError,
+            } = await supabase.functions.invoke(
+              "verify-paystack-payment",
+              {
+                body: {
+                  reference,
+                },
+              }
+            );
+
+            if (verificationError) {
+              throw new Error(
+                verificationError.message ||
+                  "Failed to verify Paystack payment."
+              );
+            }
+
+            if (!verificationData?.success) {
+              throw new Error(
+                verificationData?.error ||
+                  "Payment could not be verified."
+              );
+            }
+
+            const order =
+              await saveOrder(reference);
+
+            setOrderSuccess(true);
+
+            setOrderMessage(
+              `Order placed successfully! Your order number is ${String(
+                order.id
+              )
+                .slice(0, 8)
+                .toUpperCase()}.`
+            );
+
+            setCart([]);
+            setCustomerName("");
+            setCustomerPhone("");
+            setDeliveryAddress("");
+            setDeliveryCity("");
+            setDeliveryState("");
+          } catch (error) {
+            console.error(
+              "Payment/order error:",
+              error
+            );
+
+            setOrderMessage(
+              error?.message ||
+                "Payment was received, but we couldn't complete the order. Please contact Shindara Phoneflair."
+            );
+          } finally {
+            setOrderLoading(false);
+          }
+        },
 
         onCancel: () => {
-          setOrderLoading(
-            false
-          );
+          setOrderLoading(false);
 
           setOrderMessage(
             "Payment was cancelled. Your order has not been placed."
@@ -992,10 +777,7 @@ function App() {
         },
       });
     } catch (error) {
-      console.error(
-        "Paystack error:",
-        error
-      );
+      console.error("Paystack error:", error);
 
       setOrderMessage(
         error?.message ||
@@ -1007,10 +789,9 @@ function App() {
   }
 
   function whatsapp() {
-    const message =
-      encodeURIComponent(
-        "Hello Shindara Phoneflair, I would like to make an enquiry."
-      );
+    const message = encodeURIComponent(
+      "Hello Shindara Phoneflair, I would like to make an enquiry."
+    );
 
     window.open(
       `https://wa.me/${WHATSAPP}?text=${message}`,
@@ -1021,9 +802,7 @@ function App() {
   function formatDate(date) {
     if (!date) return "";
 
-    return new Date(
-      date
-    ).toLocaleDateString(
+    return new Date(date).toLocaleDateString(
       "en-NG",
       {
         day: "numeric",
@@ -1034,9 +813,7 @@ function App() {
   }
 
   function statusLabel(status) {
-    if (!status) {
-      return "Pending";
-    }
+    if (!status) return "Pending";
 
     return (
       status.charAt(0).toUpperCase() +
@@ -1046,78 +823,39 @@ function App() {
 
   return (
     <div className="app">
-
       <header className="header">
-
-        <a
-          href="#home"
-          className="logo"
-        >
+        <a href="#home" className="logo">
           Shindara
-          <span>
-            Phoneflair
-          </span>
+          <span>Phoneflair</span>
         </a>
 
         <nav className="nav">
-
-          <a href="#home">
-            Home
-          </a>
-
-          <a href="#shop">
-            Shop
-          </a>
-
-          <a href="#categories">
-            Categories
-          </a>
-
-          <a href="#contact">
-            Contact
-          </a>
-
+          <a href="#home">Home</a>
+          <a href="#shop">Shop</a>
+          <a href="#categories">Categories</a>
+          <a href="#contact">Contact</a>
         </nav>
 
         <div className="header-actions">
-
           <button
             className="account-button"
-            onClick={
-              openAccount
-            }
+            onClick={openAccount}
           >
-            👤{" "}
-            {user
-              ? "Account"
-              : "Sign in"}
+            👤 {user ? "Account" : "Sign in"}
           </button>
 
           <button
             className="cart-button"
-            onClick={() =>
-              setCartOpen(
-                true
-              )
-            }
+            onClick={() => setCartOpen(true)}
           >
-            🛒 Cart (
-            {cartCount})
+            🛒 Cart ({cartCount})
           </button>
-
         </div>
-
       </header>
 
       <main>
-
-        <section
-          className="hero"
-          id="home"
-        >
-
+        <section className="hero" id="home">
           <div className="hero-content">
-
             <p className="eyebrow">
               SHINDARA PHONEFLAIR
             </p>
@@ -1141,327 +879,201 @@ function App() {
             >
               Shop now →
             </a>
-
           </div>
-
         </section>
 
         <section
           className="section"
           id="categories"
         >
+          <p className="eyebrow">EXPLORE</p>
 
-          <p className="eyebrow">
-            EXPLORE
-          </p>
-
-          <h2>
-            Shop by category
-          </h2>
+          <h2>Shop by category</h2>
 
           <div className="category-grid">
-
             {[
-              [
-                "📱",
-                "Smartphones",
-              ],
-              [
-                "🛡️",
-                "Phone Cases",
-              ],
-              [
-                "⚡",
-                "Chargers",
-              ],
-              [
-                "🎧",
-                "Audio",
-              ],
-              [
-                "🔋",
-                "Power Banks",
-              ],
-              [
-                "✨",
-                "Gadgets",
-              ],
-            ].map(
-              ([icon, name]) => (
+              ["📱", "Smartphones"],
+              ["🛡️", "Phone Cases"],
+              ["⚡", "Chargers"],
+              ["🎧", "Audio"],
+              ["🔋", "Power Banks"],
+              ["✨", "Gadgets"],
+            ].map(([icon, name]) => (
+              <a
+                href="#shop"
+                className="category-card"
+                key={name}
+              >
+                <span>{icon}</span>
 
-                <a
-                  href="#shop"
-                  className="category-card"
-                  key={name}
-                >
-
-                  <span>
-                    {icon}
-                  </span>
-
-                  <strong>
-                    {name}
-                  </strong>
-
-                </a>
-
-              )
-            )}
-
+                <strong>{name}</strong>
+              </a>
+            ))}
           </div>
-
         </section>
 
         <section
           className="section"
           id="shop"
         >
-
           <p className="eyebrow">
             SHINDARA STORE
           </p>
 
-          <h2>
-            Popular picks
-          </h2>
+          <h2>Popular picks</h2>
 
           {productsLoading ? (
-
             <div
               style={{
-                padding:
-                  "50px",
-                textAlign:
-                  "center",
+                padding: "50px",
+                textAlign: "center",
               }}
             >
               Loading products...
             </div>
-
           ) : productsError ? (
-
             <div
               style={{
-                padding:
-                  "50px",
-                textAlign:
-                  "center",
+                padding: "50px",
+                textAlign: "center",
               }}
             >
-
-              <p>
-                {productsError}
-              </p>
+              <p>{productsError}</p>
 
               <button
                 className="add-button"
-                onClick={
-                  loadProducts
-                }
+                onClick={loadProducts}
               >
                 Try again
               </button>
-
             </div>
-
-          ) : products.length ===
-            0 ? (
-
+          ) : products.length === 0 ? (
             <div
               style={{
-                padding:
-                  "50px",
-                textAlign:
-                  "center",
+                padding: "50px",
+                textAlign: "center",
               }}
             >
               <p>
                 Products are coming soon.
               </p>
             </div>
-
           ) : (
-
             <div className="product-grid">
+              {products.map((product) => (
+                <article
+                  className="product-card"
+                  key={product.id}
+                >
+                  <div className="product-image">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <span>📦</span>
+                    )}
+                  </div>
 
-              {products.map(
-                (product) => (
+                  <div className="product-info">
+                    <p className="product-category">
+                      {product.category ||
+                        "Electronics"}
+                    </p>
 
-                  <article
-                    className="product-card"
-                    key={product.id}
-                  >
+                    <h3>{product.name}</h3>
 
-                    <div className="product-image">
-
-                      {product.image_url ? (
-
-                        <img
-                          src={
-                            product.image_url
-                          }
-                          alt={
-                            product.name
-                          }
-                          style={{
-                            width:
-                              "100%",
-                            height:
-                              "100%",
-                            objectFit:
-                              "cover",
-                          }}
-                        />
-
-                      ) : (
-
-                        <span>
-                          📦
-                        </span>
-
-                      )}
-
-                    </div>
-
-                    <div className="product-info">
-
-                      <p className="product-category">
-                        {product.category ||
-                          "Electronics"}
+                    {product.description && (
+                      <p
+                        style={{
+                          opacity: 0.7,
+                          fontSize: "14px",
+                          lineHeight: "1.5",
+                        }}
+                      >
+                        {product.description}
                       </p>
+                    )}
 
-                      <h3>
-                        {product.name}
-                      </h3>
+                    <p className="price">
+                      {money(product.price)}
+                    </p>
 
-                      {product.description && (
-                        <p
-                          style={{
-                            opacity:
-                              0.7,
-                            fontSize:
-                              "14px",
-                            lineHeight:
-                              "1.5",
-                          }}
-                        >
-                          {
-                            product.description
-                          }
-                        </p>
-                      )}
-
-                      <p className="price">
-                        {money(
-                          product.price
-                        )}
-                      </p>
-
-                      {Number(
-                        product.stock ||
-                          0
-                      ) > 0 ? (
-
-                        <button
-                          className="add-button"
-                          onClick={() =>
-                            addToCart(
-                              product
-                            )
-                          }
-                        >
-                          Add to cart
-                        </button>
-
-                      ) : (
-
-                        <button
-                          className="add-button"
-                          disabled
-                        >
-                          Out of stock
-                        </button>
-
-                      )}
-
-                    </div>
-
-                  </article>
-
-                )
-              )}
-
+                    {Number(
+                      product.stock || 0
+                    ) > 0 ? (
+                      <button
+                        className="add-button"
+                        onClick={() =>
+                          addToCart(product)
+                        }
+                      >
+                        Add to cart
+                      </button>
+                    ) : (
+                      <button
+                        className="add-button"
+                        disabled
+                      >
+                        Out of stock
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
             </div>
-
           )}
-
         </section>
 
         <section className="trust-section">
-
           <div>
-            <span>
-              🚚
-            </span>
+            <span>🚚</span>
 
-            <h3>
-              Reliable delivery
-            </h3>
+            <h3>Reliable delivery</h3>
 
             <p>
-              Get your order delivered
-              safely.
+              Get your order delivered safely.
             </p>
           </div>
 
           <div>
-            <span>
-              🔒
-            </span>
+            <span>🔒</span>
 
-            <h3>
-              Secure shopping
-            </h3>
+            <h3>Secure shopping</h3>
 
-            <p>
-              Shop with confidence.
-            </p>
+            <p>Shop with confidence.</p>
           </div>
 
           <div>
-            <span>
-              💬
-            </span>
+            <span>💬</span>
 
-            <h3>
-              Customer support
-            </h3>
+            <h3>Customer support</h3>
 
             <p>
-              We're here whenever
-              you need us.
+              We're here whenever you need us.
             </p>
           </div>
-
         </section>
-
       </main>
 
       <footer id="contact">
-
         <div>
-
           <strong className="footer-logo">
             Shindara Phoneflair
           </strong>
 
           <p>
-            Phones • Accessories •
-            Gadgets • Electronics
+            Phones • Accessories • Gadgets •
+            Electronics
           </p>
 
           <div className="social-links">
-
             <button
               className="social-button"
               onClick={whatsapp}
@@ -1477,15 +1089,10 @@ function App() {
             >
               🎵 TikTok
             </a>
-
           </div>
-
         </div>
 
-        <p>
-          © 2026 Shindara Phoneflair
-        </p>
-
+        <p>© 2026 Shindara Phoneflair</p>
       </footer>
 
       <button
@@ -1498,289 +1105,199 @@ function App() {
       {/* CART */}
 
       {cartOpen && (
-
         <div
           className="cart-overlay"
-          onClick={() =>
-            setCartOpen(false)
-          }
+          onClick={() => setCartOpen(false)}
         >
-
           <aside
             className="cart-drawer"
             onClick={(event) =>
               event.stopPropagation()
             }
           >
-
             <div className="cart-header">
-
               <div>
-
                 <p className="eyebrow">
                   SHINDARA
                 </p>
 
-                <h2>
-                  Your Cart
-                </h2>
-
+                <h2>Your Cart</h2>
               </div>
 
               <button
                 className="modal-close"
                 onClick={() =>
-                  setCartOpen(
-                    false
-                  )
+                  setCartOpen(false)
                 }
               >
                 ×
               </button>
-
             </div>
 
-            {cart.length ===
-            0 ? (
-
+            {cart.length === 0 ? (
               <div
                 style={{
-                  textAlign:
-                    "center",
-                  padding:
-                    "60px 20px",
+                  textAlign: "center",
+                  padding: "60px 20px",
                 }}
               >
-
                 <div
                   style={{
-                    fontSize:
-                      "55px",
+                    fontSize: "55px",
                   }}
                 >
                   🛒
                 </div>
 
-                <h3>
-                  Your cart is empty
-                </h3>
+                <h3>Your cart is empty</h3>
 
                 <p>
-                  Add something you
-                  love from our
-                  store.
+                  Add something you love
+                  from our store.
                 </p>
 
                 <button
                   className="modal-action"
                   onClick={() =>
-                    setCartOpen(
-                      false
-                    )
+                    setCartOpen(false)
                   }
                 >
                   Continue shopping
                 </button>
-
               </div>
-
             ) : (
-
               <>
-
                 <div className="cart-items">
+                  {cart.map((item) => (
+                    <div
+                      className="cart-item"
+                      key={item.id}
+                    >
+                      <div className="cart-item-image">
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                          />
+                        ) : (
+                          <span>📦</span>
+                        )}
+                      </div>
 
-                  {cart.map(
-                    (item) => (
+                      <div className="cart-item-info">
+                        <h3>{item.name}</h3>
 
-                      <div
-                        className="cart-item"
-                        key={item.id}
-                      >
+                        <p>
+                          {money(item.price)}
+                        </p>
 
-                        <div className="cart-item-image">
-
-                          {item.image_url ? (
-
-                            <img
-                              src={
-                                item.image_url
-                              }
-                              alt={
-                                item.name
-                              }
-                            />
-
-                          ) : (
-
-                            <span>
-                              📦
-                            </span>
-
-                          )}
-
-                        </div>
-
-                        <div className="cart-item-info">
-
-                          <h3>
-                            {
-                              item.name
-                            }
-                          </h3>
-
-                          <p>
-                            {money(
-                              item.price
-                            )}
-                          </p>
-
-                          <div className="quantity-controls">
-
-                            <button
-                              onClick={() =>
-                                decreaseQuantity(
-                                  item.id
-                                )
-                              }
-                            >
-                              −
-                            </button>
-
-                            <strong>
-                              {
-                                item.quantity
-                              }
-                            </strong>
-
-                            <button
-                              onClick={() =>
-                                increaseQuantity(
-                                  item.id
-                                )
-                              }
-                            >
-                              +
-                            </button>
-
-                          </div>
-
+                        <div className="quantity-controls">
                           <button
-                            className="remove-cart-item"
                             onClick={() =>
-                              removeFromCart(
+                              decreaseQuantity(
                                 item.id
                               )
                             }
                           >
-                            Remove
+                            −
                           </button>
 
+                          <strong>
+                            {item.quantity}
+                          </strong>
+
+                          <button
+                            onClick={() =>
+                              increaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            +
+                          </button>
                         </div>
 
+                        <button
+                          className="remove-cart-item"
+                          onClick={() =>
+                            removeFromCart(
+                              item.id
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
                       </div>
-
-                    )
-                  )}
-
+                    </div>
+                  ))}
                 </div>
 
                 <div className="cart-footer">
-
                   <div className="cart-total">
-
-                    <span>
-                      Total
-                    </span>
+                    <span>Total</span>
 
                     <strong>
-                      {money(
-                        cartTotal
-                      )}
+                      {money(cartTotal)}
                     </strong>
-
                   </div>
 
                   <button
                     className="checkout-button"
-                    onClick={
-                      openCheckout
-                    }
+                    onClick={openCheckout}
                   >
                     Continue to checkout →
                   </button>
 
                   <button
                     className="clear-cart-button"
-                    onClick={
-                      clearCart
-                    }
+                    onClick={clearCart}
                   >
                     Clear cart
                   </button>
-
                 </div>
-
               </>
-
             )}
-
           </aside>
-
         </div>
-
       )}
 
       {/* CHECKOUT */}
 
       {checkoutOpen && (
-
         <div
           className="modal-backdrop"
           onClick={() =>
             !orderLoading &&
-            setCheckoutOpen(
-              false
-            )
+            setCheckoutOpen(false)
           }
         >
-
           <div
             className="account-modal checkout-modal"
             onClick={(event) =>
               event.stopPropagation()
             }
           >
-
             <button
               className="modal-close"
               onClick={() =>
                 !orderLoading &&
-                setCheckoutOpen(
-                  false
-                )
+                setCheckoutOpen(false)
               }
             >
               ×
             </button>
 
             {orderSuccess ? (
-
               <div
                 style={{
-                  textAlign:
-                    "center",
-                  padding:
-                    "25px 5px",
+                  textAlign: "center",
+                  padding: "25px 5px",
                 }}
               >
-
                 <div
                   style={{
-                    fontSize:
-                      "60px",
-                    marginBottom:
-                      "15px",
+                    fontSize: "60px",
+                    marginBottom: "15px",
                   }}
                 >
                   ✅
@@ -1790,9 +1307,7 @@ function App() {
                   ORDER RECEIVED
                 </p>
 
-                <h2>
-                  Thank you!
-                </h2>
+                <h2>Thank you!</h2>
 
                 <p className="auth-message">
                   {orderMessage}
@@ -1801,57 +1316,41 @@ function App() {
                 <button
                   className="modal-action"
                   onClick={() =>
-                    setCheckoutOpen(
-                      false
-                    )
+                    setCheckoutOpen(false)
                   }
                 >
                   Continue shopping
                 </button>
-
               </div>
-
             ) : (
-
               <>
-
                 <p className="eyebrow">
                   SHINDARA CHECKOUT
                 </p>
 
-                <h2>
-                  Delivery details
-                </h2>
+                <h2>Delivery details</h2>
 
                 <p
                   style={{
-                    opacity:
-                      0.7,
-                    marginBottom:
-                      "20px",
+                    opacity: 0.7,
+                    marginBottom: "20px",
                   }}
                 >
-                  Tell us where to
-                  deliver your order.
+                  Tell us where to deliver
+                  your order.
                 </p>
 
                 <form
                   className="auth-form"
-                  onSubmit={
-                    placeOrder
-                  }
+                  onSubmit={placeOrder}
                 >
-
                   <input
                     type="text"
                     placeholder="Full name"
-                    value={
-                      customerName
-                    }
+                    value={customerName}
                     onChange={(event) =>
                       setCustomerName(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
@@ -1860,13 +1359,10 @@ function App() {
                   <input
                     type="tel"
                     placeholder="Phone number"
-                    value={
-                      customerPhone
-                    }
+                    value={customerPhone}
                     onChange={(event) =>
                       setCustomerPhone(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
@@ -1875,13 +1371,10 @@ function App() {
                   <input
                     type="text"
                     placeholder="Delivery address"
-                    value={
-                      deliveryAddress
-                    }
+                    value={deliveryAddress}
                     onChange={(event) =>
                       setDeliveryAddress(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
@@ -1890,13 +1383,10 @@ function App() {
                   <input
                     type="text"
                     placeholder="City"
-                    value={
-                      deliveryCity
-                    }
+                    value={deliveryCity}
                     onChange={(event) =>
                       setDeliveryCity(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
@@ -1905,13 +1395,10 @@ function App() {
                   <input
                     type="text"
                     placeholder="State"
-                    value={
-                      deliveryState
-                    }
+                    value={deliveryState}
                     onChange={(event) =>
                       setDeliveryState(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
@@ -1919,29 +1406,21 @@ function App() {
 
                   <div
                     style={{
-                      display:
-                        "flex",
+                      display: "flex",
                       justifyContent:
                         "space-between",
-                      alignItems:
-                        "center",
-                      padding:
-                        "15px 0",
-                      fontSize:
-                        "18px",
+                      alignItems: "center",
+                      padding: "15px 0",
+                      fontSize: "18px",
                     }}
                   >
-
                     <strong>
                       Order total
                     </strong>
 
                     <strong>
-                      {money(
-                        cartTotal
-                      )}
+                      {money(cartTotal)}
                     </strong>
-
                   </div>
 
                   {orderMessage && (
@@ -1953,9 +1432,7 @@ function App() {
                   <button
                     className="modal-action"
                     type="submit"
-                    disabled={
-                      orderLoading
-                    }
+                    disabled={orderLoading}
                   >
                     {orderLoading
                       ? "Opening Paystack..."
@@ -1963,58 +1440,42 @@ function App() {
                           cartTotal
                         )}`}
                   </button>
-
                 </form>
-
               </>
-
             )}
-
           </div>
-
         </div>
-
       )}
 
       {/* CUSTOMER ACCOUNT */}
 
       {accountOpen && (
-
         <div
           className="modal-backdrop"
           onClick={() =>
-            setAccountOpen(
-              false
-            )
+            setAccountOpen(false)
           }
         >
-
           <div
             className="account-modal"
             style={{
-              maxWidth:
-                "620px",
+              maxWidth: "620px",
             }}
             onClick={(event) =>
               event.stopPropagation()
             }
           >
-
             <button
               className="modal-close"
               onClick={() =>
-                setAccountOpen(
-                  false
-                )
+                setAccountOpen(false)
               }
             >
               ×
             </button>
 
             {user ? (
-
               <>
-
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
                 </p>
@@ -2029,21 +1490,15 @@ function App() {
                     : "My Account"}
                 </h2>
 
-                {/* ACCOUNT NAVIGATION */}
-
                 <div
                   style={{
-                    display:
-                      "grid",
+                    display: "grid",
                     gridTemplateColumns:
                       "repeat(3, 1fr)",
-                    gap:
-                      "8px",
-                    margin:
-                      "25px 0",
+                    gap: "8px",
+                    margin: "25px 0",
                   }}
                 >
-
                   <button
                     className={
                       accountTab ===
@@ -2052,12 +1507,8 @@ function App() {
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab(
-                        "profile"
-                      );
-                      setSettingsMessage(
-                        ""
-                      );
+                      setAccountTab("profile");
+                      setSettingsMessage("");
                     }}
                   >
                     👤 Profile
@@ -2071,9 +1522,7 @@ function App() {
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab(
-                        "orders"
-                      );
+                      setAccountTab("orders");
                       loadOrders();
                     }}
                   >
@@ -2088,42 +1537,26 @@ function App() {
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab(
-                        "settings"
-                      );
-                      setSettingsMessage(
-                        ""
-                      );
-                      setPasswordMessage(
-                        ""
-                      );
+                      setAccountTab("settings");
+                      setSettingsMessage("");
+                      setPasswordMessage("");
                     }}
                   >
                     ⚙️ Settings
                   </button>
-
                 </div>
 
-                {/* PROFILE */}
-
-                {accountTab ===
-                  "profile" && (
-
+                {accountTab === "profile" && (
                   <div>
-
                     <div
                       style={{
-                        padding:
-                          "20px",
-                        borderRadius:
-                          "18px",
+                        padding: "20px",
+                        borderRadius: "18px",
                         background:
                           "rgba(128,128,128,0.08)",
-                        marginBottom:
-                          "15px",
+                        marginBottom: "15px",
                       }}
                     >
-
                       <p className="eyebrow">
                         PERSONAL INFORMATION
                       </p>
@@ -2134,8 +1567,7 @@ function App() {
                       </h3>
 
                       <p>
-                        📧{" "}
-                        {user.email}
+                        📧 {user.email}
                       </p>
 
                       <p>
@@ -2143,7 +1575,6 @@ function App() {
                         {profile?.phone ||
                           "Phone number not added"}
                       </p>
-
                     </div>
 
                     <button
@@ -2160,92 +1591,61 @@ function App() {
                     <button
                       className="modal-secondary"
                       style={{
-                        marginTop:
-                          "10px",
+                        marginTop: "10px",
                       }}
                       onClick={() => {
-                        setAccountTab(
-                          "orders"
-                        );
+                        setAccountTab("orders");
                         loadOrders();
                       }}
                     >
                       View my orders
                     </button>
-
                   </div>
                 )}
 
-                {/* ORDERS */}
-
-                {accountTab ===
-                  "orders" && (
-
+                {accountTab === "orders" && (
                   <div>
-
                     <p className="eyebrow">
                       ORDER HISTORY
                     </p>
 
-                    <h3>
-                      My Orders
-                    </h3>
+                    <h3>My Orders</h3>
 
                     {ordersLoading ? (
-
                       <div
                         style={{
-                          padding:
-                            "35px 10px",
-                          textAlign:
-                            "center",
+                          padding: "35px 10px",
+                          textAlign: "center",
                         }}
                       >
                         Loading your orders...
                       </div>
-
                     ) : ordersError ? (
-
                       <div
                         style={{
-                          padding:
-                            "20px",
-                          textAlign:
-                            "center",
+                          padding: "20px",
+                          textAlign: "center",
                         }}
                       >
-
-                        <p>
-                          {ordersError}
-                        </p>
+                        <p>{ordersError}</p>
 
                         <button
                           className="modal-action"
-                          onClick={
-                            loadOrders
-                          }
+                          onClick={loadOrders}
                         >
                           Try again
                         </button>
-
                       </div>
-
-                    ) : orders.length ===
-                      0 ? (
-
+                    ) : orders.length === 0 ? (
                       <div
                         style={{
-                          textAlign:
-                            "center",
-                          padding:
-                            "35px 10px",
+                          textAlign: "center",
+                          padding: "35px 10px",
                         }}
                       >
-
                         <div
                           style={{
-                            fontSize:
-                              "50px",
+                            fontSize: "50px",
                           }}
                         >
                           📦
@@ -2273,23 +1673,15 @@ function App() {
                         >
                           Start shopping
                         </button>
-
                       </div>
-
                     ) : (
-
                       <div>
-
                         {orders.map(
                           (order) => (
-
                             <div
-                              key={
-                                order.id
-                              }
+                              key={order.id}
                               style={{
-                                padding:
-                                  "18px",
+                                padding: "18px",
                                 border:
                                   "1px solid rgba(128,128,128,0.2)",
                                 borderRadius:
@@ -2298,22 +1690,18 @@ function App() {
                                   "12px",
                               }}
                             >
-
                               <div
                                 style={{
                                   display:
                                     "flex",
                                   justifyContent:
                                     "space-between",
-                                  gap:
-                                    "12px",
+                                  gap: "12px",
                                   alignItems:
                                     "flex-start",
                                 }}
                               >
-
                                 <div>
-
                                   <strong>
                                     Order #
                                     {String(
@@ -2340,7 +1728,6 @@ function App() {
                                       order.created_at
                                     )}
                                   </p>
-
                                 </div>
 
                                 <span
@@ -2359,7 +1746,6 @@ function App() {
                                     order.status
                                   )}
                                 </span>
-
                               </div>
 
                               <div
@@ -2374,7 +1760,6 @@ function App() {
                                     "12px",
                                 }}
                               >
-
                                 <strong>
                                   {money(
                                     order.total
@@ -2397,12 +1782,10 @@ function App() {
                                     ? "Hide items"
                                     : "View items"}
                                 </button>
-
                               </div>
 
                               {expandedOrder ===
                                 order.id && (
-
                                 <div
                                   style={{
                                     marginTop:
@@ -2413,12 +1796,8 @@ function App() {
                                       "1px solid rgba(128,128,128,0.15)",
                                   }}
                                 >
-
                                   {order.order_items?.map(
-                                    (
-                                      item
-                                    ) => (
-
+                                    (item) => (
                                       <div
                                         key={
                                           item.id
@@ -2428,15 +1807,12 @@ function App() {
                                             "flex",
                                           justifyContent:
                                             "space-between",
-                                          gap:
-                                            "10px",
+                                          gap: "10px",
                                           padding:
                                             "8px 0",
                                         }}
                                       >
-
                                         <div>
-
                                           <strong>
                                             {
                                               item.product_name
@@ -2456,7 +1832,6 @@ function App() {
                                               item.quantity
                                             }
                                           </div>
-
                                         </div>
 
                                         <strong>
@@ -2469,35 +1844,21 @@ function App() {
                                               )
                                           )}
                                         </strong>
-
                                       </div>
-
                                     )
                                   )}
-
                                 </div>
-
                               )}
-
                             </div>
-
                           )
                         )}
-
                       </div>
-
                     )}
-
                   </div>
                 )}
 
-                {/* SETTINGS */}
-
-                {accountTab ===
-                  "settings" && (
-
+                {accountTab === "settings" && (
                   <div>
-
                     <p className="eyebrow">
                       ACCOUNT SETTINGS
                     </p>
@@ -2512,20 +1873,13 @@ function App() {
                         saveProfileSettings
                       }
                     >
-
                       <input
                         type="text"
                         placeholder="Full name"
-                        value={
-                          profileName
-                        }
-                        onChange={(
-                          event
-                        ) =>
+                        value={profileName}
+                        onChange={(event) =>
                           setProfileName(
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
                         required
@@ -2534,16 +1888,10 @@ function App() {
                       <input
                         type="tel"
                         placeholder="Phone number"
-                        value={
-                          profilePhone
-                        }
-                        onChange={(
-                          event
-                        ) =>
+                        value={profilePhone}
+                        onChange={(event) =>
                           setProfilePhone(
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
                         required
@@ -2552,8 +1900,7 @@ function App() {
                       <input
                         type="email"
                         value={
-                          user.email ||
-                          ""
+                          user.email || ""
                         }
                         disabled
                       />
@@ -2569,28 +1916,22 @@ function App() {
                           ? "Saving..."
                           : "Save changes"}
                       </button>
-
                     </form>
 
                     {settingsMessage && (
                       <p className="auth-message">
-                        {
-                          settingsMessage
-                        }
+                        {settingsMessage}
                       </p>
                     )}
 
                     <div
                       style={{
-                        marginTop:
-                          "30px",
-                        paddingTop:
-                          "25px",
+                        marginTop: "30px",
+                        paddingTop: "25px",
                         borderTop:
                           "1px solid rgba(128,128,128,0.15)",
                       }}
                     >
-
                       <p className="eyebrow">
                         SECURITY
                       </p>
@@ -2605,25 +1946,18 @@ function App() {
                           changePassword
                         }
                       >
-
                         <input
                           type="password"
                           placeholder="New password"
                           value={
                             newPassword
                           }
-                          onChange={(
-                            event
-                          ) =>
+                          onChange={(event) =>
                             setNewPassword(
-                              event
-                                .target
-                                .value
+                              event.target.value
                             )
                           }
-                          minLength={
-                            6
-                          }
+                          minLength={6}
                           required
                         />
 
@@ -2638,76 +1972,52 @@ function App() {
                             ? "Changing..."
                             : "Change password"}
                         </button>
-
                       </form>
 
                       {passwordMessage && (
                         <p className="auth-message">
-                          {
-                            passwordMessage
-                          }
+                          {passwordMessage}
                         </p>
                       )}
-
                     </div>
 
                     <button
                       className="modal-secondary"
                       style={{
-                        marginTop:
-                          "25px",
+                        marginTop: "25px",
                       }}
-                      onClick={
-                        logout
-                      }
+                      onClick={logout}
                     >
                       🚪 Log out
                     </button>
-
                   </div>
                 )}
-
               </>
-
             ) : (
-
               <>
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
                 </p>
 
                 <h2>
-                  {authMode ===
-                  "signup"
+                  {authMode === "signup"
                     ? "Create your account"
                     : "Welcome back"}
                 </h2>
 
                 <form
                   className="auth-form"
-                  onSubmit={
-                    handleAuth
-                  }
+                  onSubmit={handleAuth}
                 >
-
-                  {authMode ===
-                    "signup" && (
-
+                  {authMode === "signup" && (
                     <>
-
                       <input
                         type="text"
                         placeholder="Full name"
-                        value={
-                          fullName
-                        }
-                        onChange={(
-                          event
-                        ) =>
+                        value={fullName}
+                        onChange={(event) =>
                           setFullName(
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
                         required
@@ -2716,37 +2026,24 @@ function App() {
                       <input
                         type="tel"
                         placeholder="Phone number"
-                        value={
-                          phone
-                        }
-                        onChange={(
-                          event
-                        ) =>
+                        value={phone}
+                        onChange={(event) =>
                           setPhone(
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
                         required
                       />
-
                     </>
                   )}
 
                   <input
                     type="email"
                     placeholder="Email address"
-                    value={
-                      email
-                    }
-                    onChange={(
-                      event
-                    ) =>
+                    value={email}
+                    onChange={(event) =>
                       setEmail(
-                        event
-                          .target
-                          .value
+                        event.target.value
                       )
                     }
                     required
@@ -2755,30 +2052,20 @@ function App() {
                   <input
                     type="password"
                     placeholder="Password"
-                    value={
-                      password
-                    }
-                    onChange={(
-                      event
-                    ) =>
+                    value={password}
+                    onChange={(event) =>
                       setPassword(
-                        event
-                          .target
-                          .value
+                        event.target.value
                       )
                     }
-                    minLength={
-                      6
-                    }
+                    minLength={6}
                     required
                   />
 
                   <button
                     className="modal-action"
                     type="submit"
-                    disabled={
-                      authLoading
-                    }
+                    disabled={authLoading}
                   >
                     {authLoading
                       ? "Please wait..."
@@ -2787,48 +2074,35 @@ function App() {
                       ? "Create account"
                       : "Sign in"}
                   </button>
-
                 </form>
 
                 {authMessage && (
                   <p className="auth-message">
-                    {
-                      authMessage
-                    }
+                    {authMessage}
                   </p>
                 )}
 
                 <button
                   className="modal-secondary"
                   onClick={() => {
-                    setAuthMessage(
-                      ""
-                    );
+                    setAuthMessage("");
 
                     setAuthMode(
-                      authMode ===
-                        "login"
+                      authMode === "login"
                         ? "signup"
                         : "login"
                     );
                   }}
                 >
-                  {authMode ===
-                  "login"
+                  {authMode === "login"
                     ? "Create a new account"
                     : "Already have an account? Sign in"}
                 </button>
-
               </>
-
             )}
-
           </div>
-
         </div>
-
       )}
-
     </div>
   );
 }
