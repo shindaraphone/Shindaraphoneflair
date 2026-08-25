@@ -22,7 +22,7 @@ function Admin() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [deletingProduct, setDeletingProduct] = useState(false);
+  const [deletingProductId, setDeletingProductId] = useState(null);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -61,7 +61,7 @@ function Admin() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("LOAD ORDERS ERROR:", error);
+      console.error("LOAD ORDERS:", error);
       setMessage(error.message);
       setOrders([]);
     } else {
@@ -80,7 +80,7 @@ function Admin() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("LOAD PRODUCTS ERROR:", error);
+      console.error("LOAD PRODUCTS:", error);
       setMessage(error.message);
       setProducts([]);
     } else {
@@ -101,7 +101,7 @@ function Admin() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("LOAD CUSTOMERS ERROR:", error);
+      console.error("LOAD CUSTOMERS:", error);
       setMessage(error.message);
       setCustomers([]);
       setCustomersLoading(false);
@@ -166,11 +166,6 @@ function Admin() {
   }
 
   function openEditProduct(product) {
-    if (!product?.id) {
-      setMessage("❌ This product has no valid ID.");
-      return;
-    }
-
     setEditingProduct(product);
 
     setProductForm({
@@ -218,9 +213,7 @@ function Admin() {
   }
 
   async function uploadProductImage(file) {
-    if (!file) {
-      return productForm.image_url || null;
-    }
+    if (!file) return productForm.image_url || null;
 
     setUploadingImage(true);
 
@@ -250,12 +243,6 @@ function Admin() {
       setUploadingImage(false);
     }
   }
-
-  /*
-  ============================================
-  SAVE / ADD / EDIT PRODUCT
-  ============================================
-  */
 
   async function saveProduct(event) {
     event.preventDefault();
@@ -305,198 +292,157 @@ function Admin() {
         featured: Boolean(productForm.featured),
       };
 
-      console.log("PRODUCT DATA:", productData);
-
-      /*
-      ============================================
-      EDIT PRODUCT
-      ============================================
-      */
-
       if (editingProduct) {
-        if (!editingProduct.id) {
-          throw new Error(
-            "This product does not have a valid ID."
-          );
-        }
-
         const { data, error } = await supabase
           .from("products")
           .update(productData)
           .eq("id", editingProduct.id)
-          .select("*")
-          .single();
-
-        console.log("UPDATE RESULT:", {
-          data,
-          error,
-        });
+          .select()
+          .maybeSingle();
 
         if (error) {
-          throw new Error(
-            `Product update failed: ${error.message}`
-          );
+          throw error;
         }
 
         if (!data) {
           throw new Error(
-            "Product was not updated. Supabase returned no data."
+            "Product could not be updated. Supabase did not return the product. Check your Products UPDATE policy."
           );
         }
 
-        setMessage(
-          `✅ "${data.name}" updated successfully.`
+        setProducts((current) =>
+          current.map((product) =>
+            product.id === editingProduct.id
+              ? data
+              : product
+          )
         );
-      }
 
-      /*
-      ============================================
-      ADD NEW PRODUCT
-      ============================================
-      */
-
-      else {
+        setMessage("Product updated successfully.");
+      } else {
         const { data, error } = await supabase
           .from("products")
           .insert([productData])
-          .select("*")
-          .single();
-
-        console.log("INSERT RESULT:", {
-          data,
-          error,
-        });
+          .select()
+          .maybeSingle();
 
         if (error) {
-          throw new Error(
-            `Product could not be added: ${error.message}`
-          );
+          throw error;
         }
 
         if (!data) {
           throw new Error(
-            "Product was not created. Supabase returned no data."
+            "Product could not be added. Supabase did not return the new product. Check your Products INSERT policy."
           );
         }
 
-        console.log("NEW PRODUCT:", data);
+        setProducts((current) => [
+          data,
+          ...current,
+        ]);
 
-        setMessage(
-          `✅ "${data.name}" added successfully.`
-        );
+        setMessage("Product added successfully.");
       }
 
       setProductModal(false);
       setEditingProduct(null);
       resetProductForm();
-
-      await loadProducts();
-
       setActiveSection("products");
 
+      await loadProducts();
     } catch (error) {
-      console.error("SAVE PRODUCT ERROR:", error);
+      console.error("SAVE PRODUCT:", error);
 
       setMessage(
         error?.message ||
-        "Something went wrong while saving the product."
+          "Unable to save product."
       );
     } finally {
       setSavingProduct(false);
     }
   }
 
-  /*
-  ============================================
-  DELETE PRODUCT
-  ============================================
-  */
-
   async function deleteProduct(product) {
-    if (deletingProduct) return;
-
-    if (!product?.id) {
-      setMessage(
-        "❌ This product has no valid ID, so it cannot be deleted."
-      );
-      return;
-    }
-
     const confirmed = window.confirm(
       `Delete "${product.name}"?\n\nThis cannot be undone.`
     );
 
     if (!confirmed) return;
 
-    setDeletingProduct(true);
-    setMessage("Deleting product...");
+    setDeletingProductId(product.id);
+    setMessage("");
 
     try {
-      console.log("DELETING PRODUCT:", product);
+      /*
+       * FIRST:
+       * Confirm that this exact product is visible
+       * to the current admin session.
+       */
+      const { data: existingProduct, error: checkError } =
+        await supabase
+          .from("products")
+          .select("id, name")
+          .eq("id", product.id)
+          .maybeSingle();
 
-      const { data, error } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", product.id)
-        .select("*")
-        .single();
-
-      console.log("DELETE RESULT:", {
-        data,
-        error,
-      });
-
-      if (error) {
-        console.error(
-          "SUPABASE DELETE ERROR:",
-          error
-        );
-
-        throw new Error(
-          `Product could not be deleted: ${error.message}`
-        );
+      if (checkError) {
+        throw checkError;
       }
 
-      if (!data) {
+      if (!existingProduct) {
         throw new Error(
-          "Nothing was deleted. Supabase returned no deleted product."
+          "This product cannot be deleted because Supabase cannot find it for the current account. This is usually caused by the Products RLS DELETE policy."
         );
       }
-
-      console.log("PRODUCT DELETED:", data);
 
       /*
-      Remove immediately from screen
-      */
+       * DELETE THE EXACT ROW
+       */
+      const { data: deletedProduct, error: deleteError } =
+        await supabase
+          .from("products")
+          .delete()
+          .eq("id", existingProduct.id)
+          .select("id")
+          .maybeSingle();
 
-      setProducts((currentProducts) =>
-        currentProducts.filter(
-          (item) => item.id !== product.id
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      /*
+       * If Supabase returns no deleted row,
+       * the DELETE policy is blocking it.
+       */
+      if (!deletedProduct) {
+        throw new Error(
+          "Product could not be deleted. Supabase found the product but did not allow the DELETE operation. Your Products DELETE RLS policy needs to allow your admin account to delete products."
+        );
+      }
+
+      /*
+       * Remove it immediately from the screen.
+       */
+      setProducts((current) =>
+        current.filter(
+          (item) => item.id !== existingProduct.id
         )
       );
 
       setMessage(
-        `✅ "${product.name}" deleted successfully.`
+        `"${product.name}" deleted successfully.`
       );
-
-      /*
-      Confirm with database
-      */
 
       await loadProducts();
-
     } catch (error) {
-      console.error(
-        "DELETE PRODUCT ERROR:",
-        error
-      );
+      console.error("DELETE PRODUCT:", error);
 
       setMessage(
         error?.message ||
-        "Something went wrong while deleting the product."
+          "Product could not be deleted."
       );
     } finally {
-      setDeletingProduct(false);
+      setDeletingProductId(null);
     }
   }
 
@@ -676,7 +622,6 @@ function Admin() {
           border-radius: 14px;
           margin-bottom: 20px;
           font-size: 14px;
-          word-break: break-word;
         }
 
         .admin-stats {
@@ -1412,6 +1357,9 @@ function Admin() {
                     product.stock || 0
                   );
 
+                  const deleting =
+                    deletingProductId === product.id;
+
                   return (
                     <article
                       className="admin-product-card"
@@ -1472,6 +1420,7 @@ function Admin() {
                             onClick={() =>
                               openEditProduct(product)
                             }
+                            disabled={deleting}
                           >
                             ✏️ Edit
                           </button>
@@ -1481,9 +1430,9 @@ function Admin() {
                             onClick={() =>
                               deleteProduct(product)
                             }
-                            disabled={deletingProduct}
+                            disabled={deleting}
                           >
-                            {deletingProduct
+                            {deleting
                               ? "Deleting..."
                               : "🗑️ Delete"}
                           </button>
