@@ -59,7 +59,6 @@ function Admin() {
       });
 
     if (error) {
-      console.error(error);
       setMessage(error.message);
       setOrders([]);
     } else {
@@ -80,7 +79,6 @@ function Admin() {
       });
 
     if (error) {
-      console.error(error);
       setMessage(error.message);
       setProducts([]);
     } else {
@@ -103,7 +101,7 @@ function Admin() {
       });
 
     if (error) {
-      console.error(error);
+      setMessage(error.message);
       setCustomers([]);
       setCustomersLoading(false);
       return;
@@ -185,10 +183,6 @@ function Admin() {
     setEditingProduct(null);
   }
 
-  /* =========================
-     IMAGE UPLOAD
-  ========================= */
-
   async function uploadProductImage(event) {
     const file = event.target.files?.[0];
 
@@ -199,8 +193,8 @@ function Admin() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage("Image must be smaller than 5MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage("Image must be smaller than 10MB.");
       return;
     }
 
@@ -208,11 +202,12 @@ function Admin() {
     setMessage("");
 
     try {
-      const fileExt = file.name.split(".").pop();
+      const extension =
+        file.name.split(".").pop()?.toLowerCase() || "jpg";
 
       const fileName = `${Date.now()}-${Math.random()
         .toString(36)
-        .substring(2)}.${fileExt}`;
+        .substring(2, 10)}.${extension}`;
 
       const filePath = `products/${fileName}`;
 
@@ -232,9 +227,7 @@ function Admin() {
         .getPublicUrl(filePath);
 
       if (!data?.publicUrl) {
-        throw new Error(
-          "Unable to get the uploaded image URL."
-        );
+        throw new Error("Could not create image URL.");
       }
 
       setProductForm((current) => ({
@@ -246,16 +239,14 @@ function Admin() {
     } catch (error) {
       console.error(error);
       setMessage(
-        error?.message || "Image upload failed."
+        error?.message || "Unable to upload image."
       );
     } finally {
       setUploadingImage(false);
+
+      event.target.value = "";
     }
   }
-
-  /* =========================
-     SAVE PRODUCT
-  ========================= */
 
   async function saveProduct(event) {
     event.preventDefault();
@@ -265,38 +256,27 @@ function Admin() {
 
     try {
       const name = productForm.name.trim();
-      const description =
-        productForm.description.trim();
-      const category =
-        productForm.category.trim();
-      const image_url =
-        productForm.image_url.trim();
+      const description = productForm.description.trim();
+      const category = productForm.category.trim();
+      const image_url = productForm.image_url.trim();
 
       const price = Number(productForm.price);
       const stock = Number(productForm.stock);
 
       if (!name) {
-        throw new Error(
-          "Please enter a product name."
-        );
+        throw new Error("Please enter a product name.");
       }
 
       if (!category) {
-        throw new Error(
-          "Please enter a category."
-        );
+        throw new Error("Please enter a category.");
       }
 
       if (Number.isNaN(price) || price < 0) {
-        throw new Error(
-          "Please enter a valid price."
-        );
+        throw new Error("Please enter a valid price.");
       }
 
       if (Number.isNaN(stock) || stock < 0) {
-        throw new Error(
-          "Please enter valid stock."
-        );
+        throw new Error("Please enter valid stock.");
       }
 
       const productData = {
@@ -317,9 +297,7 @@ function Admin() {
 
         if (error) throw error;
 
-        setMessage(
-          "Product updated successfully."
-        );
+        setMessage("Product updated successfully.");
       } else {
         const { error } = await supabase
           .from("products")
@@ -327,9 +305,7 @@ function Admin() {
 
         if (error) throw error;
 
-        setMessage(
-          "Product added successfully."
-        );
+        setMessage("Product added successfully.");
       }
 
       setProductModal(false);
@@ -340,17 +316,12 @@ function Admin() {
       console.error(error);
 
       setMessage(
-        error?.message ||
-          "Unable to save product."
+        error?.message || "Unable to save product."
       );
     } finally {
       setSavingProduct(false);
     }
   }
-
-  /* =========================
-     DELETE PRODUCT
-  ========================= */
 
   async function deleteProduct(product) {
     const confirmed = window.confirm(
@@ -367,21 +338,14 @@ function Admin() {
       .eq("id", product.id);
 
     if (error) {
-      console.error(error);
       setMessage(error.message);
       return;
     }
 
-    setMessage(
-      "Product deleted successfully."
-    );
+    setMessage("Product deleted successfully.");
 
     await loadProducts();
   }
-
-  /* =========================
-     ORDER STATUS
-  ========================= */
 
   async function updateStatus(orderId, status) {
     const { error } = await supabase
@@ -409,20 +373,14 @@ function Admin() {
   function formatDate(date) {
     if (!date) return "";
 
-    return new Date(date).toLocaleString(
-      "en-NG",
-      {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }
-    );
+    return new Date(date).toLocaleString("en-NG", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
   }
 
   const totalRevenue = orders
-    .filter(
-      (order) =>
-        order.status !== "cancelled"
-    )
+    .filter((order) => order.status !== "cancelled")
     .reduce(
       (sum, order) =>
         sum + Number(order.total || 0),
@@ -430,25 +388,22 @@ function Admin() {
     );
 
   const pendingOrders = orders.filter(
-    (order) =>
-      order.status === "pending"
+    (order) => order.status === "pending"
   ).length;
 
   const deliveredOrders = orders.filter(
-    (order) =>
-      order.status === "delivered"
+    (order) => order.status === "delivered"
   ).length;
 
-  const lowStockProducts =
-    products.filter(
-      (product) => {
-        const stock = Number(
-          product.stock || 0
-        );
+  const lowStockProducts = products.filter(
+    (product) =>
+      Number(product.stock || 0) > 0 &&
+      Number(product.stock || 0) <= 5
+  ).length;
 
-        return stock > 0 && stock <= 5;
-      }
-    ).length;
+  const featuredProducts = products.filter(
+    (product) => product.featured
+  ).length;
 
   return (
     <div className="admin-page">
@@ -488,7 +443,7 @@ function Admin() {
           background:
             radial-gradient(
               circle at 10% 0%,
-              rgba(124,58,237,.10),
+              rgba(124, 58, 237, .10),
               transparent 30%
             ),
             #f5f5f7;
@@ -518,7 +473,7 @@ function Admin() {
 
         .admin-header h1 {
           margin: 0;
-          font-size: clamp(34px,6vw,58px);
+          font-size: clamp(34px, 6vw, 58px);
           letter-spacing: -3px;
         }
 
@@ -526,9 +481,11 @@ function Admin() {
           opacity: .6;
         }
 
-        .admin-refresh {
+        .admin-refresh,
+        .secondary-button {
           border: 1px solid rgba(0,0,0,.1);
           background: white;
+          color: #111;
           border-radius: 999px;
           padding: 12px 17px;
           font-weight: 700;
@@ -568,7 +525,7 @@ function Admin() {
 
         .admin-stats {
           display: grid;
-          grid-template-columns: repeat(4,1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 14px;
           margin-bottom: 25px;
         }
@@ -615,15 +572,6 @@ function Admin() {
           font-weight: 700;
         }
 
-        .secondary-button {
-          border: 1px solid rgba(0,0,0,.1);
-          background: white;
-          color: #111;
-          padding: 11px 14px;
-          border-radius: 12px;
-          font-weight: 700;
-        }
-
         .danger-button {
           border: 1px solid rgba(220,38,38,.15);
           background: rgba(220,38,38,.06);
@@ -635,7 +583,7 @@ function Admin() {
 
         .products-grid {
           display: grid;
-          grid-template-columns: repeat(4,minmax(0,1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 16px;
         }
 
@@ -715,9 +663,36 @@ function Admin() {
           font-weight: 800;
         }
 
+        .image-picker {
+          border: 2px dashed rgba(0,0,0,.12);
+          border-radius: 16px;
+          padding: 18px;
+          background: #fafafa;
+          text-align: center;
+        }
+
+        .image-picker input {
+          background: white;
+        }
+
+        .image-preview {
+          width: 100%;
+          height: 190px;
+          border-radius: 14px;
+          overflow: hidden;
+          margin-top: 12px;
+          background: #eee;
+        }
+
+        .image-preview img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
         .orders-grid {
           display: grid;
-          grid-template-columns: repeat(2,minmax(0,1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 16px;
         }
 
@@ -817,7 +792,7 @@ function Admin() {
 
         .customers-grid {
           display: grid;
-          grid-template-columns: repeat(3,minmax(0,1fr));
+          grid-template-columns: repeat(3, minmax(0,1fr));
           gap: 15px;
         }
 
@@ -882,7 +857,7 @@ function Admin() {
         }
 
         .admin-modal {
-          width: min(620px,100%);
+          width: min(620px, 100%);
           max-height: 92vh;
           overflow-y: auto;
           background: white;
@@ -959,50 +934,17 @@ function Admin() {
           margin-top: 8px;
         }
 
-        .image-upload-box {
-          border: 2px dashed rgba(0,0,0,.15);
-          border-radius: 16px;
-          padding: 18px;
-          text-align: center;
-          background: #fafafa;
-        }
-
-        .image-upload-box input {
-          background: white;
-        }
-
-        .image-preview {
-          width: 100%;
-          height: 190px;
-          border-radius: 14px;
-          overflow: hidden;
-          background: #f0f0f2;
-          margin-bottom: 12px;
-        }
-
-        .image-preview img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-        }
-
-        .upload-text {
-          font-size: 13px;
-          opacity: .6;
-          margin-top: 8px;
-        }
-
-        @media (max-width:1000px) {
+        @media (max-width: 1000px) {
           .products-grid {
-            grid-template-columns: repeat(3,minmax(0,1fr));
+            grid-template-columns: repeat(3, minmax(0,1fr));
           }
 
           .customers-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
+            grid-template-columns: repeat(2, minmax(0,1fr));
           }
         }
 
-        @media (max-width:760px) {
+        @media (max-width: 760px) {
           .admin-page {
             padding: 20px 12px 50px;
           }
@@ -1033,15 +975,23 @@ function Admin() {
           .section-heading {
             align-items: flex-start;
           }
+
+          .admin-product-image {
+            height: 250px;
+          }
         }
 
-        @media (max-width:450px) {
+        @media (max-width: 450px) {
           .admin-header {
             flex-direction: column;
           }
 
           .admin-refresh {
             width: 100%;
+          }
+
+          .admin-stats {
+            gap: 8px;
           }
 
           .admin-stat {
@@ -1054,6 +1004,7 @@ function Admin() {
 
           .admin-modal {
             padding: 22px 16px;
+            border-radius: 20px;
           }
         }
 
@@ -1062,7 +1013,6 @@ function Admin() {
       <div className="admin-container">
 
         <header className="admin-header">
-
           <div>
             <p className="admin-eyebrow">
               SHINDARA PHONEFLAIR
@@ -1085,7 +1035,6 @@ function Admin() {
           >
             ↻ Refresh
           </button>
-
         </header>
 
         <nav className="admin-nav">
@@ -1150,30 +1099,22 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Total products</span>
-                <strong>
-                  {products.length}
-                </strong>
+                <strong>{products.length}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Total orders</span>
-                <strong>
-                  {orders.length}
-                </strong>
+                <strong>{orders.length}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Customers</span>
-                <strong>
-                  {customers.length}
-                </strong>
+                <strong>{customers.length}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Revenue</span>
-                <strong>
-                  {money(totalRevenue)}
-                </strong>
+                <strong>{money(totalRevenue)}</strong>
               </div>
 
             </div>
@@ -1182,35 +1123,22 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Pending orders</span>
-                <strong>
-                  {pendingOrders}
-                </strong>
+                <strong>{pendingOrders}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Delivered orders</span>
-                <strong>
-                  {deliveredOrders}
-                </strong>
+                <strong>{deliveredOrders}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Low stock</span>
-                <strong>
-                  {lowStockProducts}
-                </strong>
+                <strong>{lowStockProducts}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Featured products</span>
-                <strong>
-                  {
-                    products.filter(
-                      (product) =>
-                        product.featured
-                    ).length
-                  }
-                </strong>
+                <strong>{featuredProducts}</strong>
               </div>
 
             </div>
@@ -1266,9 +1194,7 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>All products</span>
-                <strong>
-                  {products.length}
-                </strong>
+                <strong>{products.length}</strong>
               </div>
 
               <div className="admin-stat">
@@ -1277,9 +1203,7 @@ function Admin() {
                   {
                     products.filter(
                       (product) =>
-                        Number(
-                          product.stock || 0
-                        ) > 0
+                        Number(product.stock || 0) > 0
                     ).length
                   }
                 </strong>
@@ -1291,9 +1215,7 @@ function Admin() {
                   {
                     products.filter(
                       (product) =>
-                        Number(
-                          product.stock || 0
-                        ) <= 0
+                        Number(product.stock || 0) <= 0
                     ).length
                   }
                 </strong>
@@ -1301,9 +1223,7 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Low stock</span>
-                <strong>
-                  {lowStockProducts}
-                </strong>
+                <strong>{lowStockProducts}</strong>
               </div>
 
             </div>
@@ -1409,9 +1329,7 @@ function Admin() {
                           <button
                             className="secondary-button"
                             onClick={() =>
-                              openEditProduct(
-                                product
-                              )
+                              openEditProduct(product)
                             }
                           >
                             ✏️ Edit
@@ -1420,9 +1338,7 @@ function Admin() {
                           <button
                             className="danger-button"
                             onClick={() =>
-                              deleteProduct(
-                                product
-                              )
+                              deleteProduct(product)
                             }
                           >
                             🗑️ Delete
@@ -1468,30 +1384,22 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Total orders</span>
-                <strong>
-                  {orders.length}
-                </strong>
+                <strong>{orders.length}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Pending</span>
-                <strong>
-                  {pendingOrders}
-                </strong>
+                <strong>{pendingOrders}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Delivered</span>
-                <strong>
-                  {deliveredOrders}
-                </strong>
+                <strong>{deliveredOrders}</strong>
               </div>
 
               <div className="admin-stat">
                 <span>Revenue</span>
-                <strong>
-                  {money(totalRevenue)}
-                </strong>
+                <strong>{money(totalRevenue)}</strong>
               </div>
 
             </div>
@@ -1533,7 +1441,7 @@ function Admin() {
                         <span className="order-number">
                           #
                           {String(order.id)
-                            .slice(0,8)
+                            .slice(0, 8)
                             .toUpperCase()}
                         </span>
 
@@ -1588,18 +1496,15 @@ function Admin() {
                       <h3>Customer</h3>
 
                       <p>
-                        👤{" "}
-                        {order.customer_name}
+                        👤 {order.customer_name}
                       </p>
 
                       <p>
-                        📱{" "}
-                        {order.customer_phone}
+                        📱 {order.customer_phone}
                       </p>
 
                       <p>
-                        📍{" "}
-                        {order.delivery_address}
+                        📍 {order.delivery_address}
                       </p>
 
                       <p>
@@ -1629,17 +1534,13 @@ function Admin() {
 
                               {item.image_url ? (
                                 <img
-                                  src={
-                                    item.image_url
-                                  }
+                                  src={item.image_url}
                                   alt={
                                     item.product_name
                                   }
                                 />
                               ) : (
-                                <span>
-                                  📦
-                                </span>
+                                <span>📦</span>
                               )}
 
                             </div>
@@ -1655,9 +1556,7 @@ function Admin() {
                               <p>
                                 {item.quantity}
                                 {" × "}
-                                {money(
-                                  item.price
-                                )}
+                                {money(item.price)}
                               </p>
 
                             </div>
@@ -1715,9 +1614,7 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Customers</span>
-                <strong>
-                  {customers.length}
-                </strong>
+                <strong>{customers.length}</strong>
               </div>
 
             </div>
@@ -1763,13 +1660,11 @@ function Admin() {
                       </h3>
 
                       <p>
-                        📱{" "}
-                        {customer.customer_phone}
+                        📱 {customer.customer_phone}
                       </p>
 
                       <p>
-                        📍{" "}
-                        {customer.delivery_city}
+                        📍 {customer.delivery_city}
                         {customer.delivery_city &&
                         customer.delivery_state
                           ? ", "
@@ -1838,8 +1733,8 @@ function Admin() {
                 marginBottom: 25,
               }}
             >
-              Fill in the product information
-              below.
+              Add your product information and
+              upload its image.
             </p>
 
             <form
@@ -1870,9 +1765,7 @@ function Admin() {
 
               <textarea
                 placeholder="Describe the product..."
-                value={
-                  productForm.description
-                }
+                value={productForm.description}
                 onChange={(event) =>
                   setProductForm({
                     ...productForm,
@@ -1944,70 +1837,41 @@ function Admin() {
                 Product image
               </label>
 
-              <div className="image-upload-box">
-
-                {productForm.image_url && (
-                  <div className="image-preview">
-
-                    <img
-                      src={
-                        productForm.image_url
-                      }
-                      alt="Product preview"
-                    />
-
-                  </div>
-                )}
+              <div className="image-picker">
 
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={
-                    uploadProductImage
-                  }
+                  onChange={uploadProductImage}
                   disabled={
                     uploadingImage ||
                     savingProduct
                   }
                 />
 
-                <div className="upload-text">
+                {uploadingImage && (
+                  <p>
+                    Uploading image...
+                  </p>
+                )}
 
-                  {uploadingImage
-                    ? "Uploading image..."
-                    : "Choose an image from your phone. Maximum 5MB."}
-
-                </div>
+                {productForm.image_url && (
+                  <div className="image-preview">
+                    <img
+                      src={productForm.image_url}
+                      alt="Product preview"
+                    />
+                  </div>
+                )}
 
               </div>
-
-              <label>
-                Image URL
-              </label>
-
-              <input
-                type="url"
-                placeholder="Or paste an image URL"
-                value={
-                  productForm.image_url
-                }
-                onChange={(event) =>
-                  setProductForm({
-                    ...productForm,
-                    image_url:
-                      event.target.value,
-                  })
-                }
-              />
 
               <div className="featured-toggle">
 
                 <input
                   id="featured"
                   type="checkbox"
-                  checked={
-                    productForm.featured
-                  }
+                  checked={productForm.featured}
                   onChange={(event) =>
                     setProductForm({
                       ...productForm,
@@ -2065,6 +1929,7 @@ function Admin() {
           </div>
 
         </div>
+
       )}
 
     </div>
