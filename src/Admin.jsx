@@ -21,6 +21,7 @@ function Admin() {
   const [productModal, setProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -40,7 +41,6 @@ function Admin() {
 
   async function loadOrders() {
     setLoading(true);
-    setMessage("");
 
     const { data, error } = await supabase
       .from("orders")
@@ -104,7 +104,6 @@ function Admin() {
 
     if (error) {
       console.error(error);
-      setMessage(error.message);
       setCustomers([]);
       setCustomersLoading(false);
       return;
@@ -180,11 +179,83 @@ function Admin() {
   }
 
   function closeProductModal() {
-    if (savingProduct) return;
+    if (savingProduct || uploadingImage) return;
 
     setProductModal(false);
     setEditingProduct(null);
   }
+
+  /* =========================
+     IMAGE UPLOAD
+  ========================= */
+
+  async function uploadProductImage(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMessage("Please select an image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("Image must be smaller than 5MB.");
+      return;
+    }
+
+    setUploadingImage(true);
+    setMessage("");
+
+    try {
+      const fileExt = file.name.split(".").pop();
+
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`;
+
+      const filePath = `products/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(filePath);
+
+      if (!data?.publicUrl) {
+        throw new Error(
+          "Unable to get the uploaded image URL."
+        );
+      }
+
+      setProductForm((current) => ({
+        ...current,
+        image_url: data.publicUrl,
+      }));
+
+      setMessage("Image uploaded successfully.");
+    } catch (error) {
+      console.error(error);
+      setMessage(
+        error?.message || "Image upload failed."
+      );
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  /* =========================
+     SAVE PRODUCT
+  ========================= */
 
   async function saveProduct(event) {
     event.preventDefault();
@@ -194,27 +265,38 @@ function Admin() {
 
     try {
       const name = productForm.name.trim();
-      const description = productForm.description.trim();
-      const category = productForm.category.trim();
-      const image_url = productForm.image_url.trim();
+      const description =
+        productForm.description.trim();
+      const category =
+        productForm.category.trim();
+      const image_url =
+        productForm.image_url.trim();
 
       const price = Number(productForm.price);
       const stock = Number(productForm.stock);
 
       if (!name) {
-        throw new Error("Please enter a product name.");
+        throw new Error(
+          "Please enter a product name."
+        );
       }
 
       if (!category) {
-        throw new Error("Please enter a category.");
+        throw new Error(
+          "Please enter a category."
+        );
       }
 
       if (Number.isNaN(price) || price < 0) {
-        throw new Error("Please enter a valid price.");
+        throw new Error(
+          "Please enter a valid price."
+        );
       }
 
       if (Number.isNaN(stock) || stock < 0) {
-        throw new Error("Please enter valid stock.");
+        throw new Error(
+          "Please enter valid stock."
+        );
       }
 
       const productData = {
@@ -235,7 +317,9 @@ function Admin() {
 
         if (error) throw error;
 
-        setMessage("Product updated successfully.");
+        setMessage(
+          "Product updated successfully."
+        );
       } else {
         const { error } = await supabase
           .from("products")
@@ -243,7 +327,9 @@ function Admin() {
 
         if (error) throw error;
 
-        setMessage("Product added successfully.");
+        setMessage(
+          "Product added successfully."
+        );
       }
 
       setProductModal(false);
@@ -254,12 +340,17 @@ function Admin() {
       console.error(error);
 
       setMessage(
-        error?.message || "Unable to save product."
+        error?.message ||
+          "Unable to save product."
       );
     } finally {
       setSavingProduct(false);
     }
   }
+
+  /* =========================
+     DELETE PRODUCT
+  ========================= */
 
   async function deleteProduct(product) {
     const confirmed = window.confirm(
@@ -281,10 +372,16 @@ function Admin() {
       return;
     }
 
-    setMessage("Product deleted successfully.");
+    setMessage(
+      "Product deleted successfully."
+    );
 
     await loadProducts();
   }
+
+  /* =========================
+     ORDER STATUS
+  ========================= */
 
   async function updateStatus(orderId, status) {
     const { error } = await supabase
@@ -312,14 +409,20 @@ function Admin() {
   function formatDate(date) {
     if (!date) return "";
 
-    return new Date(date).toLocaleString("en-NG", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    return new Date(date).toLocaleString(
+      "en-NG",
+      {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }
+    );
   }
 
   const totalRevenue = orders
-    .filter((order) => order.status !== "cancelled")
+    .filter(
+      (order) =>
+        order.status !== "cancelled"
+    )
     .reduce(
       (sum, order) =>
         sum + Number(order.total || 0),
@@ -327,21 +430,29 @@ function Admin() {
     );
 
   const pendingOrders = orders.filter(
-    (order) => order.status === "pending"
+    (order) =>
+      order.status === "pending"
   ).length;
 
   const deliveredOrders = orders.filter(
-    (order) => order.status === "delivered"
+    (order) =>
+      order.status === "delivered"
   ).length;
 
-  const lowStockProducts = products.filter(
-    (product) =>
-      Number(product.stock || 0) > 0 &&
-      Number(product.stock || 0) <= 5
-  ).length;
+  const lowStockProducts =
+    products.filter(
+      (product) => {
+        const stock = Number(
+          product.stock || 0
+        );
+
+        return stock > 0 && stock <= 5;
+      }
+    ).length;
 
   return (
     <div className="admin-page">
+
       <style>{`
 
         * {
@@ -377,7 +488,7 @@ function Admin() {
           background:
             radial-gradient(
               circle at 10% 0%,
-              rgba(124, 58, 237, .10),
+              rgba(124,58,237,.10),
               transparent 30%
             ),
             #f5f5f7;
@@ -407,7 +518,7 @@ function Admin() {
 
         .admin-header h1 {
           margin: 0;
-          font-size: clamp(34px, 6vw, 58px);
+          font-size: clamp(34px,6vw,58px);
           letter-spacing: -3px;
         }
 
@@ -457,7 +568,7 @@ function Admin() {
 
         .admin-stats {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(4,1fr);
           gap: 14px;
           margin-bottom: 25px;
         }
@@ -522,11 +633,9 @@ function Admin() {
           font-weight: 700;
         }
 
-        /* PRODUCTS */
-
         .products-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(4,minmax(0,1fr));
           gap: 16px;
         }
 
@@ -606,11 +715,9 @@ function Admin() {
           font-weight: 800;
         }
 
-        /* ORDERS */
-
         .orders-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(2,minmax(0,1fr));
           gap: 16px;
         }
 
@@ -708,11 +815,9 @@ function Admin() {
           font-size: 18px;
         }
 
-        /* CUSTOMERS */
-
         .customers-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0,1fr));
+          grid-template-columns: repeat(3,minmax(0,1fr));
           gap: 15px;
         }
 
@@ -752,8 +857,6 @@ function Admin() {
           opacity: .45;
         }
 
-        /* EMPTY */
-
         .admin-empty {
           text-align: center;
           padding: 70px 20px;
@@ -765,8 +868,6 @@ function Admin() {
         .admin-empty > div {
           font-size: 55px;
         }
-
-        /* MODAL */
 
         .admin-modal-backdrop {
           position: fixed;
@@ -781,7 +882,7 @@ function Admin() {
         }
 
         .admin-modal {
-          width: min(620px, 100%);
+          width: min(620px,100%);
           max-height: 92vh;
           overflow-y: auto;
           background: white;
@@ -858,27 +959,56 @@ function Admin() {
           margin-top: 8px;
         }
 
-        @media (max-width: 1000px) {
+        .image-upload-box {
+          border: 2px dashed rgba(0,0,0,.15);
+          border-radius: 16px;
+          padding: 18px;
+          text-align: center;
+          background: #fafafa;
+        }
+
+        .image-upload-box input {
+          background: white;
+        }
+
+        .image-preview {
+          width: 100%;
+          height: 190px;
+          border-radius: 14px;
+          overflow: hidden;
+          background: #f0f0f2;
+          margin-bottom: 12px;
+        }
+
+        .image-preview img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+
+        .upload-text {
+          font-size: 13px;
+          opacity: .6;
+          margin-top: 8px;
+        }
+
+        @media (max-width:1000px) {
           .products-grid {
-            grid-template-columns: repeat(3, minmax(0,1fr));
+            grid-template-columns: repeat(3,minmax(0,1fr));
           }
 
           .customers-grid {
-            grid-template-columns: repeat(2, minmax(0,1fr));
+            grid-template-columns: repeat(2,minmax(0,1fr));
           }
         }
 
-        @media (max-width: 760px) {
+        @media (max-width:760px) {
           .admin-page {
             padding: 20px 12px 50px;
           }
 
           .admin-header {
             align-items: flex-start;
-          }
-
-          .admin-header h1 {
-            letter-spacing: -2px;
           }
 
           .admin-stats {
@@ -903,23 +1033,15 @@ function Admin() {
           .section-heading {
             align-items: flex-start;
           }
-
-          .admin-product-image {
-            height: 250px;
-          }
         }
 
-        @media (max-width: 450px) {
+        @media (max-width:450px) {
           .admin-header {
             flex-direction: column;
           }
 
           .admin-refresh {
             width: 100%;
-          }
-
-          .admin-stats {
-            gap: 8px;
           }
 
           .admin-stat {
@@ -932,15 +1054,12 @@ function Admin() {
 
           .admin-modal {
             padding: 22px 16px;
-            border-radius: 20px;
           }
         }
 
       `}</style>
 
       <div className="admin-container">
-
-        {/* HEADER */}
 
         <header className="admin-header">
 
@@ -968,8 +1087,6 @@ function Admin() {
           </button>
 
         </header>
-
-        {/* NAVIGATION */}
 
         <nav className="admin-nav">
 
@@ -1028,9 +1145,7 @@ function Admin() {
         {/* DASHBOARD */}
 
         {activeSection === "dashboard" && (
-
           <>
-
             <div className="admin-stats">
 
               <div className="admin-stat">
@@ -1121,17 +1236,13 @@ function Admin() {
               </button>
 
             </div>
-
           </>
-
         )}
 
         {/* PRODUCTS */}
 
         {activeSection === "products" && (
-
           <>
-
             <div className="section-heading">
 
               <div>
@@ -1166,7 +1277,9 @@ function Admin() {
                   {
                     products.filter(
                       (product) =>
-                        Number(product.stock || 0) > 0
+                        Number(
+                          product.stock || 0
+                        ) > 0
                     ).length
                   }
                 </strong>
@@ -1178,7 +1291,9 @@ function Admin() {
                   {
                     products.filter(
                       (product) =>
-                        Number(product.stock || 0) <= 0
+                        Number(
+                          product.stock || 0
+                        ) <= 0
                     ).length
                   }
                 </strong>
@@ -1194,11 +1309,9 @@ function Admin() {
             </div>
 
             {productsLoading ? (
-
               <div className="admin-empty">
                 Loading products...
               </div>
-
             ) : products.length === 0 ? (
 
               <div className="admin-empty">
@@ -1232,7 +1345,6 @@ function Admin() {
                   );
 
                   return (
-
                     <article
                       className="admin-product-card"
                       key={product.id}
@@ -1241,14 +1353,11 @@ function Admin() {
                       <div className="admin-product-image">
 
                         {product.image_url ? (
-
                           <img
                             src={product.image_url}
                             alt={product.name}
                           />
-
                         ) : (
-
                           <span
                             style={{
                               fontSize: 55,
@@ -1256,7 +1365,6 @@ function Admin() {
                           >
                             📦
                           </span>
-
                         )}
 
                       </div>
@@ -1325,24 +1433,18 @@ function Admin() {
                       </div>
 
                     </article>
-
                   );
                 })}
 
               </div>
-
             )}
-
           </>
-
         )}
 
         {/* ORDERS */}
 
         {activeSection === "orders" && (
-
           <>
-
             <div className="section-heading">
 
               <div>
@@ -1395,11 +1497,9 @@ function Admin() {
             </div>
 
             {loading ? (
-
               <div className="admin-empty">
                 Loading orders...
               </div>
-
             ) : orders.length === 0 ? (
 
               <div className="admin-empty">
@@ -1433,7 +1533,7 @@ function Admin() {
                         <span className="order-number">
                           #
                           {String(order.id)
-                            .slice(0, 8)
+                            .slice(0,8)
                             .toUpperCase()}
                         </span>
 
@@ -1528,7 +1628,6 @@ function Admin() {
                             <div className="order-product-image">
 
                               {item.image_url ? (
-
                                 <img
                                   src={
                                     item.image_url
@@ -1537,11 +1636,10 @@ function Admin() {
                                     item.product_name
                                   }
                                 />
-
                               ) : (
-
-                                <span>📦</span>
-
+                                <span>
+                                  📦
+                                </span>
                               )}
 
                             </div>
@@ -1586,19 +1684,14 @@ function Admin() {
                 ))}
 
               </div>
-
             )}
-
           </>
-
         )}
 
         {/* CUSTOMERS */}
 
         {activeSection === "customers" && (
-
           <>
-
             <div className="section-heading">
 
               <div>
@@ -1630,11 +1723,9 @@ function Admin() {
             </div>
 
             {customersLoading ? (
-
               <div className="admin-empty">
                 Loading customers...
               </div>
-
             ) : customers.length === 0 ? (
 
               <div className="admin-empty">
@@ -1700,16 +1791,13 @@ function Admin() {
                 ))}
 
               </div>
-
             )}
-
           </>
-
         )}
 
       </div>
 
-      {/* ADD / EDIT PRODUCT MODAL */}
+      {/* PRODUCT MODAL */}
 
       {productModal && (
 
@@ -1782,7 +1870,9 @@ function Admin() {
 
               <textarea
                 placeholder="Describe the product..."
-                value={productForm.description}
+                value={
+                  productForm.description
+                }
                 onChange={(event) =>
                   setProductForm({
                     ...productForm,
@@ -1848,14 +1938,59 @@ function Admin() {
                 required
               />
 
+              {/* IMAGE UPLOAD */}
+
               <label>
-                Product image URL
+                Product image
+              </label>
+
+              <div className="image-upload-box">
+
+                {productForm.image_url && (
+                  <div className="image-preview">
+
+                    <img
+                      src={
+                        productForm.image_url
+                      }
+                      alt="Product preview"
+                    />
+
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={
+                    uploadProductImage
+                  }
+                  disabled={
+                    uploadingImage ||
+                    savingProduct
+                  }
+                />
+
+                <div className="upload-text">
+
+                  {uploadingImage
+                    ? "Uploading image..."
+                    : "Choose an image from your phone. Maximum 5MB."}
+
+                </div>
+
+              </div>
+
+              <label>
+                Image URL
               </label>
 
               <input
                 type="url"
-                placeholder="https://..."
-                value={productForm.image_url}
+                placeholder="Or paste an image URL"
+                value={
+                  productForm.image_url
+                }
                 onChange={(event) =>
                   setProductForm({
                     ...productForm,
@@ -1900,7 +2035,10 @@ function Admin() {
                   type="button"
                   className="secondary-button"
                   onClick={closeProductModal}
-                  disabled={savingProduct}
+                  disabled={
+                    savingProduct ||
+                    uploadingImage
+                  }
                 >
                   Cancel
                 </button>
@@ -1908,7 +2046,10 @@ function Admin() {
                 <button
                   type="submit"
                   className="primary-button"
-                  disabled={savingProduct}
+                  disabled={
+                    savingProduct ||
+                    uploadingImage
+                  }
                 >
                   {savingProduct
                     ? "Saving..."
@@ -1924,7 +2065,6 @@ function Admin() {
           </div>
 
         </div>
-
       )}
 
     </div>
