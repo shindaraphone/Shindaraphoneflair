@@ -9,6 +9,11 @@ const TIKTOK =
 const PAYSTACK_PUBLIC_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
+// Add your logo URL here later.
+// Example:
+// const LOGO_URL = "https://your-logo-url.com/logo.png";
+const LOGO_URL = "";
+
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
 }
@@ -25,9 +30,14 @@ function loadPaystackScript() {
     );
 
     if (existingScript) {
-      existingScript.addEventListener("load", () =>
-        resolve(window.PaystackPop)
-      );
+      existingScript.addEventListener("load", () => {
+        if (window.PaystackPop) {
+          resolve(window.PaystackPop);
+        } else {
+          reject(new Error("Paystack could not be loaded."));
+        }
+      });
+
       existingScript.addEventListener("error", reject);
       return;
     }
@@ -41,16 +51,12 @@ function loadPaystackScript() {
       if (window.PaystackPop) {
         resolve(window.PaystackPop);
       } else {
-        reject(
-          new Error("Paystack could not be loaded.")
-        );
+        reject(new Error("Paystack could not be loaded."));
       }
     };
 
     script.onerror = () => {
-      reject(
-        new Error("Unable to load Paystack.")
-      );
+      reject(new Error("Unable to load Paystack."));
     };
 
     document.body.appendChild(script);
@@ -60,24 +66,39 @@ function loadPaystackScript() {
 function App() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+
   const [accountTab, setAccountTab] = useState("profile");
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
 
   const [authMode, setAuthMode] = useState("login");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+
   const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryMessage, setRecoveryMessage] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+
   const [profileName, setProfileName] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
+
   const [settingsMessage, setSettingsMessage] = useState("");
   const [settingsLoading, setSettingsLoading] = useState(false);
 
@@ -104,6 +125,10 @@ function App() {
   const [orderMessage, setOrderMessage] = useState("");
   const [orderSuccess, setOrderSuccess] = useState(false);
 
+  /* =========================
+     USER / AUTH
+  ========================= */
+
   useEffect(() => {
     let mounted = true;
 
@@ -113,6 +138,7 @@ function App() {
       if (!mounted) return;
 
       const currentUser = data?.user ?? null;
+
       setUser(currentUser);
 
       if (currentUser) {
@@ -125,11 +151,18 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (!mounted) return;
 
         const currentUser = session?.user ?? null;
+
         setUser(currentUser);
+
+        if (event === "PASSWORD_RECOVERY") {
+          setIsRecoveryMode(true);
+          setRecoveryMessage("");
+          setAccountOpen(true);
+        }
 
         if (currentUser) {
           await loadProfile(currentUser.id);
@@ -163,10 +196,15 @@ function App() {
     if (data) {
       setProfileName(data.name || "");
       setProfilePhone(data.phone || "");
+
       setCustomerName(data.name || "");
       setCustomerPhone(data.phone || "");
     }
   }
+
+  /* =========================
+     PRODUCTS
+  ========================= */
 
   useEffect(() => {
     loadProducts();
@@ -216,6 +254,10 @@ function App() {
 
     setProductsLoading(false);
   }
+
+  /* =========================
+     ORDERS
+  ========================= */
 
   async function loadOrders() {
     if (!user) return;
@@ -268,6 +310,10 @@ function App() {
     }
   }
 
+  /* =========================
+     EMAIL AUTH
+  ========================= */
+
   async function handleAuth(event) {
     event.preventDefault();
 
@@ -287,6 +333,11 @@ function App() {
 
         if (!cleanPhone) {
           setAuthMessage("Please enter your phone number.");
+          return;
+        }
+
+        if (!cleanEmail) {
+          setAuthMessage("Please enter your email address.");
           return;
         }
 
@@ -383,6 +434,150 @@ function App() {
     }
   }
 
+  /* =========================
+     GOOGLE / APPLE LOGIN
+  ========================= */
+
+  async function signInWithProvider(provider) {
+    setAuthLoading(true);
+    setAuthMessage("");
+
+    try {
+      const { error } =
+        await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
+
+      if (error) {
+        setAuthMessage(error.message);
+      }
+    } catch (error) {
+      console.error(
+        `${provider} login error:`,
+        error
+      );
+
+      setAuthMessage(
+        error?.message ||
+          `Unable to continue with ${provider}.`
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  /* =========================
+     FORGOT PASSWORD
+  ========================= */
+
+  async function sendPasswordReset(event) {
+    event.preventDefault();
+
+    setResetLoading(true);
+    setResetMessage("");
+
+    try {
+      const cleanEmail = resetEmail.trim();
+
+      if (!cleanEmail) {
+        setResetMessage(
+          "Please enter your email address."
+        );
+        return;
+      }
+
+      const { error } =
+        await supabase.auth.resetPasswordForEmail(
+          cleanEmail,
+          {
+            redirectTo:
+              window.location.origin,
+          }
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      setResetMessage(
+        "Password reset email sent. Check your inbox and follow the link."
+      );
+    } catch (error) {
+      console.error(
+        "Password reset error:",
+        error
+      );
+
+      setResetMessage(
+        error?.message ||
+          "Unable to send password reset email."
+      );
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
+  /* =========================
+     RESET NEW PASSWORD
+  ========================= */
+
+  async function updateRecoveredPassword(event) {
+    event.preventDefault();
+
+    setRecoveryLoading(true);
+    setRecoveryMessage("");
+
+    try {
+      if (
+        !recoveryPassword ||
+        recoveryPassword.length < 6
+      ) {
+        setRecoveryMessage(
+          "Password must be at least 6 characters."
+        );
+        return;
+      }
+
+      const { error } =
+        await supabase.auth.updateUser({
+          password: recoveryPassword,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      setRecoveryPassword("");
+
+      setRecoveryMessage(
+        "Your password has been changed successfully."
+      );
+
+      setTimeout(() => {
+        setIsRecoveryMode(false);
+      }, 1500);
+    } catch (error) {
+      console.error(
+        "Recovery password error:",
+        error
+      );
+
+      setRecoveryMessage(
+        error?.message ||
+          "Unable to change your password."
+      );
+    } finally {
+      setRecoveryLoading(false);
+    }
+  }
+
+  /* =========================
+     PROFILE SETTINGS
+  ========================= */
+
   async function saveProfileSettings(event) {
     event.preventDefault();
 
@@ -396,7 +591,9 @@ function App() {
       const cleanPhone = profilePhone.trim();
 
       if (!cleanName) {
-        setSettingsMessage("Please enter your name.");
+        setSettingsMessage(
+          "Please enter your name."
+        );
         return;
       }
 
@@ -407,14 +604,15 @@ function App() {
         return;
       }
 
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          id: user.id,
-          name: cleanName,
-          phone: cleanPhone,
-          email: user.email || "",
-        });
+      const { error } =
+        await supabase
+          .from("profiles")
+          .upsert({
+            id: user.id,
+            name: cleanName,
+            phone: cleanPhone,
+            email: user.email || "",
+          });
 
       if (error) {
         throw error;
@@ -426,7 +624,10 @@ function App() {
         "Your account details have been updated successfully."
       );
     } catch (error) {
-      console.error("Settings error:", error);
+      console.error(
+        "Settings error:",
+        error
+      );
 
       setSettingsMessage(
         error?.message ||
@@ -444,7 +645,10 @@ function App() {
     setPasswordMessage("");
 
     try {
-      if (!newPassword || newPassword.length < 6) {
+      if (
+        !newPassword ||
+        newPassword.length < 6
+      ) {
         setPasswordMessage(
           "Password must be at least 6 characters."
         );
@@ -489,7 +693,10 @@ function App() {
     setAccountOpen(false);
   }
 
-  // ADD PRODUCT TO CART AND AUTOMATICALLY OPEN CART
+  /* =========================
+     CART
+  ========================= */
+
   function addToCart(product) {
     setCart((items) => {
       const existing = items.find(
@@ -501,7 +708,8 @@ function App() {
           item.id === product.id
             ? {
                 ...item,
-                quantity: item.quantity + 1,
+                quantity:
+                  item.quantity + 1,
               }
             : item
         );
@@ -516,7 +724,9 @@ function App() {
       ];
     });
 
-    // Automatically open the cart after adding
+    // IMPORTANT:
+    // The cart opens ONLY when the Add to cart
+    // button is clicked.
     setCartOpen(true);
   }
 
@@ -526,7 +736,8 @@ function App() {
         item.id === id
           ? {
               ...item,
-              quantity: item.quantity + 1,
+              quantity:
+                item.quantity + 1,
             }
           : item
       )
@@ -540,7 +751,8 @@ function App() {
           item.id === id
             ? {
                 ...item,
-                quantity: item.quantity - 1,
+                quantity:
+                  item.quantity - 1,
               }
             : item
         )
@@ -596,18 +808,26 @@ function App() {
     setCheckoutOpen(true);
   }
 
+  /* =========================
+     PAYMENT / ORDER
+  ========================= */
+
   async function saveOrder(reference) {
     const { data: order, error: orderError } =
       await supabase
         .from("orders")
         .insert({
           user_id: user.id,
-          customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
+          customer_name:
+            customerName.trim(),
+          customer_phone:
+            customerPhone.trim(),
           delivery_address:
             deliveryAddress.trim(),
-          delivery_city: deliveryCity.trim(),
-          delivery_state: deliveryState.trim(),
+          delivery_city:
+            deliveryCity.trim(),
+          delivery_state:
+            deliveryState.trim(),
           total: cartTotal,
           status: "paid",
           payment_reference: reference,
@@ -656,7 +876,9 @@ function App() {
     }
 
     if (!cart.length) {
-      setOrderMessage("Your cart is empty.");
+      setOrderMessage(
+        "Your cart is empty."
+      );
       return;
     }
 
@@ -667,29 +889,36 @@ function App() {
       const PaystackPop =
         await loadPaystackScript();
 
-      const amountInKobo = Math.round(
-        cartTotal * 100
-      );
+      const amountInKobo =
+        Math.round(cartTotal * 100);
 
       const popup = new PaystackPop();
 
       popup.newTransaction({
         key: PAYSTACK_PUBLIC_KEY,
+
         email: user.email,
+
         amount: amountInKobo,
+
         currency: "NGN",
 
         metadata: {
           customer_name:
             customerName.trim(),
+
           customer_phone:
             customerPhone.trim(),
+
           delivery_address:
             deliveryAddress.trim(),
+
           delivery_city:
             deliveryCity.trim(),
+
           delivery_state:
             deliveryState.trim(),
+
           user_id: user.id,
         },
 
@@ -711,14 +940,15 @@ function App() {
             const {
               data: verificationData,
               error: verificationError,
-            } = await supabase.functions.invoke(
-              "verify-paystack-payment",
-              {
-                body: {
-                  reference,
-                },
-              }
-            );
+            } =
+              await supabase.functions.invoke(
+                "verify-paystack-payment",
+                {
+                  body: {
+                    reference,
+                  },
+                }
+              );
 
             if (verificationError) {
               throw new Error(
@@ -727,7 +957,9 @@ function App() {
               );
             }
 
-            if (!verificationData?.success) {
+            if (
+              !verificationData?.success
+            ) {
               throw new Error(
                 verificationData?.error ||
                   "Payment could not be verified."
@@ -748,6 +980,7 @@ function App() {
             );
 
             setCart([]);
+
             setCustomerName("");
             setCustomerPhone("");
             setDeliveryAddress("");
@@ -777,7 +1010,10 @@ function App() {
         },
       });
     } catch (error) {
-      console.error("Paystack error:", error);
+      console.error(
+        "Paystack error:",
+        error
+      );
 
       setOrderMessage(
         error?.message ||
@@ -823,20 +1059,73 @@ function App() {
 
   return (
     <div className="app">
+
+      {/* TOP ANNOUNCEMENT */}
+
+      <div className="announcement-bar">
+        <div className="announcement-track">
+          <span>
+            ✨ Premium phone accessories, are screaming here!!! ✨
+          </span>
+
+          <span>
+            ✨ Premium phone accessories, are screaming here!!! ✨
+          </span>
+
+          <span>
+            ✨ Premium phone accessories, are screaming here!!! ✨
+          </span>
+        </div>
+      </div>
+
+      {/* HEADER */}
+
       <header className="header">
-        <a href="#home" className="logo">
-          Shindara
-          <span>Phoneflair</span>
+
+        <a
+          href="#home"
+          className="logo"
+        >
+          {LOGO_URL ? (
+            <img
+              src={LOGO_URL}
+              alt="Shindara Phoneflair"
+              style={{
+                height: "42px",
+                width: "auto",
+                objectFit: "contain",
+              }}
+            />
+          ) : (
+            <>
+              Shindara
+              <span>
+                Phoneflair
+              </span>
+            </>
+          )}
         </a>
 
         <nav className="nav">
-          <a href="#home">Home</a>
-          <a href="#shop">Shop</a>
-          <a href="#categories">Categories</a>
-          <a href="#contact">Contact</a>
+          <a href="#home">
+            Home
+          </a>
+
+          <a href="#shop">
+            Shop
+          </a>
+
+          <a href="#categories">
+            Categories
+          </a>
+
+          <a href="#contact">
+            Contact
+          </a>
         </nav>
 
         <div className="header-actions">
+
           <button
             className="account-button"
             onClick={openAccount}
@@ -846,16 +1135,26 @@ function App() {
 
           <button
             className="cart-button"
-            onClick={() => setCartOpen(true)}
+            onClick={() =>
+              setCartOpen(true)
+            }
           >
             🛒 Cart ({cartCount})
           </button>
+
         </div>
       </header>
 
       <main>
-        <section className="hero" id="home">
+
+        {/* HERO */}
+
+        <section
+          className="hero"
+          id="home"
+        >
           <div className="hero-content">
+
             <p className="eyebrow">
               SHINDARA PHONEFLAIR
             </p>
@@ -879,18 +1178,26 @@ function App() {
             >
               Shop now →
             </a>
+
           </div>
         </section>
+
+        {/* CATEGORIES */}
 
         <section
           className="section"
           id="categories"
         >
-          <p className="eyebrow">EXPLORE</p>
+          <p className="eyebrow">
+            EXPLORE
+          </p>
 
-          <h2>Shop by category</h2>
+          <h2>
+            Shop by category
+          </h2>
 
           <div className="category-grid">
+
             {[
               ["📱", "Smartphones"],
               ["🛡️", "Phone Cases"],
@@ -904,13 +1211,20 @@ function App() {
                 className="category-card"
                 key={name}
               >
-                <span>{icon}</span>
+                <span>
+                  {icon}
+                </span>
 
-                <strong>{name}</strong>
+                <strong>
+                  {name}
+                </strong>
               </a>
             ))}
+
           </div>
         </section>
+
+        {/* PRODUCTS */}
 
         <section
           className="section"
@@ -920,7 +1234,9 @@ function App() {
             SHINDARA STORE
           </p>
 
-          <h2>Popular picks</h2>
+          <h2>
+            Popular picks
+          </h2>
 
           {productsLoading ? (
             <div
@@ -938,7 +1254,9 @@ function App() {
                 textAlign: "center",
               }}
             >
-              <p>{productsError}</p>
+              <p>
+                {productsError}
+              </p>
 
               <button
                 className="add-button"
@@ -960,120 +1278,154 @@ function App() {
             </div>
           ) : (
             <div className="product-grid">
-              {products.map((product) => (
-                <article
-                  className="product-card"
-                  key={product.id}
-                >
-                  <div className="product-image">
-                    {product.image_url ? (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
-                    ) : (
-                      <span>📦</span>
-                    )}
-                  </div>
 
-                  <div className="product-info">
-                    <p className="product-category">
-                      {product.category ||
-                        "Electronics"}
-                    </p>
+              {products.map(
+                (product) => (
+                  <article
+                    className="product-card"
+                    key={product.id}
+                  >
 
-                    <h3>{product.name}</h3>
+                    <div className="product-image">
+                      {product.image_url ? (
+                        <img
+                          src={product.image_url}
+                          alt={product.name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <span>
+                          📦
+                        </span>
+                      )}
+                    </div>
 
-                    {product.description && (
-                      <p
-                        style={{
-                          opacity: 0.7,
-                          fontSize: "14px",
-                          lineHeight: "1.5",
-                        }}
-                      >
-                        {product.description}
+                    <div className="product-info">
+
+                      <p className="product-category">
+                        {product.category ||
+                          "Electronics"}
                       </p>
-                    )}
 
-                    <p className="price">
-                      {money(product.price)}
-                    </p>
+                      <h3>
+                        {product.name}
+                      </h3>
 
-                    {Number(
-                      product.stock || 0
-                    ) > 0 ? (
-                      <button
-                        className="add-button"
-                        onClick={() =>
-                          addToCart(product)
-                        }
-                      >
-                        Add to cart
-                      </button>
-                    ) : (
-                      <button
-                        className="add-button"
-                        disabled
-                      >
-                        Out of stock
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))}
+                      {product.description && (
+                        <p
+                          style={{
+                            opacity: 0.7,
+                            fontSize: "14px",
+                            lineHeight: "1.5",
+                          }}
+                        >
+                          {product.description}
+                        </p>
+                      )}
+
+                      <p className="price">
+                        {money(product.price)}
+                      </p>
+
+                      {Number(
+                        product.stock || 0
+                      ) > 0 ? (
+                        <button
+                          className="add-button"
+                          onClick={(event) => {
+                            // Prevent the product/card click
+                            // from triggering anything else.
+                            event.stopPropagation();
+
+                            addToCart(product);
+                          }}
+                        >
+                          Add to cart
+                        </button>
+                      ) : (
+                        <button
+                          className="add-button"
+                          disabled
+                        >
+                          Out of stock
+                        </button>
+                      )}
+
+                    </div>
+                  </article>
+                )
+              )}
+
             </div>
           )}
         </section>
 
+        {/* TRUST */}
+
         <section className="trust-section">
+
           <div>
             <span>🚚</span>
 
-            <h3>Reliable delivery</h3>
+            <h3>
+              Reliable delivery
+            </h3>
 
             <p>
-              Get your order delivered safely.
+              Get your order delivered
+              safely.
             </p>
           </div>
 
           <div>
             <span>🔒</span>
 
-            <h3>Secure shopping</h3>
+            <h3>
+              Secure shopping
+            </h3>
 
-            <p>Shop with confidence.</p>
+            <p>
+              Shop with confidence.
+            </p>
           </div>
 
           <div>
             <span>💬</span>
 
-            <h3>Customer support</h3>
+            <h3>
+              Customer support
+            </h3>
 
             <p>
-              We're here whenever you need us.
+              We're here whenever
+              you need us.
             </p>
           </div>
+
         </section>
       </main>
 
+      {/* FOOTER */}
+
       <footer id="contact">
+
         <div>
+
           <strong className="footer-logo">
             Shindara Phoneflair
           </strong>
 
           <p>
-            Phones • Accessories • Gadgets •
-            Electronics
+            Phones • Accessories •
+            Gadgets • Electronics
           </p>
 
           <div className="social-links">
+
             <button
               className="social-button"
               onClick={whatsapp}
@@ -1089,11 +1441,18 @@ function App() {
             >
               🎵 TikTok
             </a>
+
           </div>
+
         </div>
 
-        <p>© 2026 Shindara Phoneflair</p>
+        <p>
+          © 2026 Shindara Phoneflair
+        </p>
+
       </footer>
+
+      {/* FLOATING WHATSAPP */}
 
       <button
         className="whatsapp-floating"
@@ -1102,12 +1461,16 @@ function App() {
         💬
       </button>
 
-      {/* CART */}
+      {/* =========================
+          CART
+      ========================= */}
 
       {cartOpen && (
         <div
           className="cart-overlay"
-          onClick={() => setCartOpen(false)}
+          onClick={() =>
+            setCartOpen(false)
+          }
         >
           <aside
             className="cart-drawer"
@@ -1115,13 +1478,17 @@ function App() {
               event.stopPropagation()
             }
           >
+
             <div className="cart-header">
+
               <div>
                 <p className="eyebrow">
                   SHINDARA
                 </p>
 
-                <h2>Your Cart</h2>
+                <h2>
+                  Your Cart
+                </h2>
               </div>
 
               <button
@@ -1132,6 +1499,7 @@ function App() {
               >
                 ×
               </button>
+
             </div>
 
             {cart.length === 0 ? (
@@ -1149,11 +1517,13 @@ function App() {
                   🛒
                 </div>
 
-                <h3>Your cart is empty</h3>
+                <h3>
+                  Your cart is empty
+                </h3>
 
                 <p>
-                  Add something you love
-                  from our store.
+                  Add something you
+                  love from our store.
                 </p>
 
                 <button
@@ -1168,73 +1538,89 @@ function App() {
             ) : (
               <>
                 <div className="cart-items">
-                  {cart.map((item) => (
-                    <div
-                      className="cart-item"
-                      key={item.id}
-                    >
-                      <div className="cart-item-image">
-                        {item.image_url ? (
-                          <img
-                            src={item.image_url}
-                            alt={item.name}
-                          />
-                        ) : (
-                          <span>📦</span>
-                        )}
-                      </div>
 
-                      <div className="cart-item-info">
-                        <h3>{item.name}</h3>
+                  {cart.map(
+                    (item) => (
+                      <div
+                        className="cart-item"
+                        key={item.id}
+                      >
 
-                        <p>
-                          {money(item.price)}
-                        </p>
-
-                        <div className="quantity-controls">
-                          <button
-                            onClick={() =>
-                              decreaseQuantity(
-                                item.id
-                              )
-                            }
-                          >
-                            −
-                          </button>
-
-                          <strong>
-                            {item.quantity}
-                          </strong>
-
-                          <button
-                            onClick={() =>
-                              increaseQuantity(
-                                item.id
-                              )
-                            }
-                          >
-                            +
-                          </button>
+                        <div className="cart-item-image">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                            />
+                          ) : (
+                            <span>
+                              📦
+                            </span>
+                          )}
                         </div>
 
-                        <button
-                          className="remove-cart-item"
-                          onClick={() =>
-                            removeFromCart(
-                              item.id
-                            )
-                          }
-                        >
-                          Remove
-                        </button>
+                        <div className="cart-item-info">
+
+                          <h3>
+                            {item.name}
+                          </h3>
+
+                          <p>
+                            {money(item.price)}
+                          </p>
+
+                          <div className="quantity-controls">
+
+                            <button
+                              onClick={() =>
+                                decreaseQuantity(
+                                  item.id
+                                )
+                              }
+                            >
+                              −
+                            </button>
+
+                            <strong>
+                              {item.quantity}
+                            </strong>
+
+                            <button
+                              onClick={() =>
+                                increaseQuantity(
+                                  item.id
+                                )
+                              }
+                            >
+                              +
+                            </button>
+
+                          </div>
+
+                          <button
+                            className="remove-cart-item"
+                            onClick={() =>
+                              removeFromCart(
+                                item.id
+                              )
+                            }
+                          >
+                            Remove
+                          </button>
+
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
+
                 </div>
 
                 <div className="cart-footer">
+
                   <div className="cart-total">
-                    <span>Total</span>
+                    <span>
+                      Total
+                    </span>
 
                     <strong>
                       {money(cartTotal)}
@@ -1254,14 +1640,18 @@ function App() {
                   >
                     Clear cart
                   </button>
+
                 </div>
               </>
             )}
+
           </aside>
         </div>
       )}
 
-      {/* CHECKOUT */}
+      {/* =========================
+          CHECKOUT
+      ========================= */}
 
       {checkoutOpen && (
         <div
@@ -1271,12 +1661,14 @@ function App() {
             setCheckoutOpen(false)
           }
         >
+
           <div
             className="account-modal checkout-modal"
             onClick={(event) =>
               event.stopPropagation()
             }
           >
+
             <button
               className="modal-close"
               onClick={() =>
@@ -1294,6 +1686,7 @@ function App() {
                   padding: "25px 5px",
                 }}
               >
+
                 <div
                   style={{
                     fontSize: "60px",
@@ -1307,7 +1700,9 @@ function App() {
                   ORDER RECEIVED
                 </p>
 
-                <h2>Thank you!</h2>
+                <h2>
+                  Thank you!
+                </h2>
 
                 <p className="auth-message">
                   {orderMessage}
@@ -1321,6 +1716,7 @@ function App() {
                 >
                   Continue shopping
                 </button>
+
               </div>
             ) : (
               <>
@@ -1328,7 +1724,9 @@ function App() {
                   SHINDARA CHECKOUT
                 </p>
 
-                <h2>Delivery details</h2>
+                <h2>
+                  Delivery details
+                </h2>
 
                 <p
                   style={{
@@ -1336,14 +1734,15 @@ function App() {
                     marginBottom: "20px",
                   }}
                 >
-                  Tell us where to deliver
-                  your order.
+                  Tell us where to
+                  deliver your order.
                 </p>
 
                 <form
                   className="auth-form"
                   onSubmit={placeOrder}
                 >
+
                   <input
                     type="text"
                     placeholder="Full name"
@@ -1440,14 +1839,18 @@ function App() {
                           cartTotal
                         )}`}
                   </button>
+
                 </form>
               </>
             )}
+
           </div>
         </div>
       )}
 
-      {/* CUSTOMER ACCOUNT */}
+      {/* =========================
+          CUSTOMER ACCOUNT
+      ========================= */}
 
       {accountOpen && (
         <div
@@ -1456,6 +1859,7 @@ function App() {
             setAccountOpen(false)
           }
         >
+
           <div
             className="account-modal"
             style={{
@@ -1465,6 +1869,7 @@ function App() {
               event.stopPropagation()
             }
           >
+
             <button
               className="modal-close"
               onClick={() =>
@@ -1474,7 +1879,71 @@ function App() {
               ×
             </button>
 
-            {user ? (
+            {/* PASSWORD RECOVERY */}
+
+            {isRecoveryMode ? (
+              <>
+                <p className="eyebrow">
+                  SHINDARA SECURITY
+                </p>
+
+                <h2>
+                  Create a new password
+                </h2>
+
+                <p
+                  style={{
+                    opacity: 0.7,
+                    marginBottom: "20px",
+                  }}
+                >
+                  Enter your new password
+                  below.
+                </p>
+
+                <form
+                  className="auth-form"
+                  onSubmit={
+                    updateRecoveredPassword
+                  }
+                >
+
+                  <input
+                    type="password"
+                    placeholder="New password"
+                    value={
+                      recoveryPassword
+                    }
+                    onChange={(event) =>
+                      setRecoveryPassword(
+                        event.target.value
+                      )
+                    }
+                    minLength={6}
+                    required
+                  />
+
+                  <button
+                    className="modal-action"
+                    type="submit"
+                    disabled={
+                      recoveryLoading
+                    }
+                  >
+                    {recoveryLoading
+                      ? "Updating..."
+                      : "Update password"}
+                  </button>
+
+                </form>
+
+                {recoveryMessage && (
+                  <p className="auth-message">
+                    {recoveryMessage}
+                  </p>
+                )}
+              </>
+            ) : user ? (
               <>
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
@@ -1490,6 +1959,8 @@ function App() {
                     : "My Account"}
                 </h2>
 
+                {/* ACCOUNT NAV */}
+
                 <div
                   style={{
                     display: "grid",
@@ -1499,6 +1970,7 @@ function App() {
                     margin: "25px 0",
                   }}
                 >
+
                   <button
                     className={
                       accountTab ===
@@ -1506,10 +1978,11 @@ function App() {
                         ? "modal-action"
                         : "modal-secondary"
                     }
-                    onClick={() => {
-                      setAccountTab("profile");
-                      setSettingsMessage("");
-                    }}
+                    onClick={() =>
+                      setAccountTab(
+                        "profile"
+                      )
+                    }
                   >
                     👤 Profile
                   </button>
@@ -1522,7 +1995,9 @@ function App() {
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab("orders");
+                      setAccountTab(
+                        "orders"
+                      );
                       loadOrders();
                     }}
                   >
@@ -1537,17 +2012,24 @@ function App() {
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab("settings");
+                      setAccountTab(
+                        "settings"
+                      );
                       setSettingsMessage("");
                       setPasswordMessage("");
                     }}
                   >
                     ⚙️ Settings
                   </button>
+
                 </div>
 
-                {accountTab === "profile" && (
+                {/* PROFILE */}
+
+                {accountTab ===
+                  "profile" && (
                   <div>
+
                     <div
                       style={{
                         padding: "20px",
@@ -1557,6 +2039,7 @@ function App() {
                         marginBottom: "15px",
                       }}
                     >
+
                       <p className="eyebrow">
                         PERSONAL INFORMATION
                       </p>
@@ -1575,6 +2058,7 @@ function App() {
                         {profile?.phone ||
                           "Phone number not added"}
                       </p>
+
                     </div>
 
                     <button
@@ -1594,22 +2078,31 @@ function App() {
                         marginTop: "10px",
                       }}
                       onClick={() => {
-                        setAccountTab("orders");
+                        setAccountTab(
+                          "orders"
+                        );
                         loadOrders();
                       }}
                     >
                       View my orders
                     </button>
+
                   </div>
                 )}
 
-                {accountTab === "orders" && (
+                {/* ORDERS */}
+
+                {accountTab ===
+                  "orders" && (
                   <div>
+
                     <p className="eyebrow">
                       ORDER HISTORY
                     </p>
 
-                    <h3>My Orders</h3>
+                    <h3>
+                      My Orders
+                    </h3>
 
                     {ordersLoading ? (
                       <div
@@ -1627,7 +2120,10 @@ function App() {
                           textAlign: "center",
                         }}
                       >
-                        <p>{ordersError}</p>
+
+                        <p>
+                          {ordersError}
+                        </p>
 
                         <button
                           className="modal-action"
@@ -1635,14 +2131,17 @@ function App() {
                         >
                           Try again
                         </button>
+
                       </div>
-                    ) : orders.length === 0 ? (
+                    ) : orders.length ===
+                      0 ? (
                       <div
                         style={{
                           textAlign: "center",
                           padding: "35px 10px",
                         }}
                       >
+
                         <div
                           style={{
                             fontSize: "50px",
@@ -1656,26 +2155,26 @@ function App() {
                         </h3>
 
                         <p>
-                          Your completed orders
-                          will appear here.
+                          Your completed
+                          orders will appear
+                          here.
                         </p>
 
                         <button
                           className="modal-action"
                           onClick={() => {
-                            setAccountOpen(
-                              false
-                            );
-
+                            setAccountOpen(false);
                             window.location.hash =
                               "shop";
                           }}
                         >
                           Start shopping
                         </button>
+
                       </div>
                     ) : (
                       <div>
+
                         {orders.map(
                           (order) => (
                             <div
@@ -1684,16 +2183,14 @@ function App() {
                                 padding: "18px",
                                 border:
                                   "1px solid rgba(128,128,128,0.2)",
-                                borderRadius:
-                                  "18px",
-                                marginBottom:
-                                  "12px",
+                                borderRadius: "18px",
+                                marginBottom: "12px",
                               }}
                             >
+
                               <div
                                 style={{
-                                  display:
-                                    "flex",
+                                  display: "flex",
                                   justifyContent:
                                     "space-between",
                                   gap: "12px",
@@ -1701,33 +2198,30 @@ function App() {
                                     "flex-start",
                                 }}
                               >
+
                                 <div>
+
                                   <strong>
                                     Order #
                                     {String(
                                       order.id
                                     )
-                                      .slice(
-                                        0,
-                                        8
-                                      )
+                                      .slice(0, 8)
                                       .toUpperCase()}
                                   </strong>
 
                                   <p
                                     style={{
-                                      opacity:
-                                        0.65,
-                                      fontSize:
-                                        "13px",
-                                      margin:
-                                        "5px 0",
+                                      opacity: 0.65,
+                                      fontSize: "13px",
+                                      margin: "5px 0",
                                     }}
                                   >
                                     {formatDate(
                                       order.created_at
                                     )}
                                   </p>
+
                                 </div>
 
                                 <span
@@ -1738,28 +2232,27 @@ function App() {
                                       "999px",
                                     background:
                                       "rgba(128,128,128,0.12)",
-                                    fontSize:
-                                      "12px",
+                                    fontSize: "12px",
                                   }}
                                 >
                                   {statusLabel(
                                     order.status
                                   )}
                                 </span>
+
                               </div>
 
                               <div
                                 style={{
-                                  display:
-                                    "flex",
+                                  display: "flex",
                                   justifyContent:
                                     "space-between",
                                   alignItems:
                                     "center",
-                                  marginTop:
-                                    "12px",
+                                  marginTop: "12px",
                                 }}
                               >
+
                                 <strong>
                                   {money(
                                     order.total
@@ -1782,29 +2275,26 @@ function App() {
                                     ? "Hide items"
                                     : "View items"}
                                 </button>
+
                               </div>
 
                               {expandedOrder ===
                                 order.id && (
                                 <div
                                   style={{
-                                    marginTop:
-                                      "15px",
-                                    paddingTop:
-                                      "15px",
+                                    marginTop: "15px",
+                                    paddingTop: "15px",
                                     borderTop:
                                       "1px solid rgba(128,128,128,0.15)",
                                   }}
                                 >
+
                                   {order.order_items?.map(
                                     (item) => (
                                       <div
-                                        key={
-                                          item.id
-                                        }
+                                        key={item.id}
                                         style={{
-                                          display:
-                                            "flex",
+                                          display: "flex",
                                           justifyContent:
                                             "space-between",
                                           gap: "10px",
@@ -1812,7 +2302,9 @@ function App() {
                                             "8px 0",
                                         }}
                                       >
+
                                         <div>
+
                                           <strong>
                                             {
                                               item.product_name
@@ -1821,8 +2313,7 @@ function App() {
 
                                           <div
                                             style={{
-                                              opacity:
-                                                0.65,
+                                              opacity: 0.65,
                                               fontSize:
                                                 "13px",
                                             }}
@@ -1832,6 +2323,7 @@ function App() {
                                               item.quantity
                                             }
                                           </div>
+
                                         </div>
 
                                         <strong>
@@ -1844,21 +2336,30 @@ function App() {
                                               )
                                           )}
                                         </strong>
+
                                       </div>
                                     )
                                   )}
+
                                 </div>
                               )}
+
                             </div>
                           )
                         )}
+
                       </div>
                     )}
+
                   </div>
                 )}
 
-                {accountTab === "settings" && (
+                {/* SETTINGS */}
+
+                {accountTab ===
+                  "settings" && (
                   <div>
+
                     <p className="eyebrow">
                       ACCOUNT SETTINGS
                     </p>
@@ -1873,6 +2374,7 @@ function App() {
                         saveProfileSettings
                       }
                     >
+
                       <input
                         type="text"
                         placeholder="Full name"
@@ -1916,6 +2418,7 @@ function App() {
                           ? "Saving..."
                           : "Save changes"}
                       </button>
+
                     </form>
 
                     {settingsMessage && (
@@ -1932,6 +2435,7 @@ function App() {
                           "1px solid rgba(128,128,128,0.15)",
                       }}
                     >
+
                       <p className="eyebrow">
                         SECURITY
                       </p>
@@ -1946,12 +2450,11 @@ function App() {
                           changePassword
                         }
                       >
+
                         <input
                           type="password"
                           placeholder="New password"
-                          value={
-                            newPassword
-                          }
+                          value={newPassword}
                           onChange={(event) =>
                             setNewPassword(
                               event.target.value
@@ -1972,6 +2475,7 @@ function App() {
                             ? "Changing..."
                             : "Change password"}
                         </button>
+
                       </form>
 
                       {passwordMessage && (
@@ -1979,6 +2483,7 @@ function App() {
                           {passwordMessage}
                         </p>
                       )}
+
                     </div>
 
                     <button
@@ -1990,17 +2495,90 @@ function App() {
                     >
                       🚪 Log out
                     </button>
+
                   </div>
                 )}
+
               </>
-            ) : (
+            ) : forgotPassword ? (
+              /* FORGOT PASSWORD */
+
               <>
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
                 </p>
 
                 <h2>
-                  {authMode === "signup"
+                  Forgot your password?
+                </h2>
+
+                <p
+                  style={{
+                    opacity: 0.7,
+                    marginBottom: "20px",
+                  }}
+                >
+                  Enter your email and we'll
+                  send you a password reset
+                  link.
+                </p>
+
+                <form
+                  className="auth-form"
+                  onSubmit={sendPasswordReset}
+                >
+
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={resetEmail}
+                    onChange={(event) =>
+                      setResetEmail(
+                        event.target.value
+                      )
+                    }
+                    required
+                  />
+
+                  <button
+                    className="modal-action"
+                    type="submit"
+                    disabled={resetLoading}
+                  >
+                    {resetLoading
+                      ? "Sending..."
+                      : "Send reset link"}
+                  </button>
+
+                </form>
+
+                {resetMessage && (
+                  <p className="auth-message">
+                    {resetMessage}
+                  </p>
+                )}
+
+                <button
+                  className="modal-secondary"
+                  onClick={() => {
+                    setForgotPassword(false);
+                    setResetMessage("");
+                  }}
+                >
+                  ← Back to sign in
+                </button>
+              </>
+            ) : (
+              /* LOGIN / SIGNUP */
+
+              <>
+                <p className="eyebrow">
+                  SHINDARA ACCOUNT
+                </p>
+
+                <h2>
+                  {authMode ===
+                  "signup"
                     ? "Create your account"
                     : "Welcome back"}
                 </h2>
@@ -2009,7 +2587,9 @@ function App() {
                   className="auth-form"
                   onSubmit={handleAuth}
                 >
-                  {authMode === "signup" && (
+
+                  {authMode ===
+                    "signup" && (
                     <>
                       <input
                         type="text"
@@ -2074,7 +2654,88 @@ function App() {
                       ? "Create account"
                       : "Sign in"}
                   </button>
+
                 </form>
+
+                {authMode === "login" && (
+                  <button
+                    className="forgot-password-button"
+                    onClick={() => {
+                      setForgotPassword(true);
+                      setResetEmail(email);
+                      setAuthMessage("");
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    margin: "20px 0",
+                    opacity: 0.6,
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "1px",
+                      flex: 1,
+                      background:
+                        "currentColor",
+                    }}
+                  />
+
+                  <span>
+                    OR CONTINUE WITH
+                  </span>
+
+                  <div
+                    style={{
+                      height: "1px",
+                      flex: 1,
+                      background:
+                        "currentColor",
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "1fr 1fr",
+                    gap: "10px",
+                  }}
+                >
+
+                  <button
+                    className="modal-secondary"
+                    onClick={() =>
+                      signInWithProvider(
+                        "google"
+                      )
+                    }
+                    disabled={authLoading}
+                  >
+                    🌐 Google
+                  </button>
+
+                  <button
+                    className="modal-secondary"
+                    onClick={() =>
+                      signInWithProvider(
+                        "apple"
+                      )
+                    }
+                    disabled={authLoading}
+                  >
+                     Apple
+                  </button>
+
+                </div>
 
                 {authMessage && (
                   <p className="auth-message">
@@ -2084,11 +2745,15 @@ function App() {
 
                 <button
                   className="modal-secondary"
+                  style={{
+                    marginTop: "12px",
+                  }}
                   onClick={() => {
                     setAuthMessage("");
 
                     setAuthMode(
-                      authMode === "login"
+                      authMode ===
+                        "login"
                         ? "signup"
                         : "login"
                     );
@@ -2098,11 +2763,14 @@ function App() {
                     ? "Create a new account"
                     : "Already have an account? Sign in"}
                 </button>
+
               </>
             )}
+
           </div>
         </div>
       )}
+
     </div>
   );
 }
