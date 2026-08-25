@@ -6,6 +6,14 @@
     {
       "source": "/admin",
       "destination": "/"
+    },
+    {
+      "source": "/privacy-policy",
+      "destination": "/"
+    },
+    {
+      "source": "/terms",
+      "destination": "/"
     }
   ]
 }
