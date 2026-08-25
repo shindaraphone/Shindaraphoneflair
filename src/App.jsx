@@ -9,11 +9,6 @@ const TIKTOK =
 const PAYSTACK_PUBLIC_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
-// Add your logo URL here later.
-// Example:
-// const LOGO_URL = "https://your-logo-url.com/logo.png";
-const LOGO_URL = "";
-
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
 }
@@ -64,16 +59,41 @@ function loadPaystackScript() {
 }
 
 function App() {
+  /* =========================
+     CART
+  ========================= */
+
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
+  /* =========================
+     CHECKOUT
+  ========================= */
 
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
+  const [orderSuccess, setOrderSuccess] = useState(false);
+
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
+
+  /* =========================
+     ACCOUNT
+  ========================= */
+
+  const [accountOpen, setAccountOpen] = useState(false);
   const [accountTab, setAccountTab] = useState("profile");
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+
+  /* =========================
+     AUTH
+  ========================= */
 
   const [authMode, setAuthMode] = useState("login");
 
@@ -86,15 +106,18 @@ function App() {
   const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  /* =========================
+     FORGOT PASSWORD
+  ========================= */
+
   const [forgotPassword, setForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
 
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
-  const [recoveryPassword, setRecoveryPassword] = useState("");
-  const [recoveryMessage, setRecoveryMessage] = useState("");
-  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  /* =========================
+     PROFILE SETTINGS
+  ========================= */
 
   const [profileName, setProfileName] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
@@ -102,31 +125,33 @@ function App() {
   const [settingsMessage, setSettingsMessage] = useState("");
   const [settingsLoading, setSettingsLoading] = useState(false);
 
+  /* =========================
+     PASSWORD
+  ========================= */
+
   const [newPassword, setNewPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  /* =========================
+     ORDERS
+  ========================= */
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [expandedOrder, setExpandedOrder] = useState(null);
 
+  /* =========================
+     PRODUCTS
+  ========================= */
+
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
 
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryCity, setDeliveryCity] = useState("");
-  const [deliveryState, setDeliveryState] = useState("");
-
-  const [orderLoading, setOrderLoading] = useState(false);
-  const [orderMessage, setOrderMessage] = useState("");
-  const [orderSuccess, setOrderSuccess] = useState(false);
-
   /* =========================
-     USER / AUTH
+     INITIAL USER
   ========================= */
 
   useEffect(() => {
@@ -151,18 +176,12 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         if (!mounted) return;
 
         const currentUser = session?.user ?? null;
 
         setUser(currentUser);
-
-        if (event === "PASSWORD_RECOVERY") {
-          setIsRecoveryMode(true);
-          setRecoveryMessage("");
-          setAccountOpen(true);
-        }
 
         if (currentUser) {
           await loadProfile(currentUser.id);
@@ -178,29 +197,6 @@ function App() {
       subscription.unsubscribe();
     };
   }, []);
-
-  async function loadProfile(userId) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Profile loading error:", error);
-      return;
-    }
-
-    setProfile(data || null);
-
-    if (data) {
-      setProfileName(data.name || "");
-      setProfilePhone(data.phone || "");
-
-      setCustomerName(data.name || "");
-      setCustomerPhone(data.phone || "");
-    }
-  }
 
   /* =========================
      PRODUCTS
@@ -256,6 +252,33 @@ function App() {
   }
 
   /* =========================
+     PROFILE
+  ========================= */
+
+  async function loadProfile(userId) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Profile loading error:", error);
+      return;
+    }
+
+    setProfile(data || null);
+
+    if (data) {
+      setProfileName(data.name || "");
+      setProfilePhone(data.phone || "");
+
+      setCustomerName(data.name || "");
+      setCustomerPhone(data.phone || "");
+    }
+  }
+
+  /* =========================
      ORDERS
   ========================= */
 
@@ -302,6 +325,7 @@ function App() {
     setAuthMessage("");
     setSettingsMessage("");
     setPasswordMessage("");
+
     setAccountOpen(true);
 
     if (user) {
@@ -311,7 +335,7 @@ function App() {
   }
 
   /* =========================
-     EMAIL AUTH
+     SIGN UP / LOGIN
   ========================= */
 
   async function handleAuth(event) {
@@ -435,7 +459,7 @@ function App() {
   }
 
   /* =========================
-     GOOGLE / APPLE LOGIN
+     GOOGLE / APPLE
   ========================= */
 
   async function signInWithProvider(provider) {
@@ -452,19 +476,16 @@ function App() {
         });
 
       if (error) {
-        setAuthMessage(error.message);
+        throw error;
       }
     } catch (error) {
-      console.error(
-        `${provider} login error:`,
-        error
-      );
+      console.error(error);
 
       setAuthMessage(
         error?.message ||
           `Unable to continue with ${provider}.`
       );
-    } finally {
+
       setAuthLoading(false);
     }
   }
@@ -473,7 +494,7 @@ function App() {
      FORGOT PASSWORD
   ========================= */
 
-  async function sendPasswordReset(event) {
+  async function handleForgotPassword(event) {
     event.preventDefault();
 
     setResetLoading(true);
@@ -493,8 +514,7 @@ function App() {
         await supabase.auth.resetPasswordForEmail(
           cleanEmail,
           {
-            redirectTo:
-              window.location.origin,
+            redirectTo: window.location.origin,
           }
         );
 
@@ -503,13 +523,10 @@ function App() {
       }
 
       setResetMessage(
-        "Password reset email sent. Check your inbox and follow the link."
+        "Password reset link sent. Please check your email."
       );
     } catch (error) {
-      console.error(
-        "Password reset error:",
-        error
-      );
+      console.error(error);
 
       setResetMessage(
         error?.message ||
@@ -517,60 +534,6 @@ function App() {
       );
     } finally {
       setResetLoading(false);
-    }
-  }
-
-  /* =========================
-     RESET NEW PASSWORD
-  ========================= */
-
-  async function updateRecoveredPassword(event) {
-    event.preventDefault();
-
-    setRecoveryLoading(true);
-    setRecoveryMessage("");
-
-    try {
-      if (
-        !recoveryPassword ||
-        recoveryPassword.length < 6
-      ) {
-        setRecoveryMessage(
-          "Password must be at least 6 characters."
-        );
-        return;
-      }
-
-      const { error } =
-        await supabase.auth.updateUser({
-          password: recoveryPassword,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      setRecoveryPassword("");
-
-      setRecoveryMessage(
-        "Your password has been changed successfully."
-      );
-
-      setTimeout(() => {
-        setIsRecoveryMode(false);
-      }, 1500);
-    } catch (error) {
-      console.error(
-        "Recovery password error:",
-        error
-      );
-
-      setRecoveryMessage(
-        error?.message ||
-          "Unable to change your password."
-      );
-    } finally {
-      setRecoveryLoading(false);
     }
   }
 
@@ -604,15 +567,14 @@ function App() {
         return;
       }
 
-      const { error } =
-        await supabase
-          .from("profiles")
-          .upsert({
-            id: user.id,
-            name: cleanName,
-            phone: cleanPhone,
-            email: user.email || "",
-          });
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({
+          id: user.id,
+          name: cleanName,
+          phone: cleanPhone,
+          email: user.email || "",
+        });
 
       if (error) {
         throw error;
@@ -624,10 +586,7 @@ function App() {
         "Your account details have been updated successfully."
       );
     } catch (error) {
-      console.error(
-        "Settings error:",
-        error
-      );
+      console.error("Settings error:", error);
 
       setSettingsMessage(
         error?.message ||
@@ -638,6 +597,10 @@ function App() {
     }
   }
 
+  /* =========================
+     CHANGE PASSWORD
+  ========================= */
+
   async function changePassword(event) {
     event.preventDefault();
 
@@ -645,10 +608,7 @@ function App() {
     setPasswordMessage("");
 
     try {
-      if (
-        !newPassword ||
-        newPassword.length < 6
-      ) {
+      if (!newPassword || newPassword.length < 6) {
         setPasswordMessage(
           "Password must be at least 6 characters."
         );
@@ -684,6 +644,10 @@ function App() {
     }
   }
 
+  /* =========================
+     LOGOUT
+  ========================= */
+
   async function logout() {
     await supabase.auth.signOut();
 
@@ -695,6 +659,8 @@ function App() {
 
   /* =========================
      CART
+     IMPORTANT:
+     ADD TO CART DOES NOT OPEN CART
   ========================= */
 
   function addToCart(product) {
@@ -708,8 +674,7 @@ function App() {
           item.id === product.id
             ? {
                 ...item,
-                quantity:
-                  item.quantity + 1,
+                quantity: item.quantity + 1,
               }
             : item
         );
@@ -723,11 +688,6 @@ function App() {
         },
       ];
     });
-
-    // IMPORTANT:
-    // The cart opens ONLY when the Add to cart
-    // button is clicked.
-    setCartOpen(true);
   }
 
   function increaseQuantity(id) {
@@ -736,8 +696,7 @@ function App() {
         item.id === id
           ? {
               ...item,
-              quantity:
-                item.quantity + 1,
+              quantity: item.quantity + 1,
             }
           : item
       )
@@ -751,8 +710,7 @@ function App() {
           item.id === id
             ? {
                 ...item,
-                quantity:
-                  item.quantity - 1,
+                quantity: item.quantity - 1,
               }
             : item
         )
@@ -788,6 +746,10 @@ function App() {
     0
   );
 
+  /* =========================
+     CHECKOUT
+  ========================= */
+
   function openCheckout() {
     if (!cart.length) return;
 
@@ -807,10 +769,6 @@ function App() {
 
     setCheckoutOpen(true);
   }
-
-  /* =========================
-     PAYMENT / ORDER
-  ========================= */
 
   async function saveOrder(reference) {
     const { data: order, error: orderError } =
@@ -876,9 +834,7 @@ function App() {
     }
 
     if (!cart.length) {
-      setOrderMessage(
-        "Your cart is empty."
-      );
+      setOrderMessage("Your cart is empty.");
       return;
     }
 
@@ -957,9 +913,7 @@ function App() {
               );
             }
 
-            if (
-              !verificationData?.success
-            ) {
+            if (!verificationData?.success) {
               throw new Error(
                 verificationData?.error ||
                   "Payment could not be verified."
@@ -1024,6 +978,10 @@ function App() {
     }
   }
 
+  /* =========================
+     HELPERS
+  ========================= */
+
   function whatsapp() {
     const message = encodeURIComponent(
       "Hello Shindara Phoneflair, I would like to make an enquiry."
@@ -1060,68 +1018,887 @@ function App() {
   return (
     <div className="app">
 
-      {/* TOP ANNOUNCEMENT */}
+      {/* =========================
+          RESPONSIVE STYLES
+      ========================= */}
+
+      <style>{`
+
+        * {
+          box-sizing: border-box;
+        }
+
+        html {
+          scroll-behavior: smooth;
+        }
+
+        body {
+          margin: 0;
+          font-family: Inter, -apple-system, BlinkMacSystemFont,
+            "SF Pro Display", "Segoe UI", sans-serif;
+          background: #f7f7f8;
+          color: #111;
+          overflow-x: hidden;
+        }
+
+        button,
+        input {
+          font: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .app {
+          min-height: 100vh;
+          background:
+            radial-gradient(
+              circle at 15% 10%,
+              rgba(124, 58, 237, 0.08),
+              transparent 28%
+            ),
+            radial-gradient(
+              circle at 85% 20%,
+              rgba(59, 130, 246, 0.08),
+              transparent 25%
+            ),
+            #f7f7f8;
+        }
+
+        /* ANNOUNCEMENT */
+
+        .announcement-bar {
+          width: 100%;
+          overflow: hidden;
+          background: #111;
+          color: white;
+          padding: 11px 0;
+          white-space: nowrap;
+          position: relative;
+          z-index: 1000;
+        }
+
+        .announcement-track {
+          display: flex;
+          width: max-content;
+          animation: marquee 22s linear infinite;
+        }
+
+        .announcement-group {
+          display: flex;
+          align-items: center;
+          flex-shrink: 0;
+        }
+
+        .announcement-group span {
+          display: inline-block;
+          margin-right: 80px;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: .4px;
+        }
+
+        @keyframes marquee {
+          from {
+            transform: translateX(0);
+          }
+
+          to {
+            transform: translateX(-50%);
+          }
+        }
+
+        /* HEADER */
+
+        .header {
+          position: sticky;
+          top: 0;
+          z-index: 900;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 16px 5%;
+          background: rgba(255,255,255,.82);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-bottom: 1px solid rgba(0,0,0,.06);
+        }
+
+        .logo {
+          text-decoration: none;
+          color: #111;
+          font-weight: 800;
+          font-size: 21px;
+          letter-spacing: -1px;
+          white-space: nowrap;
+        }
+
+        .logo span {
+          display: block;
+          font-weight: 500;
+          font-size: 11px;
+          letter-spacing: 1.8px;
+          text-transform: uppercase;
+          opacity: .55;
+        }
+
+        .nav {
+          display: flex;
+          align-items: center;
+          gap: 28px;
+        }
+
+        .nav a {
+          color: #222;
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 600;
+          opacity: .75;
+        }
+
+        .nav a:hover {
+          opacity: 1;
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .account-button,
+        .cart-button {
+          border: 1px solid rgba(0,0,0,.08);
+          background: white;
+          color: #111;
+          border-radius: 999px;
+          padding: 10px 14px;
+          cursor: pointer;
+          font-weight: 700;
+          font-size: 13px;
+        }
+
+        .cart-button {
+          background: #111;
+          color: white;
+        }
+
+        /* HERO */
+
+        .hero {
+          min-height: 650px;
+          display: flex;
+          align-items: center;
+          padding: 80px 7%;
+          background:
+            radial-gradient(
+              circle at 70% 40%,
+              rgba(124,58,237,.16),
+              transparent 35%
+            ),
+            radial-gradient(
+              circle at 90% 80%,
+              rgba(37,99,235,.13),
+              transparent 30%
+            );
+        }
+
+        .hero-content {
+          max-width: 720px;
+        }
+
+        .eyebrow {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2px;
+          opacity: .55;
+          margin: 0 0 14px;
+        }
+
+        .hero h1 {
+          font-size: clamp(48px, 7vw, 88px);
+          line-height: .94;
+          letter-spacing: -5px;
+          margin: 0 0 28px;
+        }
+
+        .hero-text {
+          max-width: 550px;
+          font-size: 18px;
+          line-height: 1.65;
+          opacity: .68;
+          margin-bottom: 32px;
+        }
+
+        .shop-button {
+          display: inline-block;
+          background: #111;
+          color: white;
+          text-decoration: none;
+          padding: 15px 22px;
+          border-radius: 999px;
+          font-weight: 700;
+        }
+
+        /* SECTIONS */
+
+        .section {
+          padding: 90px 7%;
+        }
+
+        .section h2 {
+          margin: 0 0 35px;
+          font-size: 46px;
+          letter-spacing: -2.5px;
+        }
+
+        /* CATEGORIES */
+
+        .category-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 12px;
+        }
+
+        .category-card {
+          min-height: 150px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 20px;
+          text-decoration: none;
+          color: inherit;
+          background: rgba(255,255,255,.8);
+          border: 1px solid rgba(0,0,0,.06);
+          border-radius: 22px;
+          transition: transform .2s ease;
+        }
+
+        .category-card:hover {
+          transform: translateY(-4px);
+        }
+
+        .category-card span {
+          font-size: 30px;
+        }
+
+        .category-card strong {
+          font-size: 14px;
+        }
+
+        /* PRODUCTS */
+
+        .product-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 18px;
+        }
+
+        .product-card {
+          background: white;
+          border: 1px solid rgba(0,0,0,.06);
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 10px 35px rgba(0,0,0,.04);
+        }
+
+        .product-image {
+          height: 270px;
+          background: #f0f0f2;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        .product-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .product-info {
+          padding: 18px;
+        }
+
+        .product-category {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          opacity: .45;
+          margin: 0 0 7px;
+        }
+
+        .product-info h3 {
+          margin: 0 0 10px;
+          font-size: 17px;
+        }
+
+        .price {
+          font-size: 20px;
+          font-weight: 800;
+          margin: 14px 0;
+        }
+
+        .add-button {
+          width: 100%;
+          border: 0;
+          border-radius: 12px;
+          background: #111;
+          color: white;
+          padding: 13px;
+          cursor: pointer;
+          font-weight: 700;
+        }
+
+        .add-button:disabled {
+          opacity: .45;
+          cursor: not-allowed;
+        }
+
+        /* TRUST */
+
+        .trust-section {
+          display: grid;
+          grid-template-columns: repeat(3,1fr);
+          gap: 20px;
+          padding: 50px 7%;
+          background: #111;
+          color: white;
+        }
+
+        .trust-section > div {
+          padding: 25px;
+          border-radius: 20px;
+          background: rgba(255,255,255,.05);
+        }
+
+        .trust-section span {
+          font-size: 28px;
+        }
+
+        .trust-section h3 {
+          margin-bottom: 5px;
+        }
+
+        .trust-section p {
+          opacity: .6;
+        }
+
+        /* FOOTER */
+
+        footer {
+          padding: 60px 7%;
+          background: #090909;
+          color: white;
+          display: flex;
+          justify-content: space-between;
+          gap: 30px;
+          flex-wrap: wrap;
+        }
+
+        .footer-logo {
+          font-size: 20px;
+        }
+
+        .social-links {
+          display: flex;
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .social-button {
+          display: inline-block;
+          border: 1px solid rgba(255,255,255,.15);
+          background: rgba(255,255,255,.06);
+          color: white;
+          padding: 10px 13px;
+          border-radius: 999px;
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        /* WHATSAPP */
+
+        .whatsapp-floating {
+          position: fixed;
+          right: 22px;
+          bottom: 22px;
+          z-index: 950;
+          width: 58px;
+          height: 58px;
+          border: 0;
+          border-radius: 50%;
+          background: #111;
+          color: white;
+          box-shadow: 0 12px 30px rgba(0,0,0,.2);
+          cursor: pointer;
+          font-size: 22px;
+        }
+
+        /* MODALS */
+
+        .modal-backdrop,
+        .cart-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 2000;
+          background: rgba(0,0,0,.55);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 18px;
+        }
+
+        .account-modal {
+          position: relative;
+          width: min(620px, 100%);
+          max-height: 90vh;
+          overflow-y: auto;
+          background: white;
+          color: #111;
+          border-radius: 28px;
+          padding: 30px;
+          box-shadow: 0 30px 100px rgba(0,0,0,.3);
+        }
+
+        .modal-close {
+          position: absolute;
+          right: 18px;
+          top: 18px;
+          width: 36px;
+          height: 36px;
+          border: 0;
+          border-radius: 50%;
+          background: rgba(0,0,0,.06);
+          font-size: 24px;
+          cursor: pointer;
+        }
+
+        .auth-form {
+          display: grid;
+          gap: 12px;
+        }
+
+        .auth-form input {
+          width: 100%;
+          padding: 14px 15px;
+          border: 1px solid rgba(0,0,0,.12);
+          border-radius: 13px;
+          outline: none;
+          background: #fafafa;
+        }
+
+        .auth-form input:focus {
+          border-color: #111;
+          background: white;
+        }
+
+        .modal-action {
+          width: 100%;
+          border: 0;
+          background: #111;
+          color: white;
+          padding: 14px;
+          border-radius: 13px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .modal-secondary {
+          width: 100%;
+          border: 1px solid rgba(0,0,0,.1);
+          background: white;
+          color: #111;
+          padding: 13px;
+          border-radius: 13px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .auth-message {
+          padding: 12px;
+          border-radius: 12px;
+          background: rgba(124,58,237,.08);
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .auth-divider {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin: 18px 0;
+          font-size: 12px;
+          opacity: .5;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+          content: "";
+          height: 1px;
+          flex: 1;
+          background: currentColor;
+        }
+
+        .social-auth-buttons {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+
+        .social-auth-button {
+          border: 1px solid rgba(0,0,0,.1);
+          background: white;
+          border-radius: 13px;
+          padding: 13px;
+          cursor: pointer;
+          font-weight: 700;
+        }
+
+        .forgot-password {
+          border: 0;
+          background: none;
+          padding: 0;
+          text-align: right;
+          cursor: pointer;
+          font-size: 12px;
+          opacity: .65;
+        }
+
+        /* CART */
+
+        .cart-overlay {
+          align-items: stretch;
+          justify-content: flex-end;
+          padding: 0;
+        }
+
+        .cart-drawer {
+          width: min(470px, 100%);
+          height: 100%;
+          background: white;
+          color: #111;
+          padding: 25px;
+          overflow-y: auto;
+          box-shadow: -20px 0 60px rgba(0,0,0,.2);
+        }
+
+        .cart-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+
+        .cart-header h2 {
+          margin-top: 0;
+        }
+
+        .cart-item {
+          display: flex;
+          gap: 14px;
+          padding: 16px 0;
+          border-bottom: 1px solid rgba(0,0,0,.07);
+        }
+
+        .cart-item-image {
+          width: 80px;
+          height: 80px;
+          flex-shrink: 0;
+          border-radius: 14px;
+          overflow: hidden;
+          background: #f1f1f1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .cart-item-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .cart-item-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .cart-item-info h3 {
+          margin: 0 0 5px;
+          font-size: 14px;
+        }
+
+        .quantity-controls {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 10px;
+        }
+
+        .quantity-controls button {
+          width: 30px;
+          height: 30px;
+          border: 1px solid rgba(0,0,0,.1);
+          background: white;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+
+        .remove-cart-item,
+        .clear-cart-button {
+          border: 0;
+          background: none;
+          cursor: pointer;
+          opacity: .55;
+          font-size: 12px;
+          margin-top: 8px;
+        }
+
+        .cart-footer {
+          padding-top: 20px;
+        }
+
+        .cart-total {
+          display: flex;
+          justify-content: space-between;
+          font-size: 20px;
+          margin-bottom: 15px;
+        }
+
+        .checkout-button {
+          width: 100%;
+          border: 0;
+          background: #111;
+          color: white;
+          padding: 15px;
+          border-radius: 13px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .clear-cart-button {
+          display: block;
+          margin: 15px auto 0;
+        }
+
+        /* MOBILE */
+
+        @media (max-width: 768px) {
+
+          .header {
+            padding: 12px;
+            gap: 8px;
+          }
+
+          .logo {
+            font-size: 17px;
+          }
+
+          .nav {
+            display: none;
+          }
+
+          .header-actions {
+            margin-left: auto;
+            gap: 5px;
+          }
+
+          .account-button,
+          .cart-button {
+            padding: 9px 10px;
+            font-size: 11px;
+          }
+
+          .hero {
+            min-height: 550px;
+            padding: 65px 20px;
+          }
+
+          .hero h1 {
+            font-size: clamp(42px, 13vw, 62px);
+            letter-spacing: -3px;
+          }
+
+          .hero-text {
+            font-size: 15px;
+          }
+
+          .section {
+            padding: 55px 16px;
+          }
+
+          .section h2 {
+            font-size: 32px;
+            letter-spacing: -1.5px;
+          }
+
+          .category-grid {
+            grid-template-columns: repeat(2,1fr);
+          }
+
+          .product-grid {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: 10px;
+          }
+
+          .product-image {
+            height: 170px;
+          }
+
+          .product-info {
+            padding: 13px;
+          }
+
+          .product-info h3 {
+            font-size: 14px;
+          }
+
+          .price {
+            font-size: 16px;
+          }
+
+          .add-button {
+            font-size: 12px;
+            padding: 10px 7px;
+          }
+
+          .trust-section {
+            grid-template-columns: 1fr;
+            padding: 35px 16px;
+          }
+
+          footer {
+            padding: 40px 16px;
+          }
+
+          .account-modal {
+            width: calc(100% - 16px);
+            padding: 23px 17px;
+            border-radius: 22px;
+          }
+
+          .social-auth-buttons {
+            grid-template-columns: 1fr;
+          }
+
+          .cart-drawer {
+            width: 100%;
+            border-radius: 22px 22px 0 0;
+          }
+
+          .cart-overlay {
+            align-items: flex-end;
+          }
+
+          .announcement-track {
+            animation-duration: 17s;
+          }
+
+          .announcement-group span {
+            font-size: 11px;
+            margin-right: 45px;
+          }
+
+          .whatsapp-floating {
+            width: 52px;
+            height: 52px;
+            right: 14px;
+            bottom: 14px;
+          }
+        }
+
+        @media (max-width: 380px) {
+
+          .product-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .product-image {
+            height: 220px;
+          }
+
+          .header-actions {
+            gap: 3px;
+          }
+
+          .account-button,
+          .cart-button {
+            padding: 8px;
+            font-size: 10px;
+          }
+        }
+
+      `}</style>
+
+      {/* =========================
+          MOVING ANNOUNCEMENT
+      ========================= */}
 
       <div className="announcement-bar">
         <div className="announcement-track">
-          <span>
-            ✨ Premium phone accessories, are screaming here!!! ✨
-          </span>
 
-          <span>
-            ✨ Premium phone accessories, are screaming here!!! ✨
-          </span>
+          <div className="announcement-group">
+            <span>
+              ✨ Premium phone accessories, are screaming here!!! ✨
+            </span>
 
-          <span>
-            ✨ Premium phone accessories, are screaming here!!! ✨
-          </span>
+            <span>
+              📱 Premium phone accessories, are screaming here!!! 📱
+            </span>
+
+            <span>
+              ⚡ Premium phone accessories, are screaming here!!! ⚡
+            </span>
+
+            <span>
+              ✨ Premium phone accessories, are screaming here!!! ✨
+            </span>
+          </div>
+
+          <div className="announcement-group">
+            <span>
+              ✨ Premium phone accessories, are screaming here!!! ✨
+            </span>
+
+            <span>
+              📱 Premium phone accessories, are screaming here!!! 📱
+            </span>
+
+            <span>
+              ⚡ Premium phone accessories, are screaming here!!! ⚡
+            </span>
+
+            <span>
+              ✨ Premium phone accessories, are screaming here!!! ✨
+            </span>
+          </div>
+
         </div>
       </div>
 
-      {/* HEADER */}
+      {/* =========================
+          HEADER
+      ========================= */}
 
       <header className="header">
 
-        <a
-          href="#home"
-          className="logo"
-        >
-          {LOGO_URL ? (
-            <img
-              src={LOGO_URL}
-              alt="Shindara Phoneflair"
-              style={{
-                height: "42px",
-                width: "auto",
-                objectFit: "contain",
-              }}
-            />
-          ) : (
-            <>
-              Shindara
-              <span>
-                Phoneflair
-              </span>
-            </>
-          )}
+        <a href="#home" className="logo">
+          Shindara
+          <span>Phoneflair</span>
         </a>
 
         <nav className="nav">
-          <a href="#home">
-            Home
-          </a>
-
-          <a href="#shop">
-            Shop
-          </a>
-
-          <a href="#categories">
-            Categories
-          </a>
-
-          <a href="#contact">
-            Contact
-          </a>
+          <a href="#home">Home</a>
+          <a href="#shop">Shop</a>
+          <a href="#categories">Categories</a>
+          <a href="#contact">Contact</a>
         </nav>
 
         <div className="header-actions">
@@ -1135,24 +1912,23 @@ function App() {
 
           <button
             className="cart-button"
-            onClick={() =>
-              setCartOpen(true)
-            }
+            onClick={() => setCartOpen(true)}
           >
             🛒 Cart ({cartCount})
           </button>
 
         </div>
+
       </header>
+
+      {/* =========================
+          HERO
+      ========================= */}
 
       <main>
 
-        {/* HERO */}
+        <section className="hero" id="home">
 
-        <section
-          className="hero"
-          id="home"
-        >
           <div className="hero-content">
 
             <p className="eyebrow">
@@ -1166,35 +1942,28 @@ function App() {
             </h1>
 
             <p className="hero-text">
-              Phones, accessories,
-              chargers, audio products,
-              power banks and everyday
-              gadgets.
+              Phones, accessories, chargers,
+              audio products, power banks and
+              everyday gadgets.
             </p>
 
-            <a
-              href="#shop"
-              className="shop-button"
-            >
+            <a href="#shop" className="shop-button">
               Shop now →
             </a>
 
           </div>
+
         </section>
 
-        {/* CATEGORIES */}
+        {/* =========================
+            CATEGORIES
+        ========================= */}
 
-        <section
-          className="section"
-          id="categories"
-        >
-          <p className="eyebrow">
-            EXPLORE
-          </p>
+        <section className="section" id="categories">
 
-          <h2>
-            Shop by category
-          </h2>
+          <p className="eyebrow">EXPLORE</p>
+
+          <h2>Shop by category</h2>
 
           <div className="category-grid">
 
@@ -1206,39 +1975,39 @@ function App() {
               ["🔋", "Power Banks"],
               ["✨", "Gadgets"],
             ].map(([icon, name]) => (
+
               <a
                 href="#shop"
                 className="category-card"
                 key={name}
               >
-                <span>
-                  {icon}
-                </span>
 
-                <strong>
-                  {name}
-                </strong>
+                <span>{icon}</span>
+
+                <strong>{name}</strong>
+
               </a>
+
             ))}
 
           </div>
+
         </section>
 
-        {/* PRODUCTS */}
+        {/* =========================
+            SHOP
+        ========================= */}
 
-        <section
-          className="section"
-          id="shop"
-        >
+        <section className="section" id="shop">
+
           <p className="eyebrow">
             SHINDARA STORE
           </p>
 
-          <h2>
-            Popular picks
-          </h2>
+          <h2>Popular picks</h2>
 
           {productsLoading ? (
+
             <div
               style={{
                 padding: "50px",
@@ -1247,16 +2016,17 @@ function App() {
             >
               Loading products...
             </div>
+
           ) : productsError ? (
+
             <div
               style={{
                 padding: "50px",
                 textAlign: "center",
               }}
             >
-              <p>
-                {productsError}
-              </p>
+
+              <p>{productsError}</p>
 
               <button
                 className="add-button"
@@ -1264,130 +2034,126 @@ function App() {
               >
                 Try again
               </button>
+
             </div>
+
           ) : products.length === 0 ? (
+
             <div
               style={{
                 padding: "50px",
                 textAlign: "center",
               }}
             >
-              <p>
-                Products are coming soon.
-              </p>
+              <p>Products are coming soon.</p>
             </div>
+
           ) : (
+
             <div className="product-grid">
 
-              {products.map(
-                (product) => (
-                  <article
-                    className="product-card"
-                    key={product.id}
-                  >
+              {products.map((product) => (
 
-                    <div className="product-image">
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                        />
-                      ) : (
-                        <span>
-                          📦
-                        </span>
-                      )}
-                    </div>
+                <article
+                  className="product-card"
+                  key={product.id}
+                >
 
-                    <div className="product-info">
+                  <div className="product-image">
 
-                      <p className="product-category">
-                        {product.category ||
-                          "Electronics"}
+                    {product.image_url ? (
+
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                      />
+
+                    ) : (
+
+                      <span style={{ fontSize: 45 }}>
+                        📦
+                      </span>
+
+                    )}
+
+                  </div>
+
+                  <div className="product-info">
+
+                    <p className="product-category">
+                      {product.category ||
+                        "Electronics"}
+                    </p>
+
+                    <h3>{product.name}</h3>
+
+                    {product.description && (
+                      <p
+                        style={{
+                          opacity: .65,
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {product.description}
                       </p>
+                    )}
 
-                      <h3>
-                        {product.name}
-                      </h3>
+                    <p className="price">
+                      {money(product.price)}
+                    </p>
 
-                      {product.description && (
-                        <p
-                          style={{
-                            opacity: 0.7,
-                            fontSize: "14px",
-                            lineHeight: "1.5",
-                          }}
-                        >
-                          {product.description}
-                        </p>
-                      )}
+                    {Number(product.stock || 0) > 0 ? (
 
-                      <p className="price">
-                        {money(product.price)}
-                      </p>
+                      <button
+                        className="add-button"
+                        onClick={() =>
+                          addToCart(product)
+                        }
+                      >
+                        Add to cart
+                      </button>
 
-                      {Number(
-                        product.stock || 0
-                      ) > 0 ? (
-                        <button
-                          className="add-button"
-                          onClick={(event) => {
-                            // Prevent the product/card click
-                            // from triggering anything else.
-                            event.stopPropagation();
+                    ) : (
 
-                            addToCart(product);
-                          }}
-                        >
-                          Add to cart
-                        </button>
-                      ) : (
-                        <button
-                          className="add-button"
-                          disabled
-                        >
-                          Out of stock
-                        </button>
-                      )}
+                      <button
+                        className="add-button"
+                        disabled
+                      >
+                        Out of stock
+                      </button>
 
-                    </div>
-                  </article>
-                )
-              )}
+                    )}
+
+                  </div>
+
+                </article>
+
+              ))}
 
             </div>
+
           )}
+
         </section>
 
-        {/* TRUST */}
+        {/* =========================
+            TRUST
+        ========================= */}
 
         <section className="trust-section">
 
           <div>
             <span>🚚</span>
-
-            <h3>
-              Reliable delivery
-            </h3>
-
+            <h3>Reliable delivery</h3>
             <p>
-              Get your order delivered
-              safely.
+              Get your order delivered safely.
             </p>
           </div>
 
           <div>
             <span>🔒</span>
-
-            <h3>
-              Secure shopping
-            </h3>
-
+            <h3>Secure shopping</h3>
             <p>
               Shop with confidence.
             </p>
@@ -1395,21 +2161,19 @@ function App() {
 
           <div>
             <span>💬</span>
-
-            <h3>
-              Customer support
-            </h3>
-
+            <h3>Customer support</h3>
             <p>
-              We're here whenever
-              you need us.
+              We're here whenever you need us.
             </p>
           </div>
 
         </section>
+
       </main>
 
-      {/* FOOTER */}
+      {/* =========================
+          FOOTER
+      ========================= */}
 
       <footer id="contact">
 
@@ -1420,8 +2184,8 @@ function App() {
           </strong>
 
           <p>
-            Phones • Accessories •
-            Gadgets • Electronics
+            Phones • Accessories • Gadgets •
+            Electronics
           </p>
 
           <div className="social-links">
@@ -1452,7 +2216,7 @@ function App() {
 
       </footer>
 
-      {/* FLOATING WHATSAPP */}
+      {/* WHATSAPP */}
 
       <button
         className="whatsapp-floating"
@@ -1466,12 +2230,12 @@ function App() {
       ========================= */}
 
       {cartOpen && (
+
         <div
           className="cart-overlay"
-          onClick={() =>
-            setCartOpen(false)
-          }
+          onClick={() => setCartOpen(false)}
         >
+
           <aside
             className="cart-drawer"
             onClick={(event) =>
@@ -1482,13 +2246,13 @@ function App() {
             <div className="cart-header">
 
               <div>
+
                 <p className="eyebrow">
                   SHINDARA
                 </p>
 
-                <h2>
-                  Your Cart
-                </h2>
+                <h2>Your Cart</h2>
+
               </div>
 
               <button
@@ -1503,27 +2267,23 @@ function App() {
             </div>
 
             {cart.length === 0 ? (
+
               <div
                 style={{
                   textAlign: "center",
                   padding: "60px 20px",
                 }}
               >
-                <div
-                  style={{
-                    fontSize: "55px",
-                  }}
-                >
+
+                <div style={{ fontSize: 55 }}>
                   🛒
                 </div>
 
-                <h3>
-                  Your cart is empty
-                </h3>
+                <h3>Your cart is empty</h3>
 
                 <p>
-                  Add something you
-                  love from our store.
+                  Add something you love from
+                  our store.
                 </p>
 
                 <button
@@ -1534,97 +2294,104 @@ function App() {
                 >
                   Continue shopping
                 </button>
+
               </div>
+
             ) : (
+
               <>
+
                 <div className="cart-items">
 
-                  {cart.map(
-                    (item) => (
-                      <div
-                        className="cart-item"
-                        key={item.id}
-                      >
+                  {cart.map((item) => (
 
-                        <div className="cart-item-image">
-                          {item.image_url ? (
-                            <img
-                              src={item.image_url}
-                              alt={item.name}
-                            />
-                          ) : (
-                            <span>
-                              📦
-                            </span>
-                          )}
-                        </div>
+                    <div
+                      className="cart-item"
+                      key={item.id}
+                    >
 
-                        <div className="cart-item-info">
+                      <div className="cart-item-image">
 
-                          <h3>
-                            {item.name}
-                          </h3>
+                        {item.image_url ? (
 
-                          <p>
-                            {money(item.price)}
-                          </p>
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                          />
 
-                          <div className="quantity-controls">
+                        ) : (
 
-                            <button
-                              onClick={() =>
-                                decreaseQuantity(
-                                  item.id
-                                )
-                              }
-                            >
-                              −
-                            </button>
+                          <span>📦</span>
 
-                            <strong>
-                              {item.quantity}
-                            </strong>
+                        )}
 
-                            <button
-                              onClick={() =>
-                                increaseQuantity(
-                                  item.id
-                                )
-                              }
-                            >
-                              +
-                            </button>
+                      </div>
 
-                          </div>
+                      <div className="cart-item-info">
+
+                        <h3>{item.name}</h3>
+
+                        <p>
+                          {money(item.price)}
+                        </p>
+
+                        <div className="quantity-controls">
 
                           <button
-                            className="remove-cart-item"
                             onClick={() =>
-                              removeFromCart(
+                              decreaseQuantity(
                                 item.id
                               )
                             }
                           >
-                            Remove
+                            −
+                          </button>
+
+                          <strong>
+                            {item.quantity}
+                          </strong>
+
+                          <button
+                            onClick={() =>
+                              increaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            +
                           </button>
 
                         </div>
+
+                        <button
+                          className="remove-cart-item"
+                          onClick={() =>
+                            removeFromCart(
+                              item.id
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+
                       </div>
-                    )
-                  )}
+
+                    </div>
+
+                  ))}
 
                 </div>
 
                 <div className="cart-footer">
 
                   <div className="cart-total">
-                    <span>
-                      Total
-                    </span>
+
+                    <span>Total</span>
 
                     <strong>
                       {money(cartTotal)}
                     </strong>
+
                   </div>
 
                   <button
@@ -1642,11 +2409,15 @@ function App() {
                   </button>
 
                 </div>
+
               </>
+
             )}
 
           </aside>
+
         </div>
+
       )}
 
       {/* =========================
@@ -1654,6 +2425,7 @@ function App() {
       ========================= */}
 
       {checkoutOpen && (
+
         <div
           className="modal-backdrop"
           onClick={() =>
@@ -1663,7 +2435,7 @@ function App() {
         >
 
           <div
-            className="account-modal checkout-modal"
+            className="account-modal"
             onClick={(event) =>
               event.stopPropagation()
             }
@@ -1680,6 +2452,7 @@ function App() {
             </button>
 
             {orderSuccess ? (
+
               <div
                 style={{
                   textAlign: "center",
@@ -1689,8 +2462,8 @@ function App() {
 
                 <div
                   style={{
-                    fontSize: "60px",
-                    marginBottom: "15px",
+                    fontSize: 60,
+                    marginBottom: 15,
                   }}
                 >
                   ✅
@@ -1700,9 +2473,7 @@ function App() {
                   ORDER RECEIVED
                 </p>
 
-                <h2>
-                  Thank you!
-                </h2>
+                <h2>Thank you!</h2>
 
                 <p className="auth-message">
                   {orderMessage}
@@ -1718,24 +2489,20 @@ function App() {
                 </button>
 
               </div>
+
             ) : (
+
               <>
+
                 <p className="eyebrow">
                   SHINDARA CHECKOUT
                 </p>
 
-                <h2>
-                  Delivery details
-                </h2>
+                <h2>Delivery details</h2>
 
-                <p
-                  style={{
-                    opacity: 0.7,
-                    marginBottom: "20px",
-                  }}
-                >
-                  Tell us where to
-                  deliver your order.
+                <p style={{ opacity: .65 }}>
+                  Tell us where to deliver your
+                  order.
                 </p>
 
                 <form
@@ -1808,11 +2575,10 @@ function App() {
                       display: "flex",
                       justifyContent:
                         "space-between",
-                      alignItems: "center",
                       padding: "15px 0",
-                      fontSize: "18px",
                     }}
                   >
+
                     <strong>
                       Order total
                     </strong>
@@ -1820,6 +2586,7 @@ function App() {
                     <strong>
                       {money(cartTotal)}
                     </strong>
+
                   </div>
 
                   {orderMessage && (
@@ -1841,11 +2608,15 @@ function App() {
                   </button>
 
                 </form>
+
               </>
+
             )}
 
           </div>
+
         </div>
+
       )}
 
       {/* =========================
@@ -1853,6 +2624,7 @@ function App() {
       ========================= */}
 
       {accountOpen && (
+
         <div
           className="modal-backdrop"
           onClick={() =>
@@ -1862,9 +2634,6 @@ function App() {
 
           <div
             className="account-modal"
-            style={{
-              maxWidth: "620px",
-            }}
             onClick={(event) =>
               event.stopPropagation()
             }
@@ -1879,72 +2648,10 @@ function App() {
               ×
             </button>
 
-            {/* PASSWORD RECOVERY */}
+            {user ? (
 
-            {isRecoveryMode ? (
               <>
-                <p className="eyebrow">
-                  SHINDARA SECURITY
-                </p>
 
-                <h2>
-                  Create a new password
-                </h2>
-
-                <p
-                  style={{
-                    opacity: 0.7,
-                    marginBottom: "20px",
-                  }}
-                >
-                  Enter your new password
-                  below.
-                </p>
-
-                <form
-                  className="auth-form"
-                  onSubmit={
-                    updateRecoveredPassword
-                  }
-                >
-
-                  <input
-                    type="password"
-                    placeholder="New password"
-                    value={
-                      recoveryPassword
-                    }
-                    onChange={(event) =>
-                      setRecoveryPassword(
-                        event.target.value
-                      )
-                    }
-                    minLength={6}
-                    required
-                  />
-
-                  <button
-                    className="modal-action"
-                    type="submit"
-                    disabled={
-                      recoveryLoading
-                    }
-                  >
-                    {recoveryLoading
-                      ? "Updating..."
-                      : "Update password"}
-                  </button>
-
-                </form>
-
-                {recoveryMessage && (
-                  <p className="auth-message">
-                    {recoveryMessage}
-                  </p>
-                )}
-              </>
-            ) : user ? (
-              <>
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
                 </p>
@@ -1952,36 +2659,29 @@ function App() {
                 <h2>
                   {profile?.name
                     ? `Hello, ${
-                        profile.name.split(
-                          " "
-                        )[0]
+                        profile.name.split(" ")[0]
                       } 👋`
                     : "My Account"}
                 </h2>
-
-                {/* ACCOUNT NAV */}
 
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns:
-                      "repeat(3, 1fr)",
-                    gap: "8px",
+                      "repeat(3,1fr)",
+                    gap: 8,
                     margin: "25px 0",
                   }}
                 >
 
                   <button
                     className={
-                      accountTab ===
-                      "profile"
+                      accountTab === "profile"
                         ? "modal-action"
                         : "modal-secondary"
                     }
                     onClick={() =>
-                      setAccountTab(
-                        "profile"
-                      )
+                      setAccountTab("profile")
                     }
                   >
                     👤 Profile
@@ -1989,15 +2689,12 @@ function App() {
 
                   <button
                     className={
-                      accountTab ===
-                      "orders"
+                      accountTab === "orders"
                         ? "modal-action"
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab(
-                        "orders"
-                      );
+                      setAccountTab("orders");
                       loadOrders();
                     }}
                   >
@@ -2006,15 +2703,12 @@ function App() {
 
                   <button
                     className={
-                      accountTab ===
-                      "settings"
+                      accountTab === "settings"
                         ? "modal-action"
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab(
-                        "settings"
-                      );
+                      setAccountTab("settings");
                       setSettingsMessage("");
                       setPasswordMessage("");
                     }}
@@ -2026,17 +2720,17 @@ function App() {
 
                 {/* PROFILE */}
 
-                {accountTab ===
-                  "profile" && (
+                {accountTab === "profile" && (
+
                   <div>
 
                     <div
                       style={{
-                        padding: "20px",
-                        borderRadius: "18px",
+                        padding: 20,
+                        borderRadius: 18,
                         background:
-                          "rgba(128,128,128,0.08)",
-                        marginBottom: "15px",
+                          "rgba(128,128,128,.08)",
+                        marginBottom: 15,
                       }}
                     >
 
@@ -2064,9 +2758,7 @@ function App() {
                     <button
                       className="modal-action"
                       onClick={() =>
-                        setAccountTab(
-                          "settings"
-                        )
+                        setAccountTab("settings")
                       }
                     >
                       Edit profile
@@ -2074,13 +2766,9 @@ function App() {
 
                     <button
                       className="modal-secondary"
-                      style={{
-                        marginTop: "10px",
-                      }}
+                      style={{ marginTop: 10 }}
                       onClick={() => {
-                        setAccountTab(
-                          "orders"
-                        );
+                        setAccountTab("orders");
                         loadOrders();
                       }}
                     >
@@ -2088,42 +2776,42 @@ function App() {
                     </button>
 
                   </div>
+
                 )}
 
                 {/* ORDERS */}
 
-                {accountTab ===
-                  "orders" && (
+                {accountTab === "orders" && (
+
                   <div>
 
                     <p className="eyebrow">
                       ORDER HISTORY
                     </p>
 
-                    <h3>
-                      My Orders
-                    </h3>
+                    <h3>My Orders</h3>
 
                     {ordersLoading ? (
+
                       <div
                         style={{
-                          padding: "35px 10px",
+                          padding: 35,
                           textAlign: "center",
                         }}
                       >
                         Loading your orders...
                       </div>
+
                     ) : ordersError ? (
+
                       <div
                         style={{
-                          padding: "20px",
+                          padding: 20,
                           textAlign: "center",
                         }}
                       >
 
-                        <p>
-                          {ordersError}
-                        </p>
+                        <p>{ordersError}</p>
 
                         <button
                           className="modal-action"
@@ -2133,31 +2821,25 @@ function App() {
                         </button>
 
                       </div>
-                    ) : orders.length ===
-                      0 ? (
+
+                    ) : orders.length === 0 ? (
+
                       <div
                         style={{
                           textAlign: "center",
-                          padding: "35px 10px",
+                          padding: 35,
                         }}
                       >
 
-                        <div
-                          style={{
-                            fontSize: "50px",
-                          }}
-                        >
+                        <div style={{ fontSize: 50 }}>
                           📦
                         </div>
 
-                        <h3>
-                          No orders yet
-                        </h3>
+                        <h3>No orders yet</h3>
 
                         <p>
-                          Your completed
-                          orders will appear
-                          here.
+                          Your completed orders
+                          will appear here.
                         </p>
 
                         <button
@@ -2172,201 +2854,203 @@ function App() {
                         </button>
 
                       </div>
+
                     ) : (
+
                       <div>
 
-                        {orders.map(
-                          (order) => (
+                        {orders.map((order) => (
+
+                          <div
+                            key={order.id}
+                            style={{
+                              padding: 18,
+                              border:
+                                "1px solid rgba(128,128,128,.2)",
+                              borderRadius: 18,
+                              marginBottom: 12,
+                            }}
+                          >
+
                             <div
-                              key={order.id}
                               style={{
-                                padding: "18px",
-                                border:
-                                  "1px solid rgba(128,128,128,0.2)",
-                                borderRadius: "18px",
-                                marginBottom: "12px",
+                                display: "flex",
+                                justifyContent:
+                                  "space-between",
+                                gap: 12,
                               }}
                             >
 
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent:
-                                    "space-between",
-                                  gap: "12px",
-                                  alignItems:
-                                    "flex-start",
-                                }}
-                              >
-
-                                <div>
-
-                                  <strong>
-                                    Order #
-                                    {String(
-                                      order.id
-                                    )
-                                      .slice(0, 8)
-                                      .toUpperCase()}
-                                  </strong>
-
-                                  <p
-                                    style={{
-                                      opacity: 0.65,
-                                      fontSize: "13px",
-                                      margin: "5px 0",
-                                    }}
-                                  >
-                                    {formatDate(
-                                      order.created_at
-                                    )}
-                                  </p>
-
-                                </div>
-
-                                <span
-                                  style={{
-                                    padding:
-                                      "6px 10px",
-                                    borderRadius:
-                                      "999px",
-                                    background:
-                                      "rgba(128,128,128,0.12)",
-                                    fontSize: "12px",
-                                  }}
-                                >
-                                  {statusLabel(
-                                    order.status
-                                  )}
-                                </span>
-
-                              </div>
-
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent:
-                                    "space-between",
-                                  alignItems:
-                                    "center",
-                                  marginTop: "12px",
-                                }}
-                              >
+                              <div>
 
                                 <strong>
-                                  {money(
-                                    order.total
-                                  )}
+                                  Order #
+                                  {String(order.id)
+                                    .slice(0, 8)
+                                    .toUpperCase()}
                                 </strong>
 
-                                <button
-                                  className="modal-secondary"
-                                  onClick={() =>
-                                    setExpandedOrder(
-                                      expandedOrder ===
-                                        order.id
-                                        ? null
-                                        : order.id
-                                    )
-                                  }
+                                <p
+                                  style={{
+                                    opacity: .6,
+                                    fontSize: 13,
+                                  }}
                                 >
-                                  {expandedOrder ===
-                                  order.id
-                                    ? "Hide items"
-                                    : "View items"}
-                                </button>
+                                  {formatDate(
+                                    order.created_at
+                                  )}
+                                </p>
 
                               </div>
 
-                              {expandedOrder ===
-                                order.id && (
-                                <div
-                                  style={{
-                                    marginTop: "15px",
-                                    paddingTop: "15px",
-                                    borderTop:
-                                      "1px solid rgba(128,128,128,0.15)",
-                                  }}
-                                >
-
-                                  {order.order_items?.map(
-                                    (item) => (
-                                      <div
-                                        key={item.id}
-                                        style={{
-                                          display: "flex",
-                                          justifyContent:
-                                            "space-between",
-                                          gap: "10px",
-                                          padding:
-                                            "8px 0",
-                                        }}
-                                      >
-
-                                        <div>
-
-                                          <strong>
-                                            {
-                                              item.product_name
-                                            }
-                                          </strong>
-
-                                          <div
-                                            style={{
-                                              opacity: 0.65,
-                                              fontSize:
-                                                "13px",
-                                            }}
-                                          >
-                                            Qty:{" "}
-                                            {
-                                              item.quantity
-                                            }
-                                          </div>
-
-                                        </div>
-
-                                        <strong>
-                                          {money(
-                                            Number(
-                                              item.price
-                                            ) *
-                                              Number(
-                                                item.quantity
-                                              )
-                                          )}
-                                        </strong>
-
-                                      </div>
-                                    )
-                                  )}
-
-                                </div>
-                              )}
+                              <span
+                                style={{
+                                  padding:
+                                    "6px 10px",
+                                  borderRadius: 999,
+                                  background:
+                                    "rgba(128,128,128,.12)",
+                                  fontSize: 12,
+                                  height: "fit-content",
+                                }}
+                              >
+                                {statusLabel(
+                                  order.status
+                                )}
+                              </span>
 
                             </div>
-                          )
-                        )}
+
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent:
+                                  "space-between",
+                                alignItems:
+                                  "center",
+                                marginTop: 12,
+                              }}
+                            >
+
+                              <strong>
+                                {money(order.total)}
+                              </strong>
+
+                              <button
+                                className="modal-secondary"
+                                style={{
+                                  width: "auto",
+                                }}
+                                onClick={() =>
+                                  setExpandedOrder(
+                                    expandedOrder ===
+                                      order.id
+                                      ? null
+                                      : order.id
+                                  )
+                                }
+                              >
+                                {expandedOrder ===
+                                order.id
+                                  ? "Hide items"
+                                  : "View items"}
+                              </button>
+
+                            </div>
+
+                            {expandedOrder ===
+                              order.id && (
+
+                              <div
+                                style={{
+                                  marginTop: 15,
+                                  paddingTop: 15,
+                                  borderTop:
+                                    "1px solid rgba(128,128,128,.15)",
+                                }}
+                              >
+
+                                {order.order_items?.map(
+                                  (item) => (
+
+                                    <div
+                                      key={item.id}
+                                      style={{
+                                        display:
+                                          "flex",
+                                        justifyContent:
+                                          "space-between",
+                                        padding:
+                                          "8px 0",
+                                        gap: 10,
+                                      }}
+                                    >
+
+                                      <div>
+
+                                        <strong>
+                                          {
+                                            item.product_name
+                                          }
+                                        </strong>
+
+                                        <div
+                                          style={{
+                                            opacity: .6,
+                                            fontSize: 13,
+                                          }}
+                                        >
+                                          Qty:{" "}
+                                          {
+                                            item.quantity
+                                          }
+                                        </div>
+
+                                      </div>
+
+                                      <strong>
+                                        {money(
+                                          Number(
+                                            item.price
+                                          ) *
+                                            Number(
+                                              item.quantity
+                                            )
+                                        )}
+                                      </strong>
+
+                                    </div>
+
+                                  )
+                                )}
+
+                              </div>
+
+                            )}
+
+                          </div>
+
+                        ))}
 
                       </div>
+
                     )}
 
                   </div>
+
                 )}
 
                 {/* SETTINGS */}
 
-                {accountTab ===
-                  "settings" && (
+                {accountTab === "settings" && (
+
                   <div>
 
                     <p className="eyebrow">
                       ACCOUNT SETTINGS
                     </p>
 
-                    <h3>
-                      Personal details
-                    </h3>
+                    <h3>Personal details</h3>
 
                     <form
                       className="auth-form"
@@ -2401,18 +3085,14 @@ function App() {
 
                       <input
                         type="email"
-                        value={
-                          user.email || ""
-                        }
+                        value={user.email || ""}
                         disabled
                       />
 
                       <button
                         className="modal-action"
                         type="submit"
-                        disabled={
-                          settingsLoading
-                        }
+                        disabled={settingsLoading}
                       >
                         {settingsLoading
                           ? "Saving..."
@@ -2429,10 +3109,10 @@ function App() {
 
                     <div
                       style={{
-                        marginTop: "30px",
-                        paddingTop: "25px",
+                        marginTop: 30,
+                        paddingTop: 25,
                         borderTop:
-                          "1px solid rgba(128,128,128,0.15)",
+                          "1px solid rgba(128,128,128,.15)",
                       }}
                     >
 
@@ -2446,9 +3126,7 @@ function App() {
 
                       <form
                         className="auth-form"
-                        onSubmit={
-                          changePassword
-                        }
+                        onSubmit={changePassword}
                       >
 
                         <input
@@ -2467,9 +3145,7 @@ function App() {
                         <button
                           className="modal-action"
                           type="submit"
-                          disabled={
-                            passwordLoading
-                          }
+                          disabled={passwordLoading}
                         >
                           {passwordLoading
                             ? "Changing..."
@@ -2488,97 +3164,32 @@ function App() {
 
                     <button
                       className="modal-secondary"
-                      style={{
-                        marginTop: "25px",
-                      }}
+                      style={{ marginTop: 25 }}
                       onClick={logout}
                     >
                       🚪 Log out
                     </button>
 
                   </div>
+
                 )}
 
               </>
-            ) : forgotPassword ? (
-              /* FORGOT PASSWORD */
 
-              <>
-                <p className="eyebrow">
-                  SHINDARA ACCOUNT
-                </p>
-
-                <h2>
-                  Forgot your password?
-                </h2>
-
-                <p
-                  style={{
-                    opacity: 0.7,
-                    marginBottom: "20px",
-                  }}
-                >
-                  Enter your email and we'll
-                  send you a password reset
-                  link.
-                </p>
-
-                <form
-                  className="auth-form"
-                  onSubmit={sendPasswordReset}
-                >
-
-                  <input
-                    type="email"
-                    placeholder="Email address"
-                    value={resetEmail}
-                    onChange={(event) =>
-                      setResetEmail(
-                        event.target.value
-                      )
-                    }
-                    required
-                  />
-
-                  <button
-                    className="modal-action"
-                    type="submit"
-                    disabled={resetLoading}
-                  >
-                    {resetLoading
-                      ? "Sending..."
-                      : "Send reset link"}
-                  </button>
-
-                </form>
-
-                {resetMessage && (
-                  <p className="auth-message">
-                    {resetMessage}
-                  </p>
-                )}
-
-                <button
-                  className="modal-secondary"
-                  onClick={() => {
-                    setForgotPassword(false);
-                    setResetMessage("");
-                  }}
-                >
-                  ← Back to sign in
-                </button>
-              </>
             ) : (
-              /* LOGIN / SIGNUP */
+
+              /* =========================
+                 LOGIN / SIGNUP
+              ========================= */
 
               <>
+
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
                 </p>
 
                 <h2>
-                  {authMode ===
-                  "signup"
+                  {authMode === "signup"
                     ? "Create your account"
                     : "Welcome back"}
                 </h2>
@@ -2588,9 +3199,9 @@ function App() {
                   onSubmit={handleAuth}
                 >
 
-                  {authMode ===
-                    "signup" && (
+                  {authMode === "signup" && (
                     <>
+
                       <input
                         type="text"
                         placeholder="Full name"
@@ -2614,6 +3225,7 @@ function App() {
                         }
                         required
                       />
+
                     </>
                   )}
 
@@ -2642,6 +3254,22 @@ function App() {
                     required
                   />
 
+                  {authMode === "login" && (
+
+                    <button
+                      type="button"
+                      className="forgot-password"
+                      onClick={() => {
+                        setForgotPassword(true);
+                        setResetEmail(email);
+                        setResetMessage("");
+                      }}
+                    >
+                      Forgot password?
+                    </button>
+
+                  )}
+
                   <button
                     className="modal-action"
                     type="submit"
@@ -2649,93 +3277,12 @@ function App() {
                   >
                     {authLoading
                       ? "Please wait..."
-                      : authMode ===
-                        "signup"
+                      : authMode === "signup"
                       ? "Create account"
                       : "Sign in"}
                   </button>
 
                 </form>
-
-                {authMode === "login" && (
-                  <button
-                    className="forgot-password-button"
-                    onClick={() => {
-                      setForgotPassword(true);
-                      setResetEmail(email);
-                      setAuthMessage("");
-                    }}
-                  >
-                    Forgot password?
-                  </button>
-                )}
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    margin: "20px 0",
-                    opacity: 0.6,
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "1px",
-                      flex: 1,
-                      background:
-                        "currentColor",
-                    }}
-                  />
-
-                  <span>
-                    OR CONTINUE WITH
-                  </span>
-
-                  <div
-                    style={{
-                      height: "1px",
-                      flex: 1,
-                      background:
-                        "currentColor",
-                    }}
-                  />
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "1fr 1fr",
-                    gap: "10px",
-                  }}
-                >
-
-                  <button
-                    className="modal-secondary"
-                    onClick={() =>
-                      signInWithProvider(
-                        "google"
-                      )
-                    }
-                    disabled={authLoading}
-                  >
-                    🌐 Google
-                  </button>
-
-                  <button
-                    className="modal-secondary"
-                    onClick={() =>
-                      signInWithProvider(
-                        "apple"
-                      )
-                    }
-                    disabled={authLoading}
-                  >
-                     Apple
-                  </button>
-
-                </div>
 
                 {authMessage && (
                   <p className="auth-message">
@@ -2743,17 +3290,56 @@ function App() {
                   </p>
                 )}
 
+                {authMode === "login" && (
+
+                  <>
+                    <div className="auth-divider">
+                      <span>
+                        or continue with
+                      </span>
+                    </div>
+
+                    <div className="social-auth-buttons">
+
+                      <button
+                        type="button"
+                        className="social-auth-button"
+                        onClick={() =>
+                          signInWithProvider(
+                            "google"
+                          )
+                        }
+                        disabled={authLoading}
+                      >
+                        Google
+                      </button>
+
+                      <button
+                        type="button"
+                        className="social-auth-button"
+                        onClick={() =>
+                          signInWithProvider(
+                            "apple"
+                          )
+                        }
+                        disabled={authLoading}
+                      >
+                        Apple
+                      </button>
+
+                    </div>
+                  </>
+
+                )}
+
                 <button
                   className="modal-secondary"
-                  style={{
-                    marginTop: "12px",
-                  }}
+                  style={{ marginTop: 12 }}
                   onClick={() => {
                     setAuthMessage("");
 
                     setAuthMode(
-                      authMode ===
-                        "login"
+                      authMode === "login"
                         ? "signup"
                         : "login"
                     );
@@ -2765,10 +3351,105 @@ function App() {
                 </button>
 
               </>
+
             )}
 
           </div>
+
         </div>
+
+      )}
+
+      {/* =========================
+          FORGOT PASSWORD MODAL
+      ========================= */}
+
+      {forgotPassword && (
+
+        <div
+          className="modal-backdrop"
+          onClick={() =>
+            setForgotPassword(false)
+          }
+        >
+
+          <div
+            className="account-modal"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            <button
+              className="modal-close"
+              onClick={() =>
+                setForgotPassword(false)
+              }
+            >
+              ×
+            </button>
+
+            <p className="eyebrow">
+              SHINDARA ACCOUNT
+            </p>
+
+            <h2>
+              Reset your password
+            </h2>
+
+            <p style={{ opacity: .65 }}>
+              Enter your email and we'll send
+              you a password reset link.
+            </p>
+
+            <form
+              className="auth-form"
+              onSubmit={handleForgotPassword}
+            >
+
+              <input
+                type="email"
+                placeholder="Email address"
+                value={resetEmail}
+                onChange={(event) =>
+                  setResetEmail(
+                    event.target.value
+                  )
+                }
+                required
+              />
+
+              <button
+                className="modal-action"
+                type="submit"
+                disabled={resetLoading}
+              >
+                {resetLoading
+                  ? "Sending..."
+                  : "Send reset link"}
+              </button>
+
+            </form>
+
+            {resetMessage && (
+              <p className="auth-message">
+                {resetMessage}
+              </p>
+            )}
+
+            <button
+              className="modal-secondary"
+              onClick={() =>
+                setForgotPassword(false)
+              }
+            >
+              Back to sign in
+            </button>
+
+          </div>
+
+        </div>
+
       )}
 
     </div>
