@@ -1,22 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-
-const PRODUCT_BUCKET = "product-images";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
 }
 
-function formatDate(date) {
-  if (!date) return "—";
-
-  return new Date(date).toLocaleString("en-NG", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
 function Admin() {
+  /* =========================================================
+     AUTH
+  ========================================================= */
+
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
+
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+
+  /* =========================================================
+     DASHBOARD
+  ========================================================= */
+
   const [activeSection, setActiveSection] = useState("dashboard");
 
   const [orders, setOrders] = useState([]);
@@ -28,18 +35,15 @@ function Admin() {
   const [customersLoading, setCustomersLoading] = useState(false);
 
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("info");
+
+  /* =========================================================
+     PRODUCT
+  ========================================================= */
 
   const [productModal, setProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-
   const [savingProduct, setSavingProduct] = useState(false);
-  const [processingImage, setProcessingImage] = useState(false);
-
-  const [selectedOrder, setSelectedOrder] = useState(null);
-
-  const [productSearch, setProductSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [processingProduct, setProcessingProduct] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -54,30 +58,259 @@ function Admin() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
 
-  const [adminLogo, setAdminLogo] = useState(
-    () => localStorage.getItem("shindara_admin_logo") || ""
-  );
+  /* =========================================================
+     CATEGORIES
+  ========================================================= */
 
-  const [logoFile, setLogoFile] = useState(null);
-  const [logoPreview, setLogoPreview] = useState("");
-  const [savingLogo, setSavingLogo] = useState(false);
+  const categories = [
+    "Phones",
+    "Phone Cases",
+    "Chargers",
+    "Cables",
+    "Power Banks",
+    "Earphones",
+    "Headphones",
+    "Smart Watches",
+    "Speakers",
+    "Screen Protectors",
+    "Phone Accessories",
+    "Gadgets",
+    "Other Electronics",
+  ];
+
+  /* =========================================================
+     INITIAL AUTH CHECK
+  ========================================================= */
 
   useEffect(() => {
-    loadAll();
+    let mounted = true;
+
+    async function checkAuth() {
+      setAuthLoading(true);
+
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error) {
+          console.log("No active auth session:", error.message);
+
+          if (mounted) {
+            setAuthenticated(false);
+            setAdminUser(null);
+          }
+
+          return;
+        }
+
+        if (!user) {
+          if (mounted) {
+            setAuthenticated(false);
+            setAdminUser(null);
+          }
+
+          return;
+        }
+
+        const isAdmin = await checkAdminProfile(user);
+
+        if (!mounted) return;
+
+        if (isAdmin) {
+          setAdminUser(user);
+          setAuthenticated(true);
+        } else {
+          await supabase.auth.signOut();
+
+          setAuthenticated(false);
+          setAdminUser(null);
+          setAuthMessage(
+            "This account does not have administrator access."
+          );
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+
+        if (mounted) {
+          setAuthenticated(false);
+          setAdminUser(null);
+        }
+      } finally {
+        if (mounted) {
+          setAuthLoading(false);
+        }
+      }
+    }
+
+    checkAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+
+        if (event === "SIGNED_OUT" || !session?.user) {
+          setAuthenticated(false);
+          setAdminUser(null);
+          setAuthLoading(false);
+          return;
+        }
+
+        const user = session.user;
+
+        const isAdmin = await checkAdminProfile(user);
+
+        if (!mounted) return;
+
+        if (isAdmin) {
+          setAdminUser(user);
+          setAuthenticated(true);
+        } else {
+          await supabase.auth.signOut();
+
+          setAuthenticated(false);
+          setAdminUser(null);
+          setAuthMessage(
+            "This account does not have administrator access."
+          );
+        }
+
+        setAuthLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  function notify(text, type = "info") {
-    setMessage(text);
-    setMessageType(type);
+  /* =========================================================
+     CHECK ADMIN PROFILE
+  ========================================================= */
 
-    window.clearTimeout(window.__adminMessageTimer);
+  async function checkAdminProfile(user) {
+    if (!user?.id) return false;
 
-    window.__adminMessageTimer = window.setTimeout(() => {
-      setMessage("");
-    }, 5000);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, email, is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Admin profile error:", error);
+      return false;
+    }
+
+    return Boolean(data?.is_admin);
   }
 
-  async function loadAll() {
+  /* =========================================================
+     LOGIN
+  ========================================================= */
+
+  async function handleAdminLogin(event) {
+    event.preventDefault();
+
+    if (loginLoading) return;
+
+    setLoginLoading(true);
+    setAuthMessage("");
+
+    const email = loginEmail.trim();
+    const password = loginPassword;
+
+    if (!email || !password) {
+      setAuthMessage(
+        "Please enter your admin email and password."
+      );
+      setLoginLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data?.user) {
+        throw new Error(
+          "Login was unsuccessful. No user session was returned."
+        );
+      }
+
+      const isAdmin = await checkAdminProfile(
+        data.user
+      );
+
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+
+        throw new Error(
+          "Login successful, but this account is not an admin. Set is_admin to true for this account in the profiles table."
+        );
+      }
+
+      setAdminUser(data.user);
+      setAuthenticated(true);
+      setLoginPassword("");
+      setAuthMessage("");
+      setActiveSection("dashboard");
+
+      await loadEverything();
+    } catch (error) {
+      console.error("Admin login error:", error);
+
+      setAuthMessage(
+        error?.message ||
+          "Unable to sign in. Please check your details."
+      );
+
+      setAuthenticated(false);
+      setAdminUser(null);
+    } finally {
+      setLoginLoading(false);
+    }
+  }
+
+  /* =========================================================
+     LOGOUT
+  ========================================================= */
+
+  async function handleLogout() {
+    const confirmed = window.confirm(
+      "Log out of the admin dashboard?"
+    );
+
+    if (!confirmed) return;
+
+    await supabase.auth.signOut();
+
+    setAuthenticated(false);
+    setAdminUser(null);
+    setOrders([]);
+    setProducts([]);
+    setCustomers([]);
+    setActiveSection("dashboard");
+    setMessage("");
+    setAuthMessage("");
+  }
+
+  /* =========================================================
+     LOAD EVERYTHING
+  ========================================================= */
+
+  async function loadEverything() {
     await Promise.all([
       loadOrders(),
       loadProducts(),
@@ -85,9 +318,9 @@ function Admin() {
     ]);
   }
 
-  /* =====================================================
-     ORDERS
-  ===================================================== */
+  /* =========================================================
+     LOAD ORDERS
+  ========================================================= */
 
   async function loadOrders() {
     setLoading(true);
@@ -104,11 +337,15 @@ function Admin() {
           image_url
         )
       `)
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
-      console.error(error);
-      notify(`Orders could not be loaded: ${error.message}`, "error");
+      console.error("Orders error:", error);
+      setMessage(
+        `Orders could not be loaded: ${error.message}`
+      );
       setOrders([]);
     } else {
       setOrders(data || []);
@@ -117,37 +354,9 @@ function Admin() {
     setLoading(false);
   }
 
-  async function updateStatus(orderId, status) {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status })
-      .eq("id", orderId);
-
-    if (error) {
-      notify(`Order status could not be updated: ${error.message}`, "error");
-      return;
-    }
-
-    setOrders((current) =>
-      current.map((order) =>
-        order.id === orderId
-          ? { ...order, status }
-          : order
-      )
-    );
-
-    setSelectedOrder((current) =>
-      current && current.id === orderId
-        ? { ...current, status }
-        : current
-    );
-
-    notify("Order status updated.", "success");
-  }
-
-  /* =====================================================
-     PRODUCTS
-  ===================================================== */
+  /* =========================================================
+     LOAD PRODUCTS
+  ========================================================= */
 
   async function loadProducts() {
     setProductsLoading(true);
@@ -155,14 +364,17 @@ function Admin() {
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
-      console.error(error);
-      notify(
-        `Products could not be loaded: ${error.message}`,
-        "error"
+      console.error("Products error:", error);
+
+      setMessage(
+        `Products could not be loaded: ${error.message}`
       );
+
       setProducts([]);
     } else {
       setProducts(data || []);
@@ -171,9 +383,9 @@ function Admin() {
     setProductsLoading(false);
   }
 
-  /* =====================================================
-     CUSTOMERS
-  ===================================================== */
+  /* =========================================================
+     LOAD CUSTOMERS
+  ========================================================= */
 
   async function loadCustomers() {
     setCustomersLoading(true);
@@ -183,20 +395,23 @@ function Admin() {
       .select(
         "user_id, customer_name, customer_phone, delivery_address, delivery_city, delivery_state, created_at"
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
-      console.error(error);
-      notify(
-        `Customers could not be loaded: ${error.message}`,
-        "error"
+      console.error("Customers error:", error);
+
+      setMessage(
+        `Customers could not be loaded: ${error.message}`
       );
+
       setCustomers([]);
       setCustomersLoading(false);
       return;
     }
 
-    const unique = [];
+    const uniqueCustomers = [];
 
     for (const customer of data || []) {
       const key =
@@ -204,25 +419,27 @@ function Admin() {
         customer.customer_phone ||
         customer.customer_name;
 
-      if (!unique.some((item) => {
-        const itemKey =
-          item.user_id ||
-          item.customer_phone ||
-          item.customer_name;
+      const exists = uniqueCustomers.some(
+        (item) =>
+          (
+            item.user_id ||
+            item.customer_phone ||
+            item.customer_name
+          ) === key
+      );
 
-        return itemKey === key;
-      })) {
-        unique.push(customer);
+      if (!exists) {
+        uniqueCustomers.push(customer);
       }
     }
 
-    setCustomers(unique);
+    setCustomers(uniqueCustomers);
     setCustomersLoading(false);
   }
 
-  /* =====================================================
+  /* =========================================================
      NAVIGATION
-  ===================================================== */
+  ========================================================= */
 
   function openDashboard() {
     setActiveSection("dashboard");
@@ -243,13 +460,9 @@ function Admin() {
     loadCustomers();
   }
 
-  function openSettings() {
-    setActiveSection("settings");
-  }
-
-  /* =====================================================
+  /* =========================================================
      PRODUCT FORM
-  ===================================================== */
+  ========================================================= */
 
   function resetProductForm() {
     setProductForm({
@@ -269,6 +482,7 @@ function Admin() {
   function openAddProduct() {
     setEditingProduct(null);
     resetProductForm();
+    setMessage("");
     setProductModal(true);
   }
 
@@ -287,20 +501,26 @@ function Admin() {
 
     setImageFile(null);
     setImagePreview(product.image_url || "");
+    setMessage("");
     setProductModal(true);
   }
 
   function closeProductModal() {
-    if (savingProduct || processingImage) return;
+    if (
+      savingProduct ||
+      processingProduct
+    ) {
+      return;
+    }
 
     setProductModal(false);
     setEditingProduct(null);
     resetProductForm();
   }
 
-  /* =====================================================
-     IMAGE PROCESSING
-  ===================================================== */
+  /* =========================================================
+     COMPRESS IMAGE
+  ========================================================= */
 
   function compressImage(file) {
     return new Promise((resolve, reject) => {
@@ -320,28 +540,35 @@ function Admin() {
           let width = img.width;
           let height = img.height;
 
-          if (width > maxSize || height > maxSize) {
+          if (
+            width > maxSize ||
+            height > maxSize
+          ) {
             if (width > height) {
               height = Math.round(
                 (height * maxSize) / width
               );
+
               width = maxSize;
             } else {
               width = Math.round(
                 (width * maxSize) / height
               );
+
               height = maxSize;
             }
           }
 
-          const canvas = document.createElement("canvas");
+          const canvas =
+            document.createElement("canvas");
 
           canvas.width = width;
           canvas.height = height;
 
-          const ctx = canvas.getContext("2d");
+          const context =
+            canvas.getContext("2d");
 
-          ctx.drawImage(
+          context.drawImage(
             img,
             0,
             0,
@@ -349,17 +576,30 @@ function Admin() {
             height
           );
 
-          const dataUrl = canvas.toDataURL(
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(
+                  new Error(
+                    "Unable to compress image."
+                  )
+                );
+
+                return;
+              }
+
+              resolve(blob);
+            },
             "image/jpeg",
             0.82
           );
-
-          resolve(dataUrl);
         };
 
         img.onerror = () => {
           reject(
-            new Error("Unable to process this image.")
+            new Error(
+              "Unable to process this image."
+            )
           );
         };
 
@@ -368,7 +608,9 @@ function Admin() {
 
       reader.onerror = () => {
         reject(
-          new Error("Unable to read this image.")
+          new Error(
+            "Unable to read this image."
+          )
         );
       };
 
@@ -376,131 +618,176 @@ function Admin() {
     });
   }
 
-  async function handleImageChange(event) {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      notify("Please select an image file.", "error");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      notify(
-        "Image is too large. Please choose an image below 10MB.",
-        "error"
-      );
-      return;
-    }
-
-    setProcessingImage(true);
-
-    try {
-      const compressed = await compressImage(file);
-
-      if (!compressed) {
-        throw new Error("Image could not be processed.");
-      }
-
-      setImageFile(file);
-      setImagePreview(compressed);
-
-      setProductForm((current) => ({
-        ...current,
-        image_url: "",
-      }));
-    } catch (error) {
-      console.error(error);
-
-      notify(
-        error.message || "Unable to process image.",
-        "error"
-      );
-    } finally {
-      setProcessingImage(false);
-    }
-  }
-
-  /* =====================================================
-     UPLOAD PRODUCT IMAGE TO SUPABASE
-     BUCKET: product-images
-  ===================================================== */
+  /* =========================================================
+     IMAGE UPLOAD
+  ========================================================= */
 
   async function uploadProductImage(file) {
     if (!file) return null;
 
-    const extension =
-      file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const compressedBlob =
+      await compressImage(file);
 
-    const safeExtension =
-      ["jpg", "jpeg", "png", "webp", "gif"].includes(
-        extension
-      )
-        ? extension
-        : "jpg";
-
-    const fileName =
-      `product-${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 10)}.${safeExtension}`;
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 10)}.jpg`;
 
     const filePath = `products/${fileName}`;
 
-    const { data, error } = await supabase.storage
-      .from(PRODUCT_BUCKET)
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type || "image/jpeg",
-      });
+    const { error: uploadError } =
+      await supabase.storage
+        .from("product-images")
+        .upload(
+          filePath,
+          compressedBlob,
+          {
+            contentType: "image/jpeg",
+            upsert: false,
+          }
+        );
 
-    if (error) {
-      console.error("Storage upload error:", error);
+    if (uploadError) {
       throw new Error(
-        `Product image upload failed: ${error.message}`
+        `Product image upload failed: ${uploadError.message}`
       );
     }
 
-    const { data: publicData } =
-      supabase.storage
-        .from(PRODUCT_BUCKET)
-        .getPublicUrl(data.path);
+    const {
+      data: publicUrlData,
+    } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(filePath);
 
-    if (!publicData?.publicUrl) {
+    if (
+      !publicUrlData?.publicUrl
+    ) {
       throw new Error(
-        "Image uploaded, but Supabase could not create its public URL."
+        "Image uploaded but a public image URL could not be created."
       );
     }
 
-    return {
-      url: publicData.publicUrl,
-      path: data.path,
-    };
+    return publicUrlData.publicUrl;
   }
 
-  /* =====================================================
+  /* =========================================================
+     IMAGE CHANGE
+  ========================================================= */
+
+  async function handleImageChange(event) {
+    const file =
+      event.target.files?.[0];
+
+    if (!file) return;
+
+    if (
+      !file.type.startsWith("image/")
+    ) {
+      setMessage(
+        "Please select an image file."
+      );
+
+      return;
+    }
+
+    if (
+      file.size >
+      10 * 1024 * 1024
+    ) {
+      setMessage(
+        "Image is too large. Please choose an image below 10MB."
+      );
+
+      return;
+    }
+
+    setMessage("");
+    setProcessingProduct(true);
+
+    try {
+      const previewBlob =
+        await compressImage(file);
+
+      const previewUrl =
+        URL.createObjectURL(
+          previewBlob
+        );
+
+      setImageFile(file);
+      setImagePreview(previewUrl);
+    } catch (error) {
+      console.error(
+        "Image processing error:",
+        error
+      );
+
+      setMessage(
+        error?.message ||
+          "Unable to process product image."
+      );
+    } finally {
+      setProcessingProduct(false);
+    }
+  }
+
+  /* =========================================================
      SAVE PRODUCT
-  ===================================================== */
+  ========================================================= */
 
   async function saveProduct(event) {
     event.preventDefault();
 
-    if (savingProduct || processingImage) return;
+    if (
+      savingProduct ||
+      processingProduct
+    ) {
+      return;
+    }
 
     setSavingProduct(true);
     setMessage("");
 
     try {
-      const name = productForm.name.trim();
+      /* Make absolutely sure admin is still logged in */
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw new Error(
+          `Authentication error: ${authError.message}`
+        );
+      }
+
+      if (!user) {
+        throw new Error(
+          "Your admin session has expired. Please log in again."
+        );
+      }
+
+      const isAdmin =
+        await checkAdminProfile(user);
+
+      if (!isAdmin) {
+        throw new Error(
+          "This account no longer has admin permission."
+        );
+      }
+
+      const name =
+        productForm.name.trim();
+
       const description =
         productForm.description.trim();
 
       const category =
         productForm.category.trim();
 
-      const price = Number(productForm.price);
-      const stock = Number(productForm.stock);
+      const price =
+        Number(productForm.price);
+
+      const stock =
+        Number(productForm.stock);
 
       if (!name) {
         throw new Error(
@@ -510,11 +797,14 @@ function Admin() {
 
       if (!category) {
         throw new Error(
-          "Please enter a category."
+          "Please select or enter a category."
         );
       }
 
-      if (!Number.isFinite(price) || price < 0) {
+      if (
+        !Number.isFinite(price) ||
+        price < 0
+      ) {
         throw new Error(
           "Please enter a valid price."
         );
@@ -530,16 +820,19 @@ function Admin() {
       }
 
       let imageUrl =
-        productForm.image_url || null;
+        productForm.image_url ||
+        null;
 
       /* Upload new image if selected */
       if (imageFile) {
-        notify("Uploading product image...", "info");
+        setMessage(
+          "Uploading product image..."
+        );
 
-        const uploaded =
-          await uploadProductImage(imageFile);
-
-        imageUrl = uploaded.url;
+        imageUrl =
+          await uploadProductImage(
+            imageFile
+          );
       }
 
       const productData = {
@@ -554,14 +847,26 @@ function Admin() {
         ),
       };
 
-      /* UPDATE */
+      /* =====================================================
+         UPDATE
+      ===================================================== */
+
       if (editingProduct) {
-        const { data, error } =
-          await supabase
-            .from("products")
-            .update(productData)
-            .eq("id", editingProduct.id)
-            .select("*");
+        setMessage(
+          "Updating product..."
+        );
+
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("products")
+          .update(productData)
+          .eq(
+            "id",
+            editingProduct.id
+          )
+          .select("*");
 
         if (error) {
           throw new Error(
@@ -569,33 +874,49 @@ function Admin() {
           );
         }
 
-        if (!data || data.length === 0) {
+        if (
+          !data ||
+          data.length === 0
+        ) {
           throw new Error(
-            "Product was not updated. Check your Supabase UPDATE policy."
+            "Product was not updated. Check your Supabase policies."
           );
         }
 
-        setProducts((current) =>
-          current.map((item) =>
-            item.id === editingProduct.id
-              ? data[0]
-              : item
-          )
+        setProducts(
+          (current) =>
+            current.map(
+              (product) =>
+                product.id ===
+                editingProduct.id
+                  ? data[0]
+                  : product
+            )
         );
 
-        notify(
-          "Product updated successfully.",
-          "success"
+        setMessage(
+          "Product updated successfully."
         );
       }
 
-      /* ADD */
+      /* =====================================================
+         INSERT
+      ===================================================== */
+
       else {
-        const { data, error } =
-          await supabase
-            .from("products")
-            .insert(productData)
-            .select("*");
+        setMessage(
+          "Adding product..."
+        );
+
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("products")
+          .insert(
+            productData
+          )
+          .select("*");
 
         if (error) {
           throw new Error(
@@ -603,65 +924,72 @@ function Admin() {
           );
         }
 
-        if (!data || data.length === 0) {
+        if (
+          !data ||
+          data.length === 0
+        ) {
           throw new Error(
             "Product was not added. Check your Supabase INSERT policy."
           );
         }
 
-        setProducts((current) => [
-          data[0],
-          ...current,
-        ]);
+        setProducts(
+          (current) => [
+            data[0],
+            ...current,
+          ]
+        );
 
-        notify(
-          "Product added successfully.",
-          "success"
+        setMessage(
+          "Product added successfully."
         );
       }
 
       setProductModal(false);
       setEditingProduct(null);
       resetProductForm();
+      setActiveSection("products");
 
       await loadProducts();
     } catch (error) {
       console.error(
-        "SAVE PRODUCT ERROR:",
+        "Save product error:",
         error
       );
 
-      notify(
-        error.message ||
-          "Unable to save product.",
-        "error"
+      setMessage(
+        error?.message ||
+          "Unable to save product."
       );
     } finally {
       setSavingProduct(false);
     }
   }
 
-  /* =====================================================
+  /* =========================================================
      DELETE PRODUCT
-  ===================================================== */
+  ========================================================= */
 
   async function deleteProduct(product) {
-    const confirmed = window.confirm(
-      `Delete "${product.name}"?\n\nThis cannot be undone.`
-    );
+    const confirmed =
+      window.confirm(
+        `Delete "${product.name}"?\n\nThis cannot be undone.`
+      );
 
     if (!confirmed) return;
 
-    try {
-      notify(
-        "Checking administrator access...",
-        "info"
-      );
+    setMessage(
+      "Checking admin access..."
+    );
 
+    try {
       const {
-        data: { user },
+        data: {
+          user,
+        },
         error: authError,
-      } = await supabase.auth.getUser();
+      } =
+        await supabase.auth.getUser();
 
       if (authError) {
         throw new Error(
@@ -671,340 +999,602 @@ function Admin() {
 
       if (!user) {
         throw new Error(
-          "You are not logged into Supabase. Please log into your admin account."
+          "Your admin session is missing. Please log in again."
         );
       }
 
-      const {
-        data: profile,
-        error: profileError,
-      } = await supabase
-        .from("profiles")
-        .select("id, email, is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      const isAdmin =
+        await checkAdminProfile(user);
 
-      if (profileError) {
+      if (!isAdmin) {
         throw new Error(
-          `Could not check admin profile: ${profileError.message}`
+          "This account is not an admin."
         );
       }
 
-      if (!profile) {
-        throw new Error(
-          "Your account does not have a profile record."
-        );
-      }
-
-      if (!profile.is_admin) {
-        throw new Error(
-          "This account is not marked as an admin."
-        );
-      }
-
-      notify(
-        "Deleting product...",
-        "info"
+      setMessage(
+        "Deleting product..."
       );
 
       const {
-        data: deleted,
+        data: deletedProduct,
         error: deleteError,
-      } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", product.id)
-        .select("id");
+      } =
+        await supabase
+          .from("products")
+          .delete()
+          .eq(
+            "id",
+            product.id
+          )
+          .select(
+            "id, name"
+          );
 
       if (deleteError) {
+        console.error(
+          "DELETE ERROR:",
+          deleteError
+        );
+
         throw new Error(
           `Product could not be deleted: ${deleteError.message}`
         );
       }
 
-      if (!deleted || deleted.length === 0) {
+      if (
+        !deletedProduct ||
+        deletedProduct.length === 0
+      ) {
         throw new Error(
-          "Supabase did not delete the product. Your DELETE policy may be blocking the operation."
+          "Supabase did not delete the product. Check your DELETE policy."
         );
       }
 
-      setProducts((current) =>
-        current.filter(
-          (item) => item.id !== product.id
-        )
+      setProducts(
+        (current) =>
+          current.filter(
+            (item) =>
+              Number(item.id) !==
+              Number(product.id)
+          )
       );
 
-      notify(
-        `"${product.name}" deleted successfully.`,
-        "success"
+      setMessage(
+        `Product "${product.name}" deleted successfully.`
       );
 
       await loadProducts();
     } catch (error) {
       console.error(
-        "DELETE PRODUCT ERROR:",
+        "PRODUCT DELETE ERROR:",
         error
       );
 
-      notify(
-        error.message ||
-          "Product could not be deleted.",
-        "error"
+      setMessage(
+        error?.message ||
+          "Product could not be deleted."
       );
     }
   }
 
-  /* =====================================================
-     CATEGORIES
-     Uses the categories already stored in products.category.
-     DOES NOT CREATE A NEW CATEGORIES TABLE.
-  ===================================================== */
+  /* =========================================================
+     UPDATE ORDER STATUS
+  ========================================================= */
 
-  const categories = useMemo(() => {
-    const values = products
-      .map((product) =>
-        String(product.category || "").trim()
-      )
-      .filter(Boolean);
+  async function updateStatus(
+    orderId,
+    status
+  ) {
+    const {
+      data: {
+        user,
+      },
+    } =
+      await supabase.auth.getUser();
 
-    return [
-      "All",
-      ...Array.from(new Set(values)).sort(),
-    ];
-  }, [products]);
-
-  const filteredProducts = useMemo(() => {
-    const search =
-      productSearch.trim().toLowerCase();
-
-    return products.filter((product) => {
-      const matchesSearch =
-        !search ||
-        String(product.name || "")
-          .toLowerCase()
-          .includes(search) ||
-        String(product.category || "")
-          .toLowerCase()
-          .includes(search);
-
-      const matchesCategory =
-        categoryFilter === "All" ||
-        product.category === categoryFilter;
-
-      return (
-        matchesSearch &&
-        matchesCategory
+    if (!user) {
+      setMessage(
+        "Your admin session has expired. Please log in again."
       );
-    });
-  }, [
-    products,
-    productSearch,
-    categoryFilter,
-  ]);
 
-  /* =====================================================
-     DASHBOARD CALCULATIONS
-  ===================================================== */
+      return;
+    }
 
-  const totalRevenue = orders
-    .filter(
-      (order) =>
-        order.status !== "cancelled"
-    )
-    .reduce(
-      (sum, order) =>
-        sum + Number(order.total || 0),
-      0
+    const { error } =
+      await supabase
+        .from("orders")
+        .update({
+          status,
+        })
+        .eq(
+          "id",
+          orderId
+        );
+
+    if (error) {
+      setMessage(
+        `Order status could not be updated: ${error.message}`
+      );
+
+      return;
+    }
+
+    setOrders(
+      (current) =>
+        current.map(
+          (order) =>
+            order.id === orderId
+              ? {
+                  ...order,
+                  status,
+                }
+              : order
+        )
     );
+
+    setMessage(
+      "Order status updated."
+    );
+  }
+
+  /* =========================================================
+     FORMAT DATE
+  ========================================================= */
+
+  function formatDate(date) {
+    if (!date) return "";
+
+    return new Date(
+      date
+    ).toLocaleString(
+      "en-NG",
+      {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }
+    );
+  }
+
+  /* =========================================================
+     DASHBOARD DATA
+  ========================================================= */
+
+  const totalRevenue =
+    orders
+      .filter(
+        (order) =>
+          order.status !==
+          "cancelled"
+      )
+      .reduce(
+        (sum, order) =>
+          sum +
+          Number(
+            order.total || 0
+          ),
+        0
+      );
 
   const pendingOrders =
     orders.filter(
       (order) =>
-        order.status === "pending"
-    ).length;
-
-  const confirmedOrders =
-    orders.filter(
-      (order) =>
-        order.status === "confirmed"
-    ).length;
-
-  const shippedOrders =
-    orders.filter(
-      (order) =>
-        order.status === "shipped"
+        order.status ===
+        "pending"
     ).length;
 
   const deliveredOrders =
     orders.filter(
       (order) =>
-        order.status === "delivered"
-    ).length;
-
-  const cancelledOrders =
-    orders.filter(
-      (order) =>
-        order.status === "cancelled"
+        order.status ===
+        "delivered"
     ).length;
 
   const lowStockProducts =
-    products.filter((product) => {
-      const stock = Number(
-        product.stock || 0
-      );
-
-      return stock > 0 && stock <= 5;
-    }).length;
-
-  const outOfStockProducts =
     products.filter(
-      (product) =>
-        Number(product.stock || 0) <= 0
+      (product) => {
+        const stock =
+          Number(
+            product.stock || 0
+          );
+
+        return (
+          stock > 0 &&
+          stock <= 5
+        );
+      }
     ).length;
 
   const featuredProducts =
     products.filter(
       (product) =>
-        Boolean(product.featured)
+        product.featured
     ).length;
 
-  /* =====================================================
-     LOGO SETTINGS
-     ===================================================== */
+  /* =========================================================
+     AUTH LOADING SCREEN
+  ========================================================= */
 
-  async function handleLogoChange(event) {
-    const file = event.target.files?.[0];
+  if (authLoading) {
+    return (
+      <>
+        <style>{`
+          * {
+            box-sizing: border-box;
+          }
 
-    if (!file) return;
+          body {
+            margin: 0;
+          }
 
-    if (!file.type.startsWith("image/")) {
-      notify(
-        "Please select an image for your logo.",
-        "error"
-      );
-      return;
-    }
+          .auth-loading {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+              radial-gradient(
+                circle at 20% 0%,
+                rgba(124,58,237,.25),
+                transparent 35%
+              ),
+              #09090b;
+            color: white;
+            font-family:
+              Inter,
+              -apple-system,
+              BlinkMacSystemFont,
+              "SF Pro Display",
+              sans-serif;
+          }
 
-    if (file.size > 5 * 1024 * 1024) {
-      notify(
-        "Logo must be below 5MB.",
-        "error"
-      );
-      return;
-    }
+          .auth-loading-box {
+            text-align: center;
+          }
 
-    setLogoFile(file);
+          .auth-spinner {
+            width: 42px;
+            height: 42px;
+            border: 3px solid rgba(255,255,255,.2);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 18px;
+          }
 
-    const preview =
-      URL.createObjectURL(file);
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
 
-    setLogoPreview(preview);
-  }
-
-  async function saveLogo() {
-    if (!logoFile) {
-      notify(
-        "Choose a logo first.",
-        "error"
-      );
-      return;
-    }
-
-    setSavingLogo(true);
-
-    try {
-      const extension =
-        logoFile.name
-          .split(".")
-          .pop()
-          ?.toLowerCase() || "png";
-
-      const path =
-        `branding/logo-${Date.now()}.${extension}`;
-
-      const {
-        data,
-        error,
-      } = await supabase.storage
-        .from(PRODUCT_BUCKET)
-        .upload(path, logoFile, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType:
-            logoFile.type || "image/png",
-        });
-
-      if (error) {
-        throw new Error(
-          `Logo upload failed: ${error.message}`
-        );
-      }
-
-      const {
-        data: publicData,
-      } = supabase.storage
-        .from(PRODUCT_BUCKET)
-        .getPublicUrl(data.path);
-
-      const url =
-        publicData?.publicUrl;
-
-      if (!url) {
-        throw new Error(
-          "Could not create logo URL."
-        );
-      }
-
-      /*
-       * Keep the logo available immediately.
-       *
-       * localStorage is used here because we are
-       * not assuming a site_settings table exists.
-       */
-      localStorage.setItem(
-        "shindara_admin_logo",
-        url
-      );
-
-      setAdminLogo(url);
-      setLogoFile(null);
-      setLogoPreview("");
-
-      notify(
-        "Logo uploaded successfully.",
-        "success"
-      );
-    } catch (error) {
-      console.error(error);
-
-      notify(
-        error.message ||
-          "Logo could not be uploaded.",
-        "error"
-      );
-    } finally {
-      setSavingLogo(false);
-    }
-  }
-
-  function removeLogo() {
-    localStorage.removeItem(
-      "shindara_admin_logo"
-    );
-
-    setAdminLogo("");
-    setLogoFile(null);
-    setLogoPreview("");
-
-    notify(
-      "Admin logo removed from this device.",
-      "success"
+        <div className="auth-loading">
+          <div className="auth-loading-box">
+            <div className="auth-spinner" />
+            <strong>
+              Shindara Phoneflair
+            </strong>
+            <p style={{ opacity: 0.55 }}>
+              Securing admin dashboard...
+            </p>
+          </div>
+        </div>
+      </>
     );
   }
 
-  /* =====================================================
-     RENDER
-  ===================================================== */
+  /* =========================================================
+     LOGIN SCREEN
+  ========================================================= */
+
+  if (!authenticated) {
+    return (
+      <>
+        <style>{`
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            margin: 0;
+            font-family:
+              Inter,
+              -apple-system,
+              BlinkMacSystemFont,
+              "SF Pro Display",
+              "Segoe UI",
+              sans-serif;
+          }
+
+          .admin-login-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background:
+              radial-gradient(
+                circle at 10% 0%,
+                rgba(124,58,237,.35),
+                transparent 35%
+              ),
+              radial-gradient(
+                circle at 90% 100%,
+                rgba(168,85,247,.20),
+                transparent 35%
+              ),
+              #09090b;
+            color: white;
+          }
+
+          .admin-login-card {
+            width: min(440px, 100%);
+            padding: 34px;
+            border-radius: 30px;
+            background: rgba(255,255,255,.075);
+            border: 1px solid rgba(255,255,255,.12);
+            backdrop-filter: blur(25px);
+            box-shadow:
+              0 30px 100px rgba(0,0,0,.45);
+          }
+
+          .login-logo {
+            width: 62px;
+            height: 62px;
+            border-radius: 19px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            background:
+              linear-gradient(
+                135deg,
+                #7c3aed,
+                #a855f7
+              );
+            font-size: 28px;
+            box-shadow:
+              0 15px 40px rgba(124,58,237,.35);
+          }
+
+          .login-eyebrow {
+            font-size: 10px;
+            letter-spacing: 2px;
+            font-weight: 900;
+            opacity: .5;
+            margin-bottom: 8px;
+          }
+
+          .admin-login-card h1 {
+            font-size: 38px;
+            letter-spacing: -2px;
+            margin: 0 0 8px;
+          }
+
+          .login-subtitle {
+            color: rgba(255,255,255,.55);
+            margin: 0 0 28px;
+            line-height: 1.6;
+          }
+
+          .login-form {
+            display: grid;
+            gap: 13px;
+          }
+
+          .login-form label {
+            font-size: 12px;
+            font-weight: 800;
+            color: rgba(255,255,255,.65);
+          }
+
+          .login-input-wrap {
+            position: relative;
+          }
+
+          .login-form input {
+            width: 100%;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.07);
+            color: white;
+            padding: 15px;
+            border-radius: 14px;
+            outline: none;
+          }
+
+          .login-form input:focus {
+            border-color: #a855f7;
+            background: rgba(255,255,255,.1);
+          }
+
+          .password-toggle {
+            position: absolute;
+            right: 7px;
+            top: 7px;
+            height: calc(100% - 14px);
+            padding: 0 12px;
+            border: 0;
+            border-radius: 10px;
+            background: rgba(255,255,255,.08);
+            color: white;
+          }
+
+          .login-button {
+            margin-top: 8px;
+            border: 0;
+            border-radius: 15px;
+            padding: 15px;
+            background:
+              linear-gradient(
+                135deg,
+                #7c3aed,
+                #a855f7
+              );
+            color: white;
+            font-weight: 900;
+            font-size: 15px;
+            box-shadow:
+              0 15px 35px rgba(124,58,237,.25);
+          }
+
+          .login-button:disabled {
+            opacity: .55;
+          }
+
+          .login-error {
+            padding: 13px 14px;
+            border-radius: 13px;
+            background: rgba(239,68,68,.12);
+            border: 1px solid rgba(239,68,68,.2);
+            color: #fca5a5;
+            font-size: 13px;
+            line-height: 1.5;
+          }
+
+          .login-footer {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 11px;
+            color: rgba(255,255,255,.35);
+          }
+
+          @media (max-width: 480px) {
+            .admin-login-page {
+              padding: 15px;
+            }
+
+            .admin-login-card {
+              padding: 25px 20px;
+              border-radius: 24px;
+            }
+
+            .admin-login-card h1 {
+              font-size: 32px;
+            }
+          }
+        `}</style>
+
+        <div className="admin-login-page">
+          <div className="admin-login-card">
+
+            <div className="login-logo">
+              🛍️
+            </div>
+
+            <div className="login-eyebrow">
+              SHINDARA PHONEFLAIR
+            </div>
+
+            <h1>
+              Admin Login
+            </h1>
+
+            <p className="login-subtitle">
+              Sign in to securely manage
+              your store, products,
+              orders and customers.
+            </p>
+
+            {authMessage && (
+              <div className="login-error">
+                {authMessage}
+              </div>
+            )}
+
+            <form
+              className="login-form"
+              onSubmit={
+                handleAdminLogin
+              }
+            >
+
+              <label>
+                Admin email
+              </label>
+
+              <input
+                type="email"
+                placeholder="admin@example.com"
+                value={loginEmail}
+                onChange={(event) =>
+                  setLoginEmail(
+                    event.target.value
+                  )
+                }
+                autoComplete="email"
+                required
+              />
+
+              <label>
+                Password
+              </label>
+
+              <div className="login-input-wrap">
+
+                <input
+                  type={
+                    showPassword
+                      ? "text"
+                      : "password"
+                  }
+                  placeholder="Enter your password"
+                  value={
+                    loginPassword
+                  }
+                  onChange={(event) =>
+                    setLoginPassword(
+                      event.target.value
+                    )
+                  }
+                  autoComplete="current-password"
+                  required
+                />
+
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() =>
+                    setShowPassword(
+                      (current) =>
+                        !current
+                    )
+                  }
+                >
+                  {showPassword
+                    ? "Hide"
+                    : "Show"}
+                </button>
+
+              </div>
+
+              <button
+                className="login-button"
+                type="submit"
+                disabled={
+                  loginLoading
+                }
+              >
+                {loginLoading
+                  ? "Signing in..."
+                  : "Enter Admin Dashboard →"}
+              </button>
+
+            </form>
+
+            <div className="login-footer">
+              Authorized administrators only
+            </div>
+
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  /* =========================================================
+     ADMIN DASHBOARD
+  ========================================================= */
 
   return (
     <div className="admin-page">
@@ -1013,18 +1603,6 @@ function Admin() {
 
         * {
           box-sizing: border-box;
-        }
-
-        :root {
-          --accent: #6d28d9;
-          --accent2: #8b5cf6;
-          --dark: #111111;
-          --muted: #6b7280;
-          --border: rgba(0,0,0,.07);
-          --card: rgba(255,255,255,.92);
-          --bg: #f5f3f8;
-          --danger: #dc2626;
-          --success: #15803d;
         }
 
         body {
@@ -1036,7 +1614,7 @@ function Admin() {
             "SF Pro Display",
             "Segoe UI",
             sans-serif;
-          background: var(--bg);
+          background: #f5f5f7;
           color: #111;
         }
 
@@ -1058,185 +1636,142 @@ function Admin() {
 
         .admin-page {
           min-height: 100vh;
-          padding: 24px 16px 70px;
+          padding: 25px 18px 70px;
           background:
             radial-gradient(
               circle at 10% 0%,
-              rgba(124,58,237,.16),
-              transparent 28%
+              rgba(124,58,237,.12),
+              transparent 30%
             ),
             radial-gradient(
-              circle at 90% 10%,
-              rgba(168,85,247,.10),
+              circle at 100% 20%,
+              rgba(168,85,247,.08),
               transparent 25%
             ),
-            var(--bg);
+            #f5f5f7;
         }
 
         .admin-container {
-          max-width: 1400px;
+          max-width: 1280px;
           margin: auto;
         }
 
         .admin-header {
           display: flex;
-          align-items: center;
           justify-content: space-between;
+          align-items: center;
           gap: 20px;
-          margin-bottom: 20px;
-        }
-
-        .brand-area {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-        }
-
-        .admin-logo {
-          width: 58px;
-          height: 58px;
-          border-radius: 17px;
-          object-fit: contain;
-          background: white;
-          border: 1px solid var(--border);
-          padding: 7px;
-          box-shadow:
-            0 12px 30px rgba(0,0,0,.08);
-        }
-
-        .admin-logo-placeholder {
-          width: 58px;
-          height: 58px;
-          border-radius: 17px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background:
-            linear-gradient(
-              135deg,
-              var(--accent),
-              var(--accent2)
-            );
-          color: white;
-          font-weight: 900;
-          font-size: 20px;
-          box-shadow:
-            0 12px 30px rgba(109,40,217,.25);
+          margin-bottom: 22px;
         }
 
         .admin-eyebrow {
-          margin: 0 0 6px;
+          margin: 0 0 7px;
           font-size: 10px;
           font-weight: 900;
           letter-spacing: 2px;
-          color: var(--accent);
+          opacity: .45;
         }
 
         .admin-header h1 {
           margin: 0;
-          font-size: clamp(30px,5vw,52px);
-          letter-spacing: -2.8px;
-          line-height: 1;
+          font-size: clamp(34px,6vw,58px);
+          letter-spacing: -3px;
         }
 
-        .admin-header p:not(.admin-eyebrow) {
+        .admin-header p {
+          opacity: .55;
           margin: 8px 0 0;
-          color: var(--muted);
-          font-size: 14px;
         }
 
-        .admin-refresh {
-          border: 1px solid var(--border);
-          background: white;
+        .header-actions {
+          display: flex;
+          gap: 8px;
+        }
+
+        .admin-refresh,
+        .logout-button,
+        .secondary-button {
+          border: 1px solid rgba(0,0,0,.09);
+          background: rgba(255,255,255,.85);
           color: #111;
           border-radius: 13px;
-          padding: 12px 16px;
-          font-weight: 800;
+          padding: 12px 15px;
+          font-weight: 750;
+        }
+
+        .logout-button {
+          color: #b91c1c;
+          background: rgba(255,255,255,.7);
         }
 
         .admin-nav {
           display: flex;
           gap: 7px;
-          overflow-x: auto;
+          flex-wrap: wrap;
           padding: 7px;
           background: rgba(255,255,255,.8);
-          backdrop-filter: blur(20px);
-          border: 1px solid var(--border);
-          border-radius: 19px;
+          border: 1px solid rgba(0,0,0,.06);
+          border-radius: 18px;
           margin-bottom: 20px;
-          scrollbar-width: none;
-        }
-
-        .admin-nav::-webkit-scrollbar {
-          display: none;
+          backdrop-filter: blur(15px);
+          box-shadow: 0 8px 30px rgba(0,0,0,.03);
         }
 
         .admin-nav button {
           border: 0;
           background: transparent;
-          color: #555;
           padding: 12px 15px;
           border-radius: 12px;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .admin-nav button:hover {
-          background: #f3f3f5;
+          font-weight: 750;
         }
 
         .admin-nav-active {
-          background: var(--dark) !important;
-          color: white !important;
+          background:
+            linear-gradient(
+              135deg,
+              #111,
+              #292929
+            ) !important;
+          color: white;
           box-shadow:
-            0 7px 20px rgba(0,0,0,.15);
+            0 8px 18px rgba(0,0,0,.12);
         }
 
         .admin-message {
           padding: 14px 16px;
-          border-radius: 15px;
+          background:
+            linear-gradient(
+              135deg,
+              rgba(124,58,237,.10),
+              rgba(168,85,247,.06)
+            );
+          border: 1px solid rgba(124,58,237,.10);
+          border-radius: 14px;
           margin-bottom: 20px;
           font-size: 14px;
-          font-weight: 650;
-          border: 1px solid var(--border);
-        }
-
-        .message-info {
-          background: rgba(109,40,217,.08);
-          color: #5b21b6;
-        }
-
-        .message-success {
-          background: rgba(21,128,61,.08);
-          color: #166534;
-        }
-
-        .message-error {
-          background: rgba(220,38,38,.08);
-          color: #991b1b;
+          word-break: break-word;
         }
 
         .admin-stats {
           display: grid;
-          grid-template-columns:
-            repeat(4,minmax(0,1fr));
+          grid-template-columns: repeat(4,1fr);
           gap: 14px;
-          margin-bottom: 22px;
+          margin-bottom: 25px;
         }
 
         .admin-stat {
-          background: var(--card);
-          border: 1px solid var(--border);
+          background: rgba(255,255,255,.9);
+          border: 1px solid rgba(0,0,0,.06);
           border-radius: 20px;
-          padding: 20px;
+          padding: 21px;
           box-shadow:
-            0 12px 35px rgba(0,0,0,.045);
+            0 10px 30px rgba(0,0,0,.035);
         }
 
         .admin-stat span {
           display: block;
           font-size: 11px;
-          color: var(--muted);
+          opacity: .5;
           margin-bottom: 8px;
           font-weight: 700;
         }
@@ -1249,38 +1784,31 @@ function Admin() {
         .quick-actions {
           display: grid;
           grid-template-columns:
-            repeat(4,minmax(0,1fr));
+            repeat(4,1fr);
           gap: 12px;
           margin-bottom: 25px;
         }
 
         .quick-action {
-          border: 1px solid var(--border);
+          border: 1px solid rgba(0,0,0,.06);
           background: white;
           border-radius: 18px;
           padding: 17px;
           text-align: left;
           transition:
-            transform .18s ease,
-            box-shadow .18s ease;
+            transform .2s ease,
+            box-shadow .2s ease;
         }
 
         .quick-action:hover {
           transform: translateY(-2px);
           box-shadow:
-            0 15px 30px rgba(0,0,0,.07);
+            0 15px 35px rgba(0,0,0,.07);
         }
 
-        .quick-icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 13px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(109,40,217,.09);
-          margin-bottom: 12px;
-          font-size: 19px;
+        .quick-action-icon {
+          font-size: 22px;
+          margin-bottom: 10px;
         }
 
         .quick-action strong {
@@ -1288,22 +1816,23 @@ function Admin() {
           margin-bottom: 4px;
         }
 
-        .quick-action small {
-          color: var(--muted);
+        .quick-action span {
+          font-size: 11px;
+          opacity: .5;
         }
 
         .section-heading {
           display: flex;
-          align-items: flex-end;
           justify-content: space-between;
+          align-items: center;
           gap: 15px;
           margin-bottom: 18px;
         }
 
         .section-heading h2 {
           margin: 0;
-          font-size: 30px;
-          letter-spacing: -1.5px;
+          font-size: 28px;
+          letter-spacing: -.8px;
         }
 
         .primary-button {
@@ -1319,30 +1848,7 @@ function Admin() {
           border-radius: 13px;
           font-weight: 800;
           box-shadow:
-            0 10px 22px rgba(0,0,0,.12);
-        }
-
-        .purple-button {
-          border: 0;
-          background:
-            linear-gradient(
-              135deg,
-              var(--accent),
-              var(--accent2)
-            );
-          color: white;
-          padding: 13px 17px;
-          border-radius: 13px;
-          font-weight: 800;
-        }
-
-        .secondary-button {
-          border: 1px solid var(--border);
-          background: white;
-          color: #111;
-          border-radius: 13px;
-          padding: 11px 14px;
-          font-weight: 750;
+            0 8px 20px rgba(0,0,0,.12);
         }
 
         .danger-button {
@@ -1351,49 +1857,7 @@ function Admin() {
           color: #b91c1c;
           padding: 10px 13px;
           border-radius: 11px;
-          font-weight: 800;
-        }
-
-        .admin-empty {
-          text-align: center;
-          padding: 70px 20px;
-          background: white;
-          border-radius: 22px;
-          border: 1px solid var(--border);
-        }
-
-        .admin-empty-icon {
-          font-size: 50px;
-          margin-bottom: 10px;
-        }
-
-        .admin-empty h2 {
-          margin: 0 0 8px;
-        }
-
-        .admin-empty p {
-          color: var(--muted);
-          margin: 0 0 18px;
-        }
-
-        /* PRODUCTS */
-
-        .product-toolbar {
-          display: grid;
-          grid-template-columns:
-            1.5fr 1fr;
-          gap: 10px;
-          margin-bottom: 18px;
-        }
-
-        .product-toolbar input,
-        .product-toolbar select {
-          width: 100%;
-          border: 1px solid var(--border);
-          background: white;
-          border-radius: 13px;
-          padding: 13px 14px;
-          outline: none;
+          font-weight: 700;
         }
 
         .products-grid {
@@ -1405,20 +1869,20 @@ function Admin() {
 
         .admin-product-card {
           background: white;
-          border: 1px solid var(--border);
-          border-radius: 21px;
+          border: 1px solid rgba(0,0,0,.06);
+          border-radius: 20px;
           overflow: hidden;
           box-shadow:
-            0 12px 35px rgba(0,0,0,.045);
+            0 10px 30px rgba(0,0,0,.04);
         }
 
         .admin-product-image {
           height: 220px;
           background:
             linear-gradient(
-              145deg,
-              #f3f3f5,
-              #e9e9ec
+              135deg,
+              #f5f5f7,
+              #ededf0
             );
           display: flex;
           align-items: center;
@@ -1439,24 +1903,24 @@ function Admin() {
         .admin-product-category {
           font-size: 10px;
           text-transform: uppercase;
-          letter-spacing: 1.1px;
-          font-weight: 900;
-          color: var(--accent);
+          letter-spacing: 1px;
+          font-weight: 800;
+          opacity: .45;
         }
 
         .admin-product-content h3 {
-          margin: 7px 0;
+          margin: 6px 0;
           font-size: 17px;
         }
 
         .admin-product-price {
           font-size: 19px;
-          font-weight: 900;
+          font-weight: 800;
           margin: 12px 0 5px;
         }
 
         .stock-good {
-          color: var(--success);
+          color: #15803d;
         }
 
         .stock-low {
@@ -1464,7 +1928,7 @@ function Admin() {
         }
 
         .stock-out {
-          color: var(--danger);
+          color: #dc2626;
         }
 
         .product-actions {
@@ -1480,13 +1944,12 @@ function Admin() {
           margin-top: 8px;
           padding: 5px 8px;
           border-radius: 999px;
-          background: rgba(109,40,217,.09);
-          color: var(--accent);
+          background:
+            rgba(124,58,237,.1);
+          color: #6d28d9;
           font-size: 10px;
-          font-weight: 900;
+          font-weight: 800;
         }
-
-        /* ORDERS */
 
         .orders-grid {
           display: grid;
@@ -1497,11 +1960,11 @@ function Admin() {
 
         .order-card {
           background: white;
-          border: 1px solid var(--border);
+          border: 1px solid rgba(0,0,0,.06);
           border-radius: 22px;
           padding: 20px;
           box-shadow:
-            0 12px 35px rgba(0,0,0,.04);
+            0 10px 30px rgba(0,0,0,.035);
         }
 
         .order-top {
@@ -1510,7 +1973,8 @@ function Admin() {
           gap: 15px;
           align-items: flex-start;
           padding-bottom: 15px;
-          border-bottom: 1px solid var(--border);
+          border-bottom:
+            1px solid rgba(0,0,0,.07);
         }
 
         .order-number {
@@ -1519,23 +1983,23 @@ function Admin() {
 
         .order-date {
           font-size: 12px;
-          color: var(--muted);
-          margin: 6px 0 0;
+          opacity: .5;
         }
 
         .order-status {
-          border: 1px solid var(--border);
+          border: 1px solid rgba(0,0,0,.1);
           border-radius: 999px;
           padding: 8px 10px;
           background: white;
-          font-weight: 750;
+          font-weight: 700;
           font-size: 12px;
         }
 
         .order-customer,
         .order-products {
           padding: 16px 0;
-          border-bottom: 1px solid var(--border);
+          border-bottom:
+            1px solid rgba(0,0,0,.07);
         }
 
         .order-customer h3,
@@ -1544,7 +2008,7 @@ function Admin() {
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 1px;
-          color: var(--muted);
+          opacity: .5;
         }
 
         .order-customer p {
@@ -1562,7 +2026,7 @@ function Admin() {
         .order-product-image {
           width: 55px;
           height: 55px;
-          border-radius: 11px;
+          border-radius: 10px;
           overflow: hidden;
           background: #f1f1f1;
           display: flex;
@@ -1580,7 +2044,7 @@ function Admin() {
         .order-product p {
           margin: 4px 0 0;
           font-size: 12px;
-          color: var(--muted);
+          opacity: .55;
         }
 
         .order-total {
@@ -1589,13 +2053,6 @@ function Admin() {
           padding-top: 16px;
           font-size: 18px;
         }
-
-        .view-order-button {
-          width: 100%;
-          margin-top: 14px;
-        }
-
-        /* CUSTOMERS */
 
         .customers-grid {
           display: grid;
@@ -1608,7 +2065,7 @@ function Admin() {
           display: flex;
           gap: 14px;
           background: white;
-          border: 1px solid var(--border);
+          border: 1px solid rgba(0,0,0,.06);
           border-radius: 20px;
           padding: 18px;
         }
@@ -1617,12 +2074,7 @@ function Admin() {
           width: 48px;
           height: 48px;
           border-radius: 50%;
-          background:
-            linear-gradient(
-              135deg,
-              #eee,
-              #ddd
-            );
+          background: #f0f0f2;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1636,83 +2088,26 @@ function Admin() {
         .customer-card p {
           margin: 5px 0;
           font-size: 13px;
-          color: var(--muted);
+          opacity: .7;
         }
 
         .customer-card small {
           display: block;
           margin-top: 10px;
-          color: #999;
+          opacity: .45;
         }
 
-        /* SETTINGS */
-
-        .settings-grid {
-          display: grid;
-          grid-template-columns:
-            repeat(2,minmax(0,1fr));
-          gap: 18px;
-        }
-
-        .settings-card {
+        .admin-empty {
+          text-align: center;
+          padding: 70px 20px;
           background: white;
-          border: 1px solid var(--border);
           border-radius: 22px;
-          padding: 23px;
+          border: 1px solid rgba(0,0,0,.06);
         }
 
-        .settings-card h3 {
-          margin: 0 0 7px;
-          font-size: 20px;
+        .admin-empty > div {
+          font-size: 55px;
         }
-
-        .settings-card > p {
-          margin: 0 0 20px;
-          color: var(--muted);
-          font-size: 14px;
-        }
-
-        .logo-preview {
-          width: 140px;
-          height: 140px;
-          border-radius: 25px;
-          background: #f5f5f7;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          margin-bottom: 15px;
-          border: 1px solid var(--border);
-        }
-
-        .logo-preview img {
-          max-width: 100%;
-          max-height: 100%;
-          object-fit: contain;
-        }
-
-        .file-label {
-          display: inline-block;
-          padding: 12px 15px;
-          background: #111;
-          color: white;
-          border-radius: 12px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .hidden-file {
-          display: none;
-        }
-
-        .settings-actions {
-          display: flex;
-          gap: 9px;
-          flex-wrap: wrap;
-          margin-top: 14px;
-        }
-
-        /* MODAL */
 
         .admin-modal-backdrop {
           position: fixed;
@@ -1721,21 +2116,23 @@ function Admin() {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 16px;
-          background: rgba(0,0,0,.62);
-          backdrop-filter: blur(10px);
+          padding: 18px;
+          background:
+            rgba(0,0,0,.6);
+          backdrop-filter:
+            blur(8px);
         }
 
         .admin-modal {
-          width: min(650px,100%);
-          max-height: 94vh;
+          width: min(620px,100%);
+          max-height: 92vh;
           overflow-y: auto;
           background: white;
-          border-radius: 26px;
+          border-radius: 25px;
           padding: 27px;
           position: relative;
           box-shadow:
-            0 35px 100px rgba(0,0,0,.35);
+            0 30px 100px rgba(0,0,0,.3);
         }
 
         .admin-modal-close {
@@ -1752,14 +2149,14 @@ function Admin() {
 
         .admin-form {
           display: grid;
-          gap: 12px;
+          gap: 13px;
         }
 
         .admin-form label {
           font-size: 12px;
-          font-weight: 850;
-          color: #666;
-          margin-bottom: -5px;
+          font-weight: 800;
+          opacity: .6;
+          margin-bottom: -7px;
         }
 
         .admin-form input,
@@ -1781,14 +2178,14 @@ function Admin() {
         .admin-form input:focus,
         .admin-form textarea:focus,
         .admin-form select:focus {
-          border-color: var(--accent);
+          border-color: #111;
           background: white;
         }
 
         .image-upload-box {
-          border: 2px dashed rgba(0,0,0,.13);
+          border: 2px dashed rgba(0,0,0,.15);
           border-radius: 16px;
-          padding: 15px;
+          padding: 18px;
           background: #fafafa;
         }
 
@@ -1817,7 +2214,7 @@ function Admin() {
           background: #111;
           color: white;
           border-radius: 12px;
-          font-weight: 800;
+          font-weight: 700;
           cursor: pointer;
         }
 
@@ -1846,35 +2243,14 @@ function Admin() {
           margin-top: 8px;
         }
 
-        /* ORDER DETAIL MODAL */
-
-        .order-detail-grid {
-          display: grid;
-          gap: 14px;
+        .uploading-text {
+          text-align: center;
+          font-size: 13px;
+          opacity: .6;
+          margin-top: 8px;
         }
 
-        .detail-box {
-          background: #f7f7f8;
-          border-radius: 15px;
-          padding: 15px;
-        }
-
-        .detail-box h4 {
-          margin: 0 0 9px;
-          font-size: 11px;
-          text-transform: uppercase;
-          color: var(--muted);
-          letter-spacing: 1px;
-        }
-
-        .detail-box p {
-          margin: 5px 0;
-          font-size: 14px;
-        }
-
-        /* RESPONSIVE */
-
-        @media (max-width:1100px) {
+        @media (max-width:1050px) {
           .products-grid {
             grid-template-columns:
               repeat(3,minmax(0,1fr));
@@ -1884,69 +2260,75 @@ function Admin() {
             grid-template-columns:
               repeat(2,minmax(0,1fr));
           }
-        }
-
-        @media (max-width:850px) {
-          .admin-stats {
-            grid-template-columns:
-              repeat(2,minmax(0,1fr));
-          }
 
           .quick-actions {
             grid-template-columns:
-              repeat(2,minmax(0,1fr));
-          }
-
-          .products-grid {
-            grid-template-columns:
-              repeat(2,minmax(0,1fr));
-          }
-
-          .orders-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .settings-grid {
-            grid-template-columns: 1fr;
+              repeat(2,1fr);
           }
         }
 
-        @media (max-width:600px) {
+        @media (max-width:760px) {
           .admin-page {
-            padding: 17px 10px 45px;
+            padding: 18px 12px 50px;
           }
 
           .admin-header {
             align-items: flex-start;
           }
 
-          .admin-header h1 {
-            font-size: 34px;
+          .header-actions {
+            width: 100%;
           }
 
-          .admin-refresh {
-            padding: 10px 12px;
-          }
-
-          .brand-area {
-            gap: 10px;
-          }
-
-          .admin-logo,
-          .admin-logo-placeholder {
-            width: 48px;
-            height: 48px;
+          .header-actions button {
+            flex: 1;
           }
 
           .admin-stats {
             grid-template-columns:
-              repeat(2,minmax(0,1fr));
+              repeat(2,1fr);
+          }
+
+          .products-grid,
+          .orders-grid,
+          .customers-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .admin-nav {
+            overflow-x: auto;
+            flex-wrap: nowrap;
+          }
+
+          .admin-nav button {
+            white-space: nowrap;
+          }
+
+          .section-heading {
+            align-items: flex-start;
+          }
+
+          .admin-product-image {
+            height: 250px;
+          }
+        }
+
+        @media (max-width:450px) {
+          .admin-header {
+            flex-direction: column;
+          }
+
+          .header-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+          }
+
+          .admin-stats {
             gap: 9px;
           }
 
           .admin-stat {
             padding: 16px;
-            border-radius: 17px;
           }
 
           .admin-stat strong {
@@ -1954,57 +2336,16 @@ function Admin() {
           }
 
           .quick-actions {
-            grid-template-columns:
-              repeat(2,minmax(0,1fr));
-            gap: 9px;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
           }
 
           .quick-action {
             padding: 14px;
           }
 
-          .section-heading {
-            align-items: flex-start;
-          }
-
-          .section-heading h2 {
-            font-size: 26px;
-          }
-
-          .products-grid,
-          .customers-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .product-toolbar {
-            grid-template-columns: 1fr;
-          }
-
-          .admin-product-image {
-            height: 250px;
-          }
-
           .admin-modal {
             padding: 22px 16px;
-            border-radius: 21px;
-          }
-        }
-
-        @media (max-width:430px) {
-          .admin-header {
-            flex-direction: column;
-          }
-
-          .admin-refresh {
-            width: 100%;
-          }
-
-          .quick-actions {
-            grid-template-columns: 1fr;
-          }
-
-          .admin-stats {
-            grid-template-columns: 1fr 1fr;
           }
 
           .modal-actions {
@@ -2016,152 +2357,175 @@ function Admin() {
 
       <div className="admin-container">
 
-        {/* HEADER */}
+        {/* ===================================================
+            HEADER
+        =================================================== */}
 
         <header className="admin-header">
 
-          <div className="brand-area">
+          <div>
+            <p className="admin-eyebrow">
+              SHINDARA PHONEFLAIR
+            </p>
 
-            {adminLogo ? (
-              <img
-                src={adminLogo}
-                alt="Shindara Phoneflair"
-                className="admin-logo"
-              />
-            ) : (
-              <div className="admin-logo-placeholder">
-                SP
-              </div>
-            )}
+            <h1>
+              Control Center
+            </h1>
 
-            <div>
-              <p className="admin-eyebrow">
-                SHINDARA PHONEFLAIR
-              </p>
+            <p>
+              Welcome back,{" "}
+              {adminUser?.email ||
+                "Administrator"}
+            </p>
+          </div>
 
-              <h1>Control Center</h1>
+          <div className="header-actions">
 
-              <p>
-                Manage your entire store from one place.
-              </p>
-            </div>
+            <button
+              className="admin-refresh"
+              onClick={
+                loadEverything
+              }
+            >
+              ↻ Refresh
+            </button>
+
+            <button
+              className="logout-button"
+              onClick={
+                handleLogout
+              }
+            >
+              ↪ Logout
+            </button>
 
           </div>
 
-          <button
-            className="admin-refresh"
-            onClick={loadAll}
-          >
-            ↻ Refresh
-          </button>
-
         </header>
 
-        {/* NAV */}
+        {/* ===================================================
+            NAVIGATION
+        =================================================== */}
 
         <nav className="admin-nav">
 
           <button
             className={
-              activeSection === "dashboard"
+              activeSection ===
+              "dashboard"
                 ? "admin-nav-active"
                 : ""
             }
-            onClick={openDashboard}
+            onClick={
+              openDashboard
+            }
           >
             📊 Dashboard
           </button>
 
           <button
             className={
-              activeSection === "products"
+              activeSection ===
+              "products"
                 ? "admin-nav-active"
                 : ""
             }
-            onClick={openProducts}
+            onClick={
+              openProducts
+            }
           >
             📦 Products
           </button>
 
           <button
             className={
-              activeSection === "orders"
+              activeSection ===
+              "orders"
                 ? "admin-nav-active"
                 : ""
             }
-            onClick={openOrders}
+            onClick={
+              openOrders
+            }
           >
             🛒 Orders
           </button>
 
           <button
             className={
-              activeSection === "customers"
+              activeSection ===
+              "customers"
                 ? "admin-nav-active"
                 : ""
             }
-            onClick={openCustomers}
+            onClick={
+              openCustomers
+            }
           >
             👥 Customers
           </button>
 
-          <button
-            className={
-              activeSection === "settings"
-                ? "admin-nav-active"
-                : ""
-            }
-            onClick={openSettings}
-          >
-            ⚙️ Settings
-          </button>
-
         </nav>
 
-        {/* MESSAGE */}
+        {/* ===================================================
+            MESSAGE
+        =================================================== */}
 
         {message && (
-          <div
-            className={`admin-message message-${messageType}`}
-          >
+          <div className="admin-message">
             {message}
           </div>
         )}
 
-        {/* =================================================
+        {/* ===================================================
             DASHBOARD
-        ================================================= */}
+        =================================================== */}
 
-        {activeSection === "dashboard" && (
+        {activeSection ===
+          "dashboard" && (
           <>
 
             <div className="admin-stats">
 
               <div className="admin-stat">
-                <span>Total products</span>
+                <span>
+                  Total products
+                </span>
+
                 <strong>
                   {products.length}
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Total orders</span>
+                <span>
+                  Total orders
+                </span>
+
                 <strong>
                   {orders.length}
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Customers</span>
+                <span>
+                  Customers
+                </span>
+
                 <strong>
                   {customers.length}
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Total revenue</span>
+                <span>
+                  Revenue
+                </span>
+
                 <strong>
-                  {money(totalRevenue)}
+                  {money(
+                    totalRevenue
+                  )}
                 </strong>
               </div>
 
@@ -2170,30 +2534,42 @@ function Admin() {
             <div className="admin-stats">
 
               <div className="admin-stat">
-                <span>Pending</span>
+                <span>
+                  Pending orders
+                </span>
+
                 <strong>
                   {pendingOrders}
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Confirmed</span>
-                <strong>
-                  {confirmedOrders}
-                </strong>
-              </div>
+                <span>
+                  Delivered
+                </span>
 
-              <div className="admin-stat">
-                <span>Shipped</span>
-                <strong>
-                  {shippedOrders}
-                </strong>
-              </div>
-
-              <div className="admin-stat">
-                <span>Delivered</span>
                 <strong>
                   {deliveredOrders}
+                </strong>
+              </div>
+
+              <div className="admin-stat">
+                <span>
+                  Low stock
+                </span>
+
+                <strong>
+                  {lowStockProducts}
+                </strong>
+              </div>
+
+              <div className="admin-stat">
+                <span>
+                  Featured
+                </span>
+
+                <strong>
+                  {featuredProducts}
                 </strong>
               </div>
 
@@ -2201,23 +2577,15 @@ function Admin() {
 
             {/* QUICK ACTIONS */}
 
-            <h2
-              style={{
-                margin: "0 0 13px",
-                fontSize: 20,
-                letterSpacing: "-.5px",
-              }}
-            >
-              Quick Actions
-            </h2>
-
             <div className="quick-actions">
 
               <button
                 className="quick-action"
-                onClick={openAddProduct}
+                onClick={
+                  openAddProduct
+                }
               >
-                <div className="quick-icon">
+                <div className="quick-action-icon">
                   ➕
                 </div>
 
@@ -2225,16 +2593,19 @@ function Admin() {
                   Add Product
                 </strong>
 
-                <small>
-                  Add new inventory
-                </small>
+                <span>
+                  Add something new
+                  to your store
+                </span>
               </button>
 
               <button
                 className="quick-action"
-                onClick={openOrders}
+                onClick={
+                  openOrders
+                }
               >
-                <div className="quick-icon">
+                <div className="quick-action-icon">
                   🛒
                 </div>
 
@@ -2242,16 +2613,19 @@ function Admin() {
                   View Orders
                 </strong>
 
-                <small>
-                  Manage customer orders
-                </small>
+                <span>
+                  Manage customer
+                  orders
+                </span>
               </button>
 
               <button
                 className="quick-action"
-                onClick={openCustomers}
+                onClick={
+                  openCustomers
+                }
               >
-                <div className="quick-icon">
+                <div className="quick-action-icon">
                   👥
                 </div>
 
@@ -2259,84 +2633,58 @@ function Admin() {
                   Customers
                 </strong>
 
-                <small>
-                  View your customers
-                </small>
+                <span>
+                  View your customer
+                  directory
+                </span>
               </button>
 
               <button
                 className="quick-action"
-                onClick={openSettings}
+                onClick={
+                  openProducts
+                }
               >
-                <div className="quick-icon">
+                <div className="quick-action-icon">
                   ⚙️
                 </div>
 
                 <strong>
-                  Settings
+                  Store
                 </strong>
 
-                <small>
-                  Store appearance
-                </small>
+                <span>
+                  Manage products
+                  and inventory
+                </span>
               </button>
-
-            </div>
-
-            {/* INVENTORY STATUS */}
-
-            <div className="admin-stats">
-
-              <div className="admin-stat">
-                <span>Low stock</span>
-                <strong>
-                  {lowStockProducts}
-                </strong>
-              </div>
-
-              <div className="admin-stat">
-                <span>Out of stock</span>
-                <strong>
-                  {outOfStockProducts}
-                </strong>
-              </div>
-
-              <div className="admin-stat">
-                <span>Featured products</span>
-                <strong>
-                  {featuredProducts}
-                </strong>
-              </div>
-
-              <div className="admin-stat">
-                <span>Cancelled orders</span>
-                <strong>
-                  {cancelledOrders}
-                </strong>
-              </div>
 
             </div>
 
             <div className="admin-empty">
 
-              <div className="admin-empty-icon">
-                ✨
+              <div>
+                🚀
               </div>
 
               <h2>
-                Welcome to your store dashboard
+                Your store is ready
+                to grow.
               </h2>
 
               <p>
-                Everything you need to manage
-                Shindara Phoneflair is here.
+                Manage products,
+                orders and customers
+                from your dashboard.
               </p>
 
               <button
                 className="primary-button"
-                onClick={openAddProduct}
+                onClick={
+                  openAddProduct
+                }
               >
-                + Add your next product
+                + Add Product
               </button>
 
             </div>
@@ -2344,11 +2692,12 @@ function Admin() {
           </>
         )}
 
-        {/* =================================================
+        {/* ===================================================
             PRODUCTS
-        ================================================= */}
+        =================================================== */}
 
-        {activeSection === "products" && (
+        {activeSection ===
+          "products" && (
           <>
 
             <div className="section-heading">
@@ -2365,7 +2714,9 @@ function Admin() {
 
               <button
                 className="primary-button"
-                onClick={openAddProduct}
+                onClick={
+                  openAddProduct
+                }
               >
                 + Add Product
               </button>
@@ -2375,75 +2726,58 @@ function Admin() {
             <div className="admin-stats">
 
               <div className="admin-stat">
-                <span>All products</span>
+                <span>
+                  All products
+                </span>
+
                 <strong>
                   {products.length}
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Categories</span>
-                <strong>
-                  {Math.max(
-                    categories.length - 1,
-                    0
-                  )}
-                </strong>
-              </div>
+                <span>
+                  In stock
+                </span>
 
-              <div className="admin-stat">
-                <span>In stock</span>
                 <strong>
                   {
                     products.filter(
                       (p) =>
-                        Number(p.stock || 0) > 0
+                        Number(
+                          p.stock || 0
+                        ) > 0
                     ).length
                   }
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Out of stock</span>
+                <span>
+                  Out of stock
+                </span>
+
                 <strong>
-                  {outOfStockProducts}
+                  {
+                    products.filter(
+                      (p) =>
+                        Number(
+                          p.stock || 0
+                        ) <= 0
+                    ).length
+                  }
                 </strong>
               </div>
 
-            </div>
+              <div className="admin-stat">
+                <span>
+                  Low stock
+                </span>
 
-            <div className="product-toolbar">
-
-              <input
-                type="search"
-                placeholder="Search products..."
-                value={productSearch}
-                onChange={(event) =>
-                  setProductSearch(
-                    event.target.value
-                  )
-                }
-              />
-
-              <select
-                value={categoryFilter}
-                onChange={(event) =>
-                  setCategoryFilter(
-                    event.target.value
-                  )
-                }
-              >
-                {categories.map(
-                  (category) => (
-                    <option
-                      key={category}
-                      value={category}
-                    >
-                      {category}
-                    </option>
-                  )
-                )}
-              </select>
+                <strong>
+                  {lowStockProducts}
+                </strong>
+              </div>
 
             </div>
 
@@ -2451,24 +2785,28 @@ function Admin() {
               <div className="admin-empty">
                 Loading products...
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : products.length ===
+              0 ? (
               <div className="admin-empty">
 
-                <div className="admin-empty-icon">
+                <div>
                   📦
                 </div>
 
                 <h2>
-                  No products found
+                  No products yet
                 </h2>
 
                 <p>
-                  Try another search or add a product.
+                  Add your first
+                  product.
                 </p>
 
                 <button
                   className="primary-button"
-                  onClick={openAddProduct}
+                  onClick={
+                    openAddProduct
+                  }
                 >
                   + Add Product
                 </button>
@@ -2477,18 +2815,21 @@ function Admin() {
             ) : (
               <div className="products-grid">
 
-                {filteredProducts.map(
+                {products.map(
                   (product) => {
 
                     const stock =
                       Number(
-                        product.stock || 0
+                        product.stock ||
+                          0
                       );
 
                     return (
                       <article
                         className="admin-product-card"
-                        key={product.id}
+                        key={
+                          product.id
+                        }
                       >
 
                         <div className="admin-product-image">
@@ -2505,7 +2846,8 @@ function Admin() {
                           ) : (
                             <span
                               style={{
-                                fontSize: 55,
+                                fontSize:
+                                  55,
                               }}
                             >
                               📦
@@ -2518,7 +2860,7 @@ function Admin() {
 
                           <span className="admin-product-category">
                             {product.category ||
-                              "Uncategorized"}
+                              "Electronics"}
                           </span>
 
                           <h3>
@@ -2535,7 +2877,8 @@ function Admin() {
                             className={
                               stock <= 0
                                 ? "stock-out"
-                                : stock <= 5
+                                : stock <=
+                                  5
                                 ? "stock-low"
                                 : "stock-good"
                             }
@@ -2590,11 +2933,12 @@ function Admin() {
           </>
         )}
 
-        {/* =================================================
+        {/* ===================================================
             ORDERS
-        ================================================= */}
+        =================================================== */}
 
-        {activeSection === "orders" && (
+        {activeSection ===
+          "orders" && (
           <>
 
             <div className="section-heading">
@@ -2611,7 +2955,9 @@ function Admin() {
 
               <button
                 className="secondary-button"
-                onClick={loadOrders}
+                onClick={
+                  loadOrders
+                }
               >
                 ↻ Refresh
               </button>
@@ -2621,30 +2967,44 @@ function Admin() {
             <div className="admin-stats">
 
               <div className="admin-stat">
-                <span>Total orders</span>
+                <span>
+                  Total orders
+                </span>
+
                 <strong>
                   {orders.length}
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Pending</span>
+                <span>
+                  Pending
+                </span>
+
                 <strong>
                   {pendingOrders}
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Delivered</span>
+                <span>
+                  Delivered
+                </span>
+
                 <strong>
                   {deliveredOrders}
                 </strong>
               </div>
 
               <div className="admin-stat">
-                <span>Revenue</span>
+                <span>
+                  Revenue
+                </span>
+
                 <strong>
-                  {money(totalRevenue)}
+                  {money(
+                    totalRevenue
+                  )}
                 </strong>
               </div>
 
@@ -2654,10 +3014,11 @@ function Admin() {
               <div className="admin-empty">
                 Loading orders...
               </div>
-            ) : orders.length === 0 ? (
+            ) : orders.length ===
+              0 ? (
               <div className="admin-empty">
 
-                <div className="admin-empty-icon">
+                <div>
                   🛒
                 </div>
 
@@ -2666,7 +3027,8 @@ function Admin() {
                 </h2>
 
                 <p>
-                  New customer orders will appear here.
+                  New customer orders
+                  will appear here.
                 </p>
 
               </div>
@@ -2678,7 +3040,9 @@ function Admin() {
 
                     <article
                       className="order-card"
-                      key={order.id}
+                      key={
+                        order.id
+                      }
                     >
 
                       <div className="order-top">
@@ -2687,8 +3051,13 @@ function Admin() {
 
                           <span className="order-number">
                             #
-                            {String(order.id)
-                              .slice(0, 8)
+                            {String(
+                              order.id
+                            )
+                              .slice(
+                                0,
+                                8
+                              )
                               .toUpperCase()}
                           </span>
 
@@ -2705,10 +3074,14 @@ function Admin() {
                             order.status ||
                             "pending"
                           }
-                          onChange={(event) =>
+                          onChange={(
+                            event
+                          ) =>
                             updateStatus(
                               order.id,
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                           }
                           className="order-status"
@@ -2746,31 +3119,38 @@ function Admin() {
 
                         <p>
                           👤{" "}
-                          {order.customer_name ||
-                            "Customer"}
+                          {
+                            order.customer_name
+                          }
                         </p>
 
                         <p>
                           📱{" "}
-                          {order.customer_phone ||
-                            "No phone"}
+                          {
+                            order.customer_phone
+                          }
                         </p>
 
                         <p>
                           📍{" "}
-                          {order.delivery_address ||
-                            "No address"}
+                          {
+                            order.delivery_address
+                          }
                         </p>
 
                         <p>
-                          {order.delivery_city}
+                          {
+                            order.delivery_city
+                          }
 
                           {order.delivery_city &&
                           order.delivery_state
                             ? ", "
                             : ""}
 
-                          {order.delivery_state}
+                          {
+                            order.delivery_state
+                          }
                         </p>
 
                       </div>
@@ -2786,7 +3166,9 @@ function Admin() {
 
                             <div
                               className="order-product"
-                              key={item.id}
+                              key={
+                                item.id
+                              }
                             >
 
                               <div className="order-product-image">
@@ -2849,17 +3231,6 @@ function Admin() {
 
                       </div>
 
-                      <button
-                        className="secondary-button view-order-button"
-                        onClick={() =>
-                          setSelectedOrder(
-                            order
-                          )
-                        }
-                      >
-                        View Full Order Details
-                      </button>
-
                     </article>
 
                   )
@@ -2871,11 +3242,12 @@ function Admin() {
           </>
         )}
 
-        {/* =================================================
+        {/* ===================================================
             CUSTOMERS
-        ================================================= */}
+        =================================================== */}
 
-        {activeSection === "customers" && (
+        {activeSection ===
+          "customers" && (
           <>
 
             <div className="section-heading">
@@ -2892,7 +3264,9 @@ function Admin() {
 
               <button
                 className="secondary-button"
-                onClick={loadCustomers}
+                onClick={
+                  loadCustomers
+                }
               >
                 ↻ Refresh
               </button>
@@ -2902,16 +3276,12 @@ function Admin() {
             <div className="admin-stats">
 
               <div className="admin-stat">
-                <span>Total customers</span>
+                <span>
+                  Customers
+                </span>
+
                 <strong>
                   {customers.length}
-                </strong>
-              </div>
-
-              <div className="admin-stat">
-                <span>Total orders</span>
-                <strong>
-                  {orders.length}
                 </strong>
               </div>
 
@@ -2921,10 +3291,11 @@ function Admin() {
               <div className="admin-empty">
                 Loading customers...
               </div>
-            ) : customers.length === 0 ? (
+            ) : customers.length ===
+              0 ? (
               <div className="admin-empty">
 
-                <div className="admin-empty-icon">
+                <div>
                   👥
                 </div>
 
@@ -2933,7 +3304,9 @@ function Admin() {
                 </h2>
 
                 <p>
-                  Customers who place orders will appear here.
+                  Customers who place
+                  orders will appear
+                  here.
                 </p>
 
               </div>
@@ -2960,24 +3333,21 @@ function Admin() {
 
                         <h3>
                           {
-                            customer.customer_name ||
-                            "Customer"
+                            customer.customer_name
                           }
                         </h3>
 
                         <p>
                           📱{" "}
                           {
-                            customer.customer_phone ||
-                            "No phone"
+                            customer.customer_phone
                           }
                         </p>
 
                         <p>
                           📍{" "}
                           {
-                            customer.delivery_city ||
-                            ""
+                            customer.delivery_city
                           }
 
                           {customer.delivery_city &&
@@ -2986,8 +3356,7 @@ function Admin() {
                             : ""}
 
                           {
-                            customer.delivery_state ||
-                            ""
+                            customer.delivery_state
                           }
                         </p>
 
@@ -3011,186 +3380,19 @@ function Admin() {
           </>
         )}
 
-        {/* =================================================
-            SETTINGS
-        ================================================= */}
-
-        {activeSection === "settings" && (
-          <>
-
-            <div className="section-heading">
-
-              <div>
-                <p className="admin-eyebrow">
-                  STORE SETTINGS
-                </p>
-
-                <h2>
-                  Settings
-                </h2>
-              </div>
-
-            </div>
-
-            <div className="settings-grid">
-
-              <div className="settings-card">
-
-                <h3>
-                  Store Logo
-                </h3>
-
-                <p>
-                  Upload the logo you want displayed
-                  in your admin control center.
-                </p>
-
-                <div className="logo-preview">
-
-                  {logoPreview ? (
-                    <img
-                      src={logoPreview}
-                      alt="Logo preview"
-                    />
-                  ) : adminLogo ? (
-                    <img
-                      src={adminLogo}
-                      alt="Current logo"
-                    />
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: 35,
-                        fontWeight: 900,
-                        color: "#6d28d9",
-                      }}
-                    >
-                      SP
-                    </span>
-                  )}
-
-                </div>
-
-                <label
-                  className="file-label"
-                  htmlFor="admin-logo-upload"
-                >
-                  📷 Choose Logo
-                </label>
-
-                <input
-                  id="admin-logo-upload"
-                  className="hidden-file"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoChange}
-                />
-
-                <div className="settings-actions">
-
-                  <button
-                    className="purple-button"
-                    onClick={saveLogo}
-                    disabled={
-                      !logoFile ||
-                      savingLogo
-                    }
-                  >
-                    {savingLogo
-                      ? "Uploading..."
-                      : "Save Logo"}
-                  </button>
-
-                  {adminLogo && (
-                    <button
-                      className="secondary-button"
-                      onClick={removeLogo}
-                    >
-                      Remove
-                    </button>
-                  )}
-
-                </div>
-
-              </div>
-
-              <div className="settings-card">
-
-                <h3>
-                  Store Overview
-                </h3>
-
-                <p>
-                  Current store information.
-                </p>
-
-                <div className="detail-box">
-
-                  <h4>
-                    Brand
-                  </h4>
-
-                  <p>
-                    Shindara Phoneflair
-                  </p>
-
-                </div>
-
-                <div
-                  className="detail-box"
-                  style={{
-                    marginTop: 10,
-                  }}
-                >
-
-                  <h4>
-                    Products
-                  </h4>
-
-                  <p>
-                    {products.length} products
-                  </p>
-
-                </div>
-
-                <div
-                  className="detail-box"
-                  style={{
-                    marginTop: 10,
-                  }}
-                >
-
-                  <h4>
-                    Categories
-                  </h4>
-
-                  <p>
-                    {Math.max(
-                      categories.length - 1,
-                      0
-                    )} categories
-                  </p>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </>
-        )}
-
       </div>
 
-      {/* =================================================
+      {/* =====================================================
           PRODUCT MODAL
-      ================================================= */}
+      ===================================================== */}
 
       {productModal && (
 
         <div
           className="admin-modal-backdrop"
-          onClick={closeProductModal}
+          onClick={
+            closeProductModal
+          }
         >
 
           <div
@@ -3202,10 +3404,12 @@ function Admin() {
 
             <button
               className="admin-modal-close"
-              onClick={closeProductModal}
+              onClick={
+                closeProductModal
+              }
               disabled={
                 savingProduct ||
-                processingImage
+                processingProduct
               }
             >
               ×
@@ -3217,30 +3421,27 @@ function Admin() {
                 : "NEW PRODUCT"}
             </p>
 
-            <h2
-              style={{
-                marginTop: 0,
-                fontSize: 30,
-                letterSpacing: "-1.5px",
-              }}
-            >
+            <h2>
               {editingProduct
-                ? "Edit product"
-                : "Add product"}
+                ? "Edit Product"
+                : "Add Product"}
             </h2>
 
             <p
               style={{
-                color: "#777",
-                marginBottom: 20,
+                opacity: 0.6,
+                marginTop: 0,
               }}
             >
-              Add your product information below.
+              Add the product details
+              below.
             </p>
 
             <form
               className="admin-form"
-              onSubmit={saveProduct}
+              onSubmit={
+                saveProduct
+              }
             >
 
               <label>
@@ -3254,11 +3455,14 @@ function Admin() {
                   productForm.name
                 }
                 onChange={(event) =>
-                  setProductForm({
-                    ...productForm,
-                    name:
-                      event.target.value,
-                  })
+                  setProductForm(
+                    (current) => ({
+                      ...current,
+                      name:
+                        event.target
+                          .value,
+                    })
+                  )
                 }
                 required
               />
@@ -3273,11 +3477,14 @@ function Admin() {
                   productForm.description
                 }
                 onChange={(event) =>
-                  setProductForm({
-                    ...productForm,
-                    description:
-                      event.target.value,
-                  })
+                  setProductForm(
+                    (current) => ({
+                      ...current,
+                      description:
+                        event.target
+                          .value,
+                    })
+                  )
                 }
               />
 
@@ -3294,11 +3501,14 @@ function Admin() {
                   productForm.price
                 }
                 onChange={(event) =>
-                  setProductForm({
-                    ...productForm,
-                    price:
-                      event.target.value,
-                  })
+                  setProductForm(
+                    (current) => ({
+                      ...current,
+                      price:
+                        event.target
+                          .value,
+                    })
+                  )
                 }
                 required
               />
@@ -3312,11 +3522,14 @@ function Admin() {
                   productForm.category
                 }
                 onChange={(event) =>
-                  setProductForm({
-                    ...productForm,
-                    category:
-                      event.target.value,
-                  })
+                  setProductForm(
+                    (current) => ({
+                      ...current,
+                      category:
+                        event.target
+                          .value,
+                    })
+                  )
                 }
                 required
               >
@@ -3325,21 +3538,20 @@ function Admin() {
                   Select category
                 </option>
 
-                {categories
-                  .filter(
-                    (category) =>
-                      category !== "All"
+                {categories.map(
+                  (category) => (
+                    <option
+                      value={
+                        category
+                      }
+                      key={
+                        category
+                      }
+                    >
+                      {category}
+                    </option>
                   )
-                  .map(
-                    (category) => (
-                      <option
-                        key={category}
-                        value={category}
-                      >
-                        {category}
-                      </option>
-                    )
-                  )}
+                )}
 
               </select>
 
@@ -3356,11 +3568,14 @@ function Admin() {
                   productForm.stock
                 }
                 onChange={(event) =>
-                  setProductForm({
-                    ...productForm,
-                    stock:
-                      event.target.value,
-                  })
+                  setProductForm(
+                    (current) => ({
+                      ...current,
+                      stock:
+                        event.target
+                          .value,
+                    })
+                  )
                 }
                 required
               />
@@ -3371,21 +3586,23 @@ function Admin() {
 
               <div className="image-upload-box">
 
-                <div className="image-preview">
+                {imagePreview ? (
 
-                  {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt="Product preview"
-                    />
-                  ) : productForm.image_url ? (
+                  <div className="image-preview">
+
                     <img
                       src={
-                        productForm.image_url
+                        imagePreview
                       }
-                      alt="Current product"
+                      alt="Product preview"
                     />
-                  ) : (
+
+                  </div>
+
+                ) : (
+
+                  <div className="image-preview">
+
                     <span
                       style={{
                         fontSize: 50,
@@ -3393,15 +3610,17 @@ function Admin() {
                     >
                       📷
                     </span>
-                  )}
 
-                </div>
+                  </div>
+
+                )}
 
                 <label
                   className="image-upload-label"
                   htmlFor="product-image"
                 >
-                  📷 Choose Product Image
+                  📷 Choose Product
+                  Image
                 </label>
 
                 <input
@@ -3414,14 +3633,8 @@ function Admin() {
                   }
                 />
 
-                {processingImage && (
-                  <p
-                    style={{
-                      textAlign: "center",
-                      color: "#777",
-                      marginBottom: 0,
-                    }}
-                  >
+                {processingProduct && (
+                  <p className="uploading-text">
                     Processing image...
                   </p>
                 )}
@@ -3437,11 +3650,14 @@ function Admin() {
                     productForm.featured
                   }
                   onChange={(event) =>
-                    setProductForm({
-                      ...productForm,
-                      featured:
-                        event.target.checked,
-                    })
+                    setProductForm(
+                      (current) => ({
+                        ...current,
+                        featured:
+                          event.target
+                            .checked,
+                      })
+                    )
                   }
                 />
 
@@ -3449,10 +3665,10 @@ function Admin() {
                   htmlFor="featured"
                   style={{
                     margin: 0,
-                    color: "#111",
+                    opacity: 1,
                   }}
                 >
-                  ⭐ Featured product
+                  ⭐ Featured Product
                 </label>
 
               </div>
@@ -3467,7 +3683,7 @@ function Admin() {
                   }
                   disabled={
                     savingProduct ||
-                    processingImage
+                    processingProduct
                   }
                 >
                   Cancel
@@ -3478,10 +3694,10 @@ function Admin() {
                   className="primary-button"
                   disabled={
                     savingProduct ||
-                    processingImage
+                    processingProduct
                   }
                 >
-                  {processingImage
+                  {processingProduct
                     ? "Processing..."
                     : savingProduct
                     ? "Saving..."
@@ -3493,214 +3709,6 @@ function Admin() {
               </div>
 
             </form>
-
-          </div>
-
-        </div>
-
-      )}
-
-      {/* =================================================
-          FULL ORDER DETAILS MODAL
-      ================================================= */}
-
-      {selectedOrder && (
-
-        <div
-          className="admin-modal-backdrop"
-          onClick={() =>
-            setSelectedOrder(null)
-          }
-        >
-
-          <div
-            className="admin-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
-            <button
-              className="admin-modal-close"
-              onClick={() =>
-                setSelectedOrder(null)
-              }
-            >
-              ×
-            </button>
-
-            <p className="admin-eyebrow">
-              ORDER DETAILS
-            </p>
-
-            <h2
-              style={{
-                marginTop: 0,
-                fontSize: 30,
-              }}
-            >
-              Order #
-              {String(
-                selectedOrder.id
-              )
-                .slice(0, 8)
-                .toUpperCase()}
-            </h2>
-
-            <div className="order-detail-grid">
-
-              <div className="detail-box">
-
-                <h4>
-                  Order information
-                </h4>
-
-                <p>
-                  <strong>
-                    Date:
-                  </strong>{" "}
-                  {formatDate(
-                    selectedOrder.created_at
-                  )}
-                </p>
-
-                <p>
-                  <strong>
-                    Status:
-                  </strong>{" "}
-                  {selectedOrder.status ||
-                    "pending"}
-                </p>
-
-                <p>
-                  <strong>
-                    Total:
-                  </strong>{" "}
-                  {money(
-                    selectedOrder.total
-                  )}
-                </p>
-
-              </div>
-
-              <div className="detail-box">
-
-                <h4>
-                  Customer
-                </h4>
-
-                <p>
-                  <strong>
-                    Name:
-                  </strong>{" "}
-                  {selectedOrder.customer_name ||
-                    "—"}
-                </p>
-
-                <p>
-                  <strong>
-                    Phone:
-                  </strong>{" "}
-                  {selectedOrder.customer_phone ||
-                    "—"}
-                </p>
-
-              </div>
-
-              <div className="detail-box">
-
-                <h4>
-                  Delivery
-                </h4>
-
-                <p>
-                  {selectedOrder.delivery_address ||
-                    "No address"}
-                </p>
-
-                <p>
-                  {selectedOrder.delivery_city ||
-                    ""}
-                  {selectedOrder.delivery_city &&
-                  selectedOrder.delivery_state
-                    ? ", "
-                    : ""}
-                  {selectedOrder.delivery_state ||
-                    ""}
-                </p>
-
-              </div>
-
-              <div className="detail-box">
-
-                <h4>
-                  Items
-                </h4>
-
-                {selectedOrder.order_items?.map(
-                  (item) => (
-
-                    <div
-                      className="order-product"
-                      key={item.id}
-                    >
-
-                      <div className="order-product-image">
-
-                        {item.image_url ? (
-                          <img
-                            src={
-                              item.image_url
-                            }
-                            alt={
-                              item.product_name
-                            }
-                          />
-                        ) : (
-                          <span>
-                            📦
-                          </span>
-                        )}
-
-                      </div>
-
-                      <div>
-
-                        <strong>
-                          {
-                            item.product_name
-                          }
-                        </strong>
-
-                        <p>
-                          {
-                            item.quantity
-                          }
-                          {" × "}
-                          {money(
-                            item.price
-                          )}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  )
-                )}
-
-              </div>
-
-              <button
-                className="primary-button"
-                onClick={() =>
-                  setSelectedOrder(null)
-                }
-              >
-                Close Order Details
-              </button>
-
-            </div>
 
           </div>
 
