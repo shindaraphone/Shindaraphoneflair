@@ -77,12 +77,22 @@ function App() {
 
   const [profileName, setProfileName] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
+  const [profileState, setProfileState] = useState("");
+  const [profileCity, setProfileCity] = useState("");
   const [settingsMessage, setSettingsMessage] = useState("");
   const [settingsLoading, setSettingsLoading] = useState(false);
 
   const [newPassword, setNewPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const [passwordRecoveryOpen, setPasswordRecoveryOpen] =
+    useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryConfirmPassword, setRecoveryConfirmPassword] =
+    useState("");
+  const [recoveryMessage, setRecoveryMessage] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -133,15 +143,31 @@ function App() {
   const cities = useMemo(() => {
     const selected = locations.find(
       (item) =>
-        item.name?.toLowerCase() === deliveryState.toLowerCase()
+        item.name?.toLowerCase() ===
+        deliveryState?.toLowerCase()
     );
 
     return selected?.cities || [];
   }, [locations, deliveryState]);
 
+  const profileCities = useMemo(() => {
+    const selected = locations.find(
+      (item) =>
+        item.name?.toLowerCase() ===
+        profileState?.toLowerCase()
+    );
+
+    return selected?.cities || [];
+  }, [locations, profileState]);
+
   function handleStateChange(value) {
     setDeliveryState(value);
     setDeliveryCity("");
+  }
+
+  function handleProfileStateChange(value) {
+    setProfileState(value);
+    setProfileCity("");
   }
 
   /* USER */
@@ -151,6 +177,7 @@ function App() {
 
     async function loadUser() {
       const { data } = await supabase.auth.getUser();
+
       if (!mounted) return;
 
       const currentUser = data?.user || null;
@@ -165,19 +192,31 @@ function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
+    } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
 
-      const currentUser = session?.user || null;
-      setUser(currentUser);
+        const currentUser = session?.user || null;
 
-      if (currentUser) {
-        await loadProfile(currentUser.id);
-      } else {
-        setProfile(null);
-        setOrders([]);
+        if (event === "PASSWORD_RECOVERY") {
+          setUser(currentUser);
+          setPasswordRecoveryOpen(true);
+          setRecoveryMessage("");
+          setRecoveryPassword("");
+          setRecoveryConfirmPassword("");
+          return;
+        }
+
+        setUser(currentUser);
+
+        if (currentUser) {
+          await loadProfile(currentUser.id);
+        } else {
+          setProfile(null);
+          setOrders([]);
+        }
       }
-    });
+    );
 
     return () => {
       mounted = false;
@@ -220,7 +259,9 @@ function App() {
     if (error) {
       console.error(error);
       setProducts([]);
-      setProductsError("We couldn't load our products right now.");
+      setProductsError(
+        "We couldn't load our products right now."
+      );
     } else {
       setProducts(data || []);
     }
@@ -247,8 +288,19 @@ function App() {
     if (data) {
       setProfileName(data.name || "");
       setProfilePhone(data.phone || "");
+      setProfileState(data.state || "");
+      setProfileCity(data.city || "");
+
       setCustomerName(data.name || "");
       setCustomerPhone(data.phone || "");
+
+      if (data.state) {
+        setDeliveryState(data.state);
+      }
+
+      if (data.city) {
+        setDeliveryCity(data.city);
+      }
     }
   }
 
@@ -279,7 +331,9 @@ function App() {
     if (error) {
       console.error(error);
       setOrders([]);
-      setOrdersError("We couldn't load your orders right now.");
+      setOrdersError(
+        "We couldn't load your orders right now."
+      );
     } else {
       setOrders(data || []);
     }
@@ -314,21 +368,28 @@ function App() {
 
         if (!cleanName)
           return setAuthMessage("Please enter your full name.");
-        if (!cleanPhone)
-          return setAuthMessage("Please enter your phone number.");
-        if (!cleanEmail)
-          return setAuthMessage("Please enter your email address.");
 
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            data: {
-              full_name: cleanName,
-              phone: cleanPhone,
+        if (!cleanPhone)
+          return setAuthMessage(
+            "Please enter your phone number."
+          );
+
+        if (!cleanEmail)
+          return setAuthMessage(
+            "Please enter your email address."
+          );
+
+        const { data, error } =
+          await supabase.auth.signUp({
+            email: cleanEmail,
+            password,
+            options: {
+              data: {
+                full_name: cleanName,
+                phone: cleanPhone,
+              },
             },
-          },
-        });
+          });
 
         if (error) throw error;
 
@@ -343,7 +404,10 @@ function App() {
             });
 
           if (profileError) {
-            console.error("Profile save:", profileError);
+            console.error(
+              "Profile save:",
+              profileError
+            );
           }
         }
 
@@ -373,15 +437,19 @@ function App() {
 
       if (error) throw error;
 
-      if (data?.user) await loadProfile(data.user.id);
+      if (data?.user) {
+        await loadProfile(data.user.id);
+      }
 
       setEmail("");
       setPassword("");
       setAccountOpen(false);
     } catch (error) {
       console.error(error);
+
       setAuthMessage(
-        error?.message || "Something went wrong. Please try again."
+        error?.message ||
+          "Something went wrong. Please try again."
       );
     } finally {
       setAuthLoading(false);
@@ -393,24 +461,28 @@ function App() {
     setAuthMessage("");
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
+      const { error } =
+        await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
 
       if (error) throw error;
     } catch (error) {
       setAuthMessage(
-        error?.message || `Unable to continue with ${provider}.`
+        error?.message ||
+          `Unable to continue with ${provider}.`
       );
+
       setAuthLoading(false);
     }
   }
 
   async function handleForgotPassword(event) {
     event.preventDefault();
+
     setResetLoading(true);
     setResetMessage("");
 
@@ -418,14 +490,19 @@ function App() {
       const cleanEmail = resetEmail.trim();
 
       if (!cleanEmail) {
-        setResetMessage("Please enter your email address.");
+        setResetMessage(
+          "Please enter your email address."
+        );
         return;
       }
 
       const { error } =
-        await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo: window.location.origin,
-        });
+        await supabase.auth.resetPasswordForEmail(
+          cleanEmail,
+          {
+            redirectTo: window.location.origin,
+          }
+        );
 
       if (error) throw error;
 
@@ -434,10 +511,73 @@ function App() {
       );
     } catch (error) {
       setResetMessage(
-        error?.message || "Unable to send password reset email."
+        error?.message ||
+          "Unable to send password reset email."
       );
     } finally {
       setResetLoading(false);
+    }
+  }
+
+  /* PASSWORD RECOVERY */
+
+  async function handlePasswordRecovery(event) {
+    event.preventDefault();
+
+    setRecoveryLoading(true);
+    setRecoveryMessage("");
+
+    try {
+      if (!recoveryPassword) {
+        setRecoveryMessage(
+          "Please enter your new password."
+        );
+        return;
+      }
+
+      if (recoveryPassword.length < 6) {
+        setRecoveryMessage(
+          "Password must be at least 6 characters."
+        );
+        return;
+      }
+
+      if (
+        recoveryPassword !==
+        recoveryConfirmPassword
+      ) {
+        setRecoveryMessage(
+          "Passwords do not match."
+        );
+        return;
+      }
+
+      const { error } =
+        await supabase.auth.updateUser({
+          password: recoveryPassword,
+        });
+
+      if (error) throw error;
+
+      setRecoveryPassword("");
+      setRecoveryConfirmPassword("");
+      setRecoveryMessage(
+        "Your password has been successfully changed."
+      );
+
+      setTimeout(() => {
+        setPasswordRecoveryOpen(false);
+        setRecoveryMessage("");
+      }, 1800);
+    } catch (error) {
+      console.error(error);
+
+      setRecoveryMessage(
+        error?.message ||
+          "Unable to change your password."
+      );
+    } finally {
+      setRecoveryLoading(false);
     }
   }
 
@@ -454,14 +594,34 @@ function App() {
     try {
       const cleanName = profileName.trim();
       const cleanPhone = profilePhone.trim();
+      const cleanState = profileState.trim();
+      const cleanCity = profileCity.trim();
 
       if (!cleanName) {
-        setSettingsMessage("Please enter your name.");
+        setSettingsMessage(
+          "Please enter your name."
+        );
         return;
       }
 
       if (!cleanPhone) {
-        setSettingsMessage("Please enter your phone number.");
+        setSettingsMessage(
+          "Please enter your phone number."
+        );
+        return;
+      }
+
+      if (!cleanState) {
+        setSettingsMessage(
+          "Please select your state."
+        );
+        return;
+      }
+
+      if (!cleanCity) {
+        setSettingsMessage(
+          "Please select your city/LGA."
+        );
         return;
       }
 
@@ -472,6 +632,8 @@ function App() {
           name: cleanName,
           phone: cleanPhone,
           email: user.email || "",
+          state: cleanState,
+          city: cleanCity,
         });
 
       if (error) throw error;
@@ -480,12 +642,18 @@ function App() {
 
       setCustomerName(cleanName);
       setCustomerPhone(cleanPhone);
+      setDeliveryState(cleanState);
+      setDeliveryCity(cleanCity);
 
-      setSettingsMessage("Your account details have been updated.");
+      setSettingsMessage(
+        "Your account details have been updated successfully."
+      );
     } catch (error) {
       console.error(error);
+
       setSettingsMessage(
-        error?.message || "Unable to update your details."
+        error?.message ||
+          "Unable to update your details."
       );
     } finally {
       setSettingsLoading(false);
@@ -496,28 +664,37 @@ function App() {
 
   async function changePassword(event) {
     event.preventDefault();
+
     setPasswordLoading(true);
     setPasswordMessage("");
 
     try {
-      if (!newPassword || newPassword.length < 6) {
+      if (
+        !newPassword ||
+        newPassword.length < 6
+      ) {
         setPasswordMessage(
           "Password must be at least 6 characters."
         );
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const { error } =
+        await supabase.auth.updateUser({
+          password: newPassword,
+        });
 
       if (error) throw error;
 
       setNewPassword("");
-      setPasswordMessage("Your password has been changed successfully.");
+
+      setPasswordMessage(
+        "Your password has been changed successfully."
+      );
     } catch (error) {
       setPasswordMessage(
-        error?.message || "Unable to change your password."
+        error?.message ||
+          "Unable to change your password."
       );
     } finally {
       setPasswordLoading(false);
@@ -526,6 +703,7 @@ function App() {
 
   async function logout() {
     await supabase.auth.signOut();
+
     setUser(null);
     setProfile(null);
     setOrders([]);
@@ -536,17 +714,29 @@ function App() {
 
   function addToCart(product) {
     setCart((items) => {
-      const existing = items.find((item) => item.id === product.id);
+      const existing = items.find(
+        (item) => item.id === product.id
+      );
 
       if (existing) {
         return items.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? {
+                ...item,
+                quantity:
+                  item.quantity + 1,
+              }
             : item
         );
       }
 
-      return [...items, { ...product, quantity: 1 }];
+      return [
+        ...items,
+        {
+          ...product,
+          quantity: 1,
+        },
+      ];
     });
   }
 
@@ -554,7 +744,11 @@ function App() {
     setCart((items) =>
       items.map((item) =>
         item.id === id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? {
+              ...item,
+              quantity:
+                item.quantity + 1,
+            }
           : item
       )
     );
@@ -565,15 +759,25 @@ function App() {
       items
         .map((item) =>
           item.id === id
-            ? { ...item, quantity: item.quantity - 1 }
+            ? {
+                ...item,
+                quantity:
+                  item.quantity - 1,
+              }
             : item
         )
-        .filter((item) => item.quantity > 0)
+        .filter(
+          (item) => item.quantity > 0
+        )
     );
   }
 
   function removeFromCart(id) {
-    setCart((items) => items.filter((item) => item.id !== id));
+    setCart((items) =>
+      items.filter(
+        (item) => item.id !== id
+      )
+    );
   }
 
   function clearCart() {
@@ -581,14 +785,17 @@ function App() {
   }
 
   const cartCount = cart.reduce(
-    (total, item) => total + Number(item.quantity || 0),
+    (total, item) =>
+      total +
+      Number(item.quantity || 0),
     0
   );
 
   const cartTotal = cart.reduce(
     (total, item) =>
       total +
-      Number(item.price || 0) * Number(item.quantity || 0),
+      Number(item.price || 0) *
+        Number(item.quantity || 0),
     0
   );
 
@@ -613,21 +820,28 @@ function App() {
   }
 
   async function saveOrder(reference) {
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        customer_name: customerName.trim(),
-        customer_phone: customerPhone.trim(),
-        delivery_address: deliveryAddress.trim(),
-        delivery_city: deliveryCity.trim(),
-        delivery_state: deliveryState.trim(),
-        total: cartTotal,
-        status: "paid",
-        payment_reference: reference,
-      })
-      .select()
-      .single();
+    const { data: order, error: orderError } =
+      await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          customer_name:
+            customerName.trim(),
+          customer_phone:
+            customerPhone.trim(),
+          delivery_address:
+            deliveryAddress.trim(),
+          delivery_city:
+            deliveryCity.trim(),
+          delivery_state:
+            deliveryState.trim(),
+          total: cartTotal,
+          status: "paid",
+          payment_reference:
+            reference,
+        })
+        .select()
+        .single();
 
     if (orderError) throw orderError;
 
@@ -635,17 +849,27 @@ function App() {
       order_id: order.id,
       product_id: item.id,
       product_name: item.name,
-      price: Number(item.price || 0),
-      quantity: Number(item.quantity || 1),
-      image_url: item.image_url || null,
+      price: Number(
+        item.price || 0
+      ),
+      quantity: Number(
+        item.quantity || 1
+      ),
+      image_url:
+        item.image_url || null,
     }));
 
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(items);
+    const { error: itemsError } =
+      await supabase
+        .from("order_items")
+        .insert(items);
 
     if (itemsError) {
-      await supabase.from("orders").delete().eq("id", order.id);
+      await supabase
+        .from("orders")
+        .delete()
+        .eq("id", order.id);
+
       throw itemsError;
     }
 
@@ -656,37 +880,51 @@ function App() {
     event.preventDefault();
 
     if (!user) {
-      setOrderMessage("Please sign in before placing your order.");
+      setOrderMessage(
+        "Please sign in before placing your order."
+      );
       return;
     }
 
     if (!customerName.trim()) {
-      setOrderMessage("Please enter your full name.");
+      setOrderMessage(
+        "Please enter your full name."
+      );
       return;
     }
 
     if (!customerPhone.trim()) {
-      setOrderMessage("Please enter your phone number.");
+      setOrderMessage(
+        "Please enter your phone number."
+      );
       return;
     }
 
     if (!deliveryAddress.trim()) {
-      setOrderMessage("Please enter your delivery address.");
+      setOrderMessage(
+        "Please enter your delivery address."
+      );
       return;
     }
 
     if (!deliveryState) {
-      setOrderMessage("Please select your state.");
+      setOrderMessage(
+        "Please select your state."
+      );
       return;
     }
 
     if (!deliveryCity) {
-      setOrderMessage("Please select your city/LGA.");
+      setOrderMessage(
+        "Please select your city/LGA."
+      );
       return;
     }
 
     if (!cart.length) {
-      setOrderMessage("Your cart is empty.");
+      setOrderMessage(
+        "Your cart is empty."
+      );
       return;
     }
 
@@ -694,31 +932,43 @@ function App() {
     setOrderMessage("");
 
     try {
-      const PaystackPop = await loadPaystackScript();
+      const PaystackPop =
+        await loadPaystackScript();
+
       const popup = new PaystackPop();
 
       popup.newTransaction({
         key: PAYSTACK_PUBLIC_KEY,
         email: user.email,
-        amount: Math.round(cartTotal * 100),
+        amount: Math.round(
+          cartTotal * 100
+        ),
         currency: "NGN",
 
         metadata: {
-          customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
-          delivery_address: deliveryAddress.trim(),
-          delivery_city: deliveryCity.trim(),
-          delivery_state: deliveryState.trim(),
+          customer_name:
+            customerName.trim(),
+          customer_phone:
+            customerPhone.trim(),
+          delivery_address:
+            deliveryAddress.trim(),
+          delivery_city:
+            deliveryCity.trim(),
+          delivery_state:
+            deliveryState.trim(),
           user_id: user.id,
         },
 
-        onSuccess: async (transaction) => {
+        onSuccess: async (
+          transaction
+        ) => {
           try {
             setOrderMessage(
               "Payment successful. Verifying your payment..."
             );
 
-            const reference = transaction.reference;
+            const reference =
+              transaction.reference;
 
             if (!reference) {
               throw new Error(
@@ -726,11 +976,16 @@ function App() {
               );
             }
 
-            const { data, error } =
+            const {
+              data,
+              error,
+            } =
               await supabase.functions.invoke(
                 "verify-paystack-payment",
                 {
-                  body: { reference },
+                  body: {
+                    reference,
+                  },
                 }
               );
 
@@ -738,13 +993,18 @@ function App() {
 
             if (!data?.success) {
               throw new Error(
-                data?.error || "Payment could not be verified."
+                data?.error ||
+                  "Payment could not be verified."
               );
             }
 
-            const order = await saveOrder(reference);
+            const order =
+              await saveOrder(
+                reference
+              );
 
             setOrderSuccess(true);
+
             setOrderMessage(
               `Order placed successfully! Your order number is ${String(
                 order.id
@@ -761,6 +1021,7 @@ function App() {
             setDeliveryCity("");
           } catch (error) {
             console.error(error);
+
             setOrderMessage(
               error?.message ||
                 "Payment was received, but we couldn't complete the order. Please contact Shindara Phoneflair."
@@ -772,6 +1033,7 @@ function App() {
 
         onCancel: () => {
           setOrderLoading(false);
+
           setOrderMessage(
             "Payment was cancelled. Your order has not been placed."
           );
@@ -779,10 +1041,12 @@ function App() {
       });
     } catch (error) {
       console.error(error);
+
       setOrderMessage(
         error?.message ||
           "Unable to open Paystack. Please try again."
       );
+
       setOrderLoading(false);
     }
   }
@@ -790,9 +1054,10 @@ function App() {
   /* HELPERS */
 
   function whatsapp() {
-    const message = encodeURIComponent(
-      "Hello Shindara Phoneflair, I would like to make an enquiry."
-    );
+    const message =
+      encodeURIComponent(
+        "Hello Shindara Phoneflair, I would like to make an enquiry."
+      );
 
     window.open(
       `https://wa.me/${WHATSAPP}?text=${message}`,
@@ -803,17 +1068,25 @@ function App() {
   function formatDate(date) {
     if (!date) return "";
 
-    return new Date(date).toLocaleDateString("en-NG", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    return new Date(
+      date
+    ).toLocaleDateString(
+      "en-NG",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    );
   }
 
   function statusLabel(status) {
     if (!status) return "Pending";
 
-    return status.charAt(0).toUpperCase() + status.slice(1);
+    return (
+      status.charAt(0).toUpperCase() +
+      status.slice(1)
+    );
   }
 
   return (
@@ -928,21 +1201,26 @@ function App() {
         }
       `}</style>
 
-      {/* ANNOUNCEMENT */}
-
       <div className="announcement-bar">
         <div className="announcement-track">
           {[1, 2].map((group) => (
-            <div className="announcement-group" key={group}>
-              <span>✨ Premium phone accessories, are screaming here!!! ✨</span>
-              <span>📱 Premium phone accessories, are screaming here!!! 📱</span>
-              <span>⚡ Premium phone accessories, are screaming here!!! ⚡</span>
+            <div
+              className="announcement-group"
+              key={group}
+            >
+              <span>
+                ✨ Premium phone accessories, are screaming here!!! ✨
+              </span>
+              <span>
+                📱 Premium phone accessories, are screaming here!!! 📱
+              </span>
+              <span>
+                ⚡ Premium phone accessories, are screaming here!!! ⚡
+              </span>
             </div>
           ))}
         </div>
       </div>
-
-      {/* HEADER */}
 
       <header className="header">
         <a href="#home" className="logo">
@@ -958,25 +1236,33 @@ function App() {
         </nav>
 
         <div className="header-actions">
-          <button className="account-button" onClick={openAccount}>
+          <button
+            className="account-button"
+            onClick={openAccount}
+          >
             👤 {user ? "Account" : "Sign in"}
           </button>
 
           <button
             className="cart-button"
-            onClick={() => setCartOpen(true)}
+            onClick={() =>
+              setCartOpen(true)
+            }
           >
             🛒 Cart ({cartCount})
           </button>
         </div>
       </header>
 
-      {/* HERO */}
-
       <main>
-        <section className="hero" id="home">
+        <section
+          className="hero"
+          id="home"
+        >
           <div className="hero-content">
-            <p className="eyebrow">SHINDARA PHONEFLAIR</p>
+            <p className="eyebrow">
+              SHINDARA PHONEFLAIR
+            </p>
 
             <h1>
               Technology,
@@ -985,21 +1271,31 @@ function App() {
             </h1>
 
             <p className="hero-text">
-              Phones, accessories, chargers, audio products,
-              power banks and everyday gadgets.
+              Phones, accessories, chargers,
+              audio products, power banks and
+              everyday gadgets.
             </p>
 
-            <a href="#shop" className="shop-button">
+            <a
+              href="#shop"
+              className="shop-button"
+            >
               Shop now →
             </a>
           </div>
         </section>
 
-        {/* CATEGORIES */}
+        <section
+          className="section"
+          id="categories"
+        >
+          <p className="eyebrow">
+            EXPLORE
+          </p>
 
-        <section className="section" id="categories">
-          <p className="eyebrow">EXPLORE</p>
-          <h2>Shop by category</h2>
+          <h2>
+            Shop by category
+          </h2>
 
           <div className="category-grid">
             {[
@@ -1009,78 +1305,157 @@ function App() {
               ["🎧", "Audio"],
               ["🔋", "Power Banks"],
               ["✨", "Gadgets"],
-            ].map(([icon, name]) => (
-              <a href="#shop" className="category-card" key={name}>
-                <span>{icon}</span>
-                <strong>{name}</strong>
-              </a>
-            ))}
+            ].map(
+              ([icon, name]) => (
+                <a
+                  href="#shop"
+                  className="category-card"
+                  key={name}
+                >
+                  <span>{icon}</span>
+                  <strong>
+                    {name}
+                  </strong>
+                </a>
+              )
+            )}
           </div>
         </section>
 
-        {/* SHOP */}
+        <section
+          className="section"
+          id="shop"
+        >
+          <p className="eyebrow">
+            SHINDARA STORE
+          </p>
 
-        <section className="section" id="shop">
-          <p className="eyebrow">SHINDARA STORE</p>
-          <h2>Popular picks</h2>
+          <h2>
+            Popular picks
+          </h2>
 
           {productsLoading ? (
-            <div style={{ padding: 50, textAlign: "center" }}>
+            <div
+              style={{
+                padding: 50,
+                textAlign: "center",
+              }}
+            >
               Loading products...
             </div>
           ) : productsError ? (
-            <div style={{ padding: 50, textAlign: "center" }}>
-              <p>{productsError}</p>
-              <button className="add-button" onClick={loadProducts}>
+            <div
+              style={{
+                padding: 50,
+                textAlign: "center",
+              }}
+            >
+              <p>
+                {productsError}
+              </p>
+
+              <button
+                className="add-button"
+                onClick={
+                  loadProducts
+                }
+              >
                 Try again
               </button>
             </div>
-          ) : products.length === 0 ? (
-            <div style={{ padding: 50, textAlign: "center" }}>
+          ) : products.length ===
+            0 ? (
+            <div
+              style={{
+                padding: 50,
+                textAlign: "center",
+              }}
+            >
               Products are coming soon.
             </div>
           ) : (
             <div className="product-grid">
-              {products.map((product) => (
-                <article className="product-card" key={product.id}>
-                  <div className="product-image">
-                    {product.image_url ? (
-                      <img src={product.image_url} alt={product.name} />
-                    ) : (
-                      <span style={{ fontSize: 45 }}>📦</span>
-                    )}
-                  </div>
+              {products.map(
+                (product) => (
+                  <article
+                    className="product-card"
+                    key={product.id}
+                  >
+                    <div className="product-image">
+                      {product.image_url ? (
+                        <img
+                          src={
+                            product.image_url
+                          }
+                          alt={
+                            product.name
+                          }
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: 45,
+                          }}
+                        >
+                          📦
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="product-info">
-                    <p className="product-category">
-                      {product.category || "Electronics"}
-                    </p>
-
-                    <h3>{product.name}</h3>
-
-                    {product.description && (
-                      <p style={{ opacity: 0.65, fontSize: 13 }}>
-                        {product.description}
+                    <div className="product-info">
+                      <p className="product-category">
+                        {product.category ||
+                          "Electronics"}
                       </p>
-                    )}
 
-                    <p className="price">{money(product.price)}</p>
+                      <h3>
+                        {product.name}
+                      </h3>
 
-                    {Number(product.stock || 0) > 0 ? (
-                      <button
-                        className="add-button"
-                        onClick={() => addToCart(product)}
-                      >
-                        Add to cart
-                      </button>
-                    ) : (
-                      <button className="add-button" disabled>
-                        Out of stock
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))}
+                      {product.description && (
+                        <p
+                          style={{
+                            opacity: 0.65,
+                            fontSize: 13,
+                          }}
+                        >
+                          {
+                            product.description
+                          }
+                        </p>
+                      )}
+
+                      <p className="price">
+                        {money(
+                          product.price
+                        )}
+                      </p>
+
+                      {Number(
+                        product.stock || 0
+                      ) > 0 ? (
+                        <button
+                          className="add-button"
+                          onClick={() =>
+                            addToCart(
+                              product
+                            )
+                          }
+                        >
+                          Add to cart
+                        </button>
+                      ) : (
+                        <button
+                          className="add-button"
+                          disabled
+                        >
+                          Out of stock
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                )
+              )}
             </div>
           )}
         </section>
@@ -1088,33 +1463,53 @@ function App() {
         <section className="trust-section">
           <div>
             <span>🚚</span>
-            <h3>Reliable delivery</h3>
-            <p>Get your order delivered safely.</p>
+            <h3>
+              Reliable delivery
+            </h3>
+            <p>
+              Get your order delivered
+              safely.
+            </p>
           </div>
 
           <div>
             <span>🔒</span>
-            <h3>Secure shopping</h3>
-            <p>Shop with confidence.</p>
+            <h3>
+              Secure shopping
+            </h3>
+            <p>
+              Shop with confidence.
+            </p>
           </div>
 
           <div>
             <span>💬</span>
-            <h3>Customer support</h3>
-            <p>We're here whenever you need us.</p>
+            <h3>
+              Customer support
+            </h3>
+            <p>
+              We're here whenever you
+              need us.
+            </p>
           </div>
         </section>
       </main>
 
-      {/* FOOTER */}
-
       <footer id="contact">
         <div>
-          <strong>Shindara Phoneflair</strong>
-          <p>Phones • Accessories • Gadgets • Electronics</p>
+          <strong>
+            Shindara Phoneflair
+          </strong>
+
+          <p>
+            Phones • Accessories • Gadgets • Electronics
+          </p>
 
           <div className="social-links">
-            <button className="social-button" onClick={whatsapp}>
+            <button
+              className="social-button"
+              onClick={whatsapp}
+            >
               📲 WhatsApp
             </button>
 
@@ -1129,12 +1524,15 @@ function App() {
           </div>
         </div>
 
-        <p>© 2026 Shindara Phoneflair</p>
+        <p>
+          © 2026 Shindara Phoneflair
+        </p>
       </footer>
 
-      {/* WHATSAPP */}
-
-      <button className="whatsapp-floating" onClick={whatsapp}>
+      <button
+        className="whatsapp-floating"
+        onClick={whatsapp}
+      >
         💬
       </button>
 
@@ -1143,97 +1541,174 @@ function App() {
       {cartOpen && (
         <div
           className="cart-overlay"
-          onClick={() => setCartOpen(false)}
+          onClick={() =>
+            setCartOpen(false)
+          }
         >
           <aside
             className="cart-drawer"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
             <div className="cart-header">
               <div>
-                <p className="eyebrow">SHINDARA</p>
-                <h2>Your Cart</h2>
+                <p className="eyebrow">
+                  SHINDARA
+                </p>
+                <h2>
+                  Your Cart
+                </h2>
               </div>
 
               <button
                 className="modal-close"
-                onClick={() => setCartOpen(false)}
+                onClick={() =>
+                  setCartOpen(false)
+                }
               >
                 ×
               </button>
             </div>
 
             {!cart.length ? (
-              <div style={{ textAlign: "center", padding: 60 }}>
-                <div style={{ fontSize: 55 }}>🛒</div>
-                <h3>Your cart is empty</h3>
-                <p>Add something you love from our store.</p>
+              <div
+                style={{
+                  textAlign:
+                    "center",
+                  padding: 60,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 55,
+                  }}
+                >
+                  🛒
+                </div>
+
+                <h3>
+                  Your cart is empty
+                </h3>
+
+                <p>
+                  Add something you
+                  love from our store.
+                </p>
 
                 <button
                   className="modal-action"
-                  onClick={() => setCartOpen(false)}
+                  onClick={() =>
+                    setCartOpen(false)
+                  }
                 >
                   Continue shopping
                 </button>
               </div>
             ) : (
               <>
-                {cart.map((item) => (
-                  <div className="cart-item" key={item.id}>
-                    <div className="cart-item-image">
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} />
-                      ) : (
-                        "📦"
-                      )}
-                    </div>
-
-                    <div className="cart-item-info">
-                      <h3>{item.name}</h3>
-                      <p>{money(item.price)}</p>
-
-                      <div className="quantity-controls">
-                        <button
-                          onClick={() => decreaseQuantity(item.id)}
-                        >
-                          −
-                        </button>
-
-                        <strong>{item.quantity}</strong>
-
-                        <button
-                          onClick={() => increaseQuantity(item.id)}
-                        >
-                          +
-                        </button>
+                {cart.map(
+                  (item) => (
+                    <div
+                      className="cart-item"
+                      key={item.id}
+                    >
+                      <div className="cart-item-image">
+                        {item.image_url ? (
+                          <img
+                            src={
+                              item.image_url
+                            }
+                            alt={
+                              item.name
+                            }
+                          />
+                        ) : (
+                          "📦"
+                        )}
                       </div>
 
-                      <button
-                        className="remove-cart-item"
-                        onClick={() => removeFromCart(item.id)}
-                      >
-                        Remove
-                      </button>
+                      <div className="cart-item-info">
+                        <h3>
+                          {item.name}
+                        </h3>
+
+                        <p>
+                          {money(
+                            item.price
+                          )}
+                        </p>
+
+                        <div className="quantity-controls">
+                          <button
+                            onClick={() =>
+                              decreaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            −
+                          </button>
+
+                          <strong>
+                            {
+                              item.quantity
+                            }
+                          </strong>
+
+                          <button
+                            onClick={() =>
+                              increaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <button
+                          className="remove-cart-item"
+                          onClick={() =>
+                            removeFromCart(
+                              item.id
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
 
                 <div className="cart-footer">
                   <div className="cart-total">
-                    <span>Total</span>
-                    <strong>{money(cartTotal)}</strong>
+                    <span>
+                      Total
+                    </span>
+
+                    <strong>
+                      {money(
+                        cartTotal
+                      )}
+                    </strong>
                   </div>
 
                   <button
                     className="checkout-button"
-                    onClick={openCheckout}
+                    onClick={
+                      openCheckout
+                    }
                   >
                     Continue to checkout →
                   </button>
 
                   <button
                     className="clear-cart-button"
-                    onClick={clearCart}
+                    onClick={
+                      clearCart
+                    }
                   >
                     Clear cart
                   </button>
@@ -1249,47 +1724,92 @@ function App() {
       {checkoutOpen && (
         <div
           className="modal-backdrop"
-          onClick={() => !orderLoading && setCheckoutOpen(false)}
+          onClick={() =>
+            !orderLoading &&
+            setCheckoutOpen(false)
+          }
         >
           <div
             className="account-modal"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
             <button
               className="modal-close"
               onClick={() =>
-                !orderLoading && setCheckoutOpen(false)
+                !orderLoading &&
+                setCheckoutOpen(false)
               }
             >
               ×
             </button>
 
             {orderSuccess ? (
-              <div style={{ textAlign: "center", padding: 25 }}>
-                <div style={{ fontSize: 60 }}>✅</div>
-                <p className="eyebrow">ORDER RECEIVED</p>
-                <h2>Thank you!</h2>
-                <p className="auth-message">{orderMessage}</p>
+              <div
+                style={{
+                  textAlign:
+                    "center",
+                  padding: 25,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 60,
+                  }}
+                >
+                  ✅
+                </div>
+
+                <p className="eyebrow">
+                  ORDER RECEIVED
+                </p>
+
+                <h2>
+                  Thank you!
+                </h2>
+
+                <p className="auth-message">
+                  {orderMessage}
+                </p>
 
                 <button
                   className="modal-action"
-                  onClick={() => setCheckoutOpen(false)}
+                  onClick={() =>
+                    setCheckoutOpen(
+                      false
+                    )
+                  }
                 >
                   Continue shopping
                 </button>
               </div>
             ) : (
               <>
-                <p className="eyebrow">SHINDARA CHECKOUT</p>
-                <h2>Delivery details</h2>
+                <p className="eyebrow">
+                  SHINDARA CHECKOUT
+                </p>
 
-                <form className="auth-form" onSubmit={placeOrder}>
+                <h2>
+                  Delivery details
+                </h2>
+
+                <form
+                  className="auth-form"
+                  onSubmit={
+                    placeOrder
+                  }
+                >
                   <input
                     type="text"
                     placeholder="Full name"
-                    value={customerName}
+                    value={
+                      customerName
+                    }
                     onChange={(e) =>
-                      setCustomerName(e.target.value)
+                      setCustomerName(
+                        e.target.value
+                      )
                     }
                     required
                   />
@@ -1297,18 +1817,26 @@ function App() {
                   <input
                     type="tel"
                     placeholder="Phone number"
-                    value={customerPhone}
+                    value={
+                      customerPhone
+                    }
                     onChange={(e) =>
-                      setCustomerPhone(e.target.value)
+                      setCustomerPhone(
+                        e.target.value
+                      )
                     }
                     required
                   />
 
                   <textarea
                     placeholder="Delivery address"
-                    value={deliveryAddress}
+                    value={
+                      deliveryAddress
+                    }
                     onChange={(e) =>
-                      setDeliveryAddress(e.target.value)
+                      setDeliveryAddress(
+                        e.target.value
+                      )
                     }
                     rows="3"
                     required
@@ -1324,19 +1852,34 @@ function App() {
                     </div>
                   ) : (
                     <select
-                      value={deliveryState}
+                      value={
+                        deliveryState
+                      }
                       onChange={(e) =>
-                        handleStateChange(e.target.value)
+                        handleStateChange(
+                          e.target.value
+                        )
                       }
                       required
                     >
-                      <option value="">Select state</option>
+                      <option value="">
+                        Select state
+                      </option>
 
-                      {states.map((state) => (
-                        <option key={state} value={state}>
-                          {state}
-                        </option>
-                      ))}
+                      {states.map(
+                        (state) => (
+                          <option
+                            key={
+                              state
+                            }
+                            value={
+                              state
+                            }
+                          >
+                            {state}
+                          </option>
+                        )
+                      )}
                     </select>
                   )}
 
@@ -1345,11 +1888,18 @@ function App() {
                   </label>
 
                   <select
-                    value={deliveryCity}
-                    onChange={(e) =>
-                      setDeliveryCity(e.target.value)
+                    value={
+                      deliveryCity
                     }
-                    disabled={!deliveryState || locationsLoading}
+                    onChange={(e) =>
+                      setDeliveryCity(
+                        e.target.value
+                      )
+                    }
+                    disabled={
+                      !deliveryState ||
+                      locationsLoading
+                    }
                     required
                   >
                     <option value="">
@@ -1358,44 +1908,71 @@ function App() {
                         : "Select city / LGA"}
                     </option>
 
-                    {cities.map((city) => (
-                      <option key={city} value={city}>
-                        {city}
-                      </option>
-                    ))}
+                    {cities.map(
+                      (city) => (
+                        <option
+                          key={
+                            city
+                          }
+                          value={
+                            city
+                          }
+                        >
+                          {city}
+                        </option>
+                      )
+                    )}
                   </select>
 
                   {locationsError && (
                     <p className="auth-message">
-                      {locationsError}
+                      {
+                        locationsError
+                      }
                     </p>
                   )}
 
                   <div
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "15px 0",
+                      display:
+                        "flex",
+                      justifyContent:
+                        "space-between",
+                      padding:
+                        "15px 0",
                     }}
                   >
-                    <strong>Order total</strong>
-                    <strong>{money(cartTotal)}</strong>
+                    <strong>
+                      Order total
+                    </strong>
+
+                    <strong>
+                      {money(
+                        cartTotal
+                      )}
+                    </strong>
                   </div>
 
                   {orderMessage && (
                     <p className="auth-message">
-                      {orderMessage}
+                      {
+                        orderMessage
+                      }
                     </p>
                   )}
 
                   <button
                     className="modal-action"
                     type="submit"
-                    disabled={orderLoading}
+                    disabled={
+                      orderLoading
+                    }
                   >
                     {orderLoading
                       ? "Opening Paystack..."
-                      : `Pay ${money(cartTotal)}`}
+                      : `Pay ${money(
+                          cartTotal
+                        )}`}
                   </button>
                 </form>
               </>
@@ -1409,97 +1986,162 @@ function App() {
       {accountOpen && (
         <div
           className="modal-backdrop"
-          onClick={() => setAccountOpen(false)}
+          onClick={() =>
+            setAccountOpen(false)
+          }
         >
           <div
             className="account-modal"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
             <button
               className="modal-close"
-              onClick={() => setAccountOpen(false)}
+              onClick={() =>
+                setAccountOpen(false)
+              }
             >
               ×
             </button>
 
             {user ? (
               <>
-                <p className="eyebrow">SHINDARA ACCOUNT</p>
+                <p className="eyebrow">
+                  SHINDARA ACCOUNT
+                </p>
 
                 <h2>
                   {profile?.name
-                    ? `Hello, ${profile.name.split(" ")[0]} 👋`
+                    ? `Hello, ${
+                        profile.name.split(
+                          " "
+                        )[0]
+                      } 👋`
                     : "My Account"}
                 </h2>
 
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3,1fr)",
+                    display:
+                      "grid",
+                    gridTemplateColumns:
+                      "repeat(3,1fr)",
                     gap: 8,
-                    margin: "25px 0",
+                    margin:
+                      "25px 0",
                   }}
                 >
                   {[
-                    ["profile", "👤 Profile"],
-                    ["orders", "📦 Orders"],
-                    ["settings", "⚙️ Settings"],
-                  ].map(([tab, label]) => (
-                    <button
-                      key={tab}
-                      className={
-                        accountTab === tab
-                          ? "modal-action"
-                          : "modal-secondary"
-                      }
-                      onClick={() => {
-                        setAccountTab(tab);
-
-                        if (tab === "orders") {
-                          loadOrders();
+                    [
+                      "profile",
+                      "👤 Profile",
+                    ],
+                    [
+                      "orders",
+                      "📦 Orders",
+                    ],
+                    [
+                      "settings",
+                      "⚙️ Settings",
+                    ],
+                  ].map(
+                    ([tab, label]) => (
+                      <button
+                        key={tab}
+                        className={
+                          accountTab ===
+                          tab
+                            ? "modal-action"
+                            : "modal-secondary"
                         }
+                        onClick={() => {
+                          setAccountTab(
+                            tab
+                          );
 
-                        if (tab === "settings") {
-                          setSettingsMessage("");
-                          setPasswordMessage("");
-                        }
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                          if (
+                            tab ===
+                            "orders"
+                          ) {
+                            loadOrders();
+                          }
+
+                          if (
+                            tab ===
+                            "settings"
+                          ) {
+                            setSettingsMessage(
+                              ""
+                            );
+                            setPasswordMessage(
+                              ""
+                            );
+
+                            loadProfile(
+                              user.id
+                            );
+                          }
+                        }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  )}
                 </div>
 
                 {/* PROFILE */}
 
-                {accountTab === "profile" && (
+                {accountTab ===
+                  "profile" && (
                   <div>
                     <div
                       style={{
                         padding: 20,
-                        borderRadius: 18,
-                        background: "rgba(128,128,128,.08)",
-                        marginBottom: 15,
+                        borderRadius:
+                          18,
+                        background:
+                          "rgba(128,128,128,.08)",
+                        marginBottom:
+                          15,
                       }}
                     >
                       <p className="eyebrow">
                         PERSONAL INFORMATION
                       </p>
 
-                      <h3>{profile?.name || "Customer"}</h3>
+                      <h3>
+                        {profile?.name ||
+                          "Customer"}
+                      </h3>
 
-                      <p>📧 {user.email}</p>
+                      <p>
+                        📧{" "}
+                        {user.email}
+                      </p>
 
                       <p>
                         📱{" "}
                         {profile?.phone ||
                           "Phone number not added"}
                       </p>
+
+                      <p>
+                        📍{" "}
+                        {profile?.city &&
+                        profile?.state
+                          ? `${profile.city}, ${profile.state}`
+                          : "Delivery location not added"}
+                      </p>
                     </div>
 
                     <button
                       className="modal-action"
-                      onClick={() => setAccountTab("settings")}
+                      onClick={() =>
+                        setAccountTab(
+                          "settings"
+                        )
+                      }
                     >
                       Edit profile
                     </button>
@@ -1508,152 +2150,261 @@ function App() {
 
                 {/* ORDERS */}
 
-                {accountTab === "orders" && (
+                {accountTab ===
+                  "orders" && (
                   <div>
-                    <p className="eyebrow">ORDER HISTORY</p>
-                    <h3>My Orders</h3>
+                    <p className="eyebrow">
+                      ORDER HISTORY
+                    </p>
+
+                    <h3>
+                      My Orders
+                    </h3>
 
                     {ordersLoading ? (
-                      <div style={{ padding: 35, textAlign: "center" }}>
+                      <div
+                        style={{
+                          padding: 35,
+                          textAlign:
+                            "center",
+                        }}
+                      >
                         Loading your orders...
                       </div>
                     ) : ordersError ? (
                       <>
-                        <p>{ordersError}</p>
+                        <p>
+                          {
+                            ordersError
+                          }
+                        </p>
+
                         <button
                           className="modal-action"
-                          onClick={loadOrders}
+                          onClick={
+                            loadOrders
+                          }
                         >
                           Try again
                         </button>
                       </>
                     ) : !orders.length ? (
-                      <div style={{ textAlign: "center", padding: 35 }}>
-                        <div style={{ fontSize: 50 }}>📦</div>
-                        <h3>No orders yet</h3>
-                        <p>Your completed orders will appear here.</p>
-                      </div>
-                    ) : (
-                      orders.map((order) => (
+                      <div
+                        style={{
+                          textAlign:
+                            "center",
+                          padding: 35,
+                        }}
+                      >
                         <div
-                          key={order.id}
                           style={{
-                            padding: 18,
-                            border: "1px solid rgba(128,128,128,.2)",
-                            borderRadius: 18,
-                            marginBottom: 12,
+                            fontSize: 50,
                           }}
                         >
-                          <strong>
-                            Order #
-                            {String(order.id)
-                              .slice(0, 8)
-                              .toUpperCase()}
-                          </strong>
+                          📦
+                        </div>
 
-                          <p style={{ opacity: 0.6, fontSize: 13 }}>
-                            {formatDate(order.created_at)}
-                          </p>
+                        <h3>
+                          No orders yet
+                        </h3>
 
+                        <p>
+                          Your completed
+                          orders will
+                          appear here.
+                        </p>
+                      </div>
+                    ) : (
+                      orders.map(
+                        (order) => (
                           <div
+                            key={
+                              order.id
+                            }
                             style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
+                              padding: 18,
+                              border:
+                                "1px solid rgba(128,128,128,.2)",
+                              borderRadius:
+                                18,
+                              marginBottom:
+                                12,
                             }}
                           >
-                            <strong>{money(order.total)}</strong>
-
-                            <button
-                              className="modal-secondary"
-                              style={{ width: "auto" }}
-                              onClick={() =>
-                                setExpandedOrder(
-                                  expandedOrder === order.id
-                                    ? null
-                                    : order.id
-                                )
-                              }
-                            >
-                              {expandedOrder === order.id
-                                ? "Hide items"
-                                : "View items"}
-                            </button>
-                          </div>
-
-                          <p>
-                            Status:{" "}
                             <strong>
-                              {statusLabel(order.status)}
+                              Order #
+                              {String(
+                                order.id
+                              )
+                                .slice(
+                                  0,
+                                  8
+                                )
+                                .toUpperCase()}
                             </strong>
-                          </p>
 
-                          {expandedOrder === order.id && (
-                            <div
+                            <p
                               style={{
-                                marginTop: 15,
-                                paddingTop: 15,
-                                borderTop:
-                                  "1px solid rgba(128,128,128,.15)",
+                                opacity:
+                                  0.6,
+                                fontSize:
+                                  13,
                               }}
                             >
-                              {order.order_items?.map((item) => (
-                                <div
-                                  key={item.id}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent:
-                                      "space-between",
-                                    padding: "8px 0",
-                                  }}
-                                >
-                                  <div>
-                                    <strong>
-                                      {item.product_name}
-                                    </strong>
+                              {formatDate(
+                                order.created_at
+                              )}
+                            </p>
+
+                            <div
+                              style={{
+                                display:
+                                  "flex",
+                                justifyContent:
+                                  "space-between",
+                                alignItems:
+                                  "center",
+                              }}
+                            >
+                              <strong>
+                                {money(
+                                  order.total
+                                )}
+                              </strong>
+
+                              <button
+                                className="modal-secondary"
+                                style={{
+                                  width:
+                                    "auto",
+                                }}
+                                onClick={() =>
+                                  setExpandedOrder(
+                                    expandedOrder ===
+                                      order.id
+                                      ? null
+                                      : order.id
+                                  )
+                                }
+                              >
+                                {expandedOrder ===
+                                order.id
+                                  ? "Hide items"
+                                  : "View items"}
+                              </button>
+                            </div>
+
+                            <p>
+                              Status:{" "}
+                              <strong>
+                                {statusLabel(
+                                  order.status
+                                )}
+                              </strong>
+                            </p>
+
+                            {expandedOrder ===
+                              order.id && (
+                              <div
+                                style={{
+                                  marginTop:
+                                    15,
+                                  paddingTop:
+                                    15,
+                                  borderTop:
+                                    "1px solid rgba(128,128,128,.15)",
+                                }}
+                              >
+                                {order.order_items?.map(
+                                  (
+                                    item
+                                  ) => (
                                     <div
+                                      key={
+                                        item.id
+                                      }
                                       style={{
-                                        opacity: 0.6,
-                                        fontSize: 13,
+                                        display:
+                                          "flex",
+                                        justifyContent:
+                                          "space-between",
+                                        padding:
+                                          "8px 0",
                                       }}
                                     >
-                                      Qty: {item.quantity}
-                                    </div>
-                                  </div>
+                                      <div>
+                                        <strong>
+                                          {
+                                            item.product_name
+                                          }
+                                        </strong>
 
-                                  <strong>
-                                    {money(
-                                      Number(item.price) *
-                                        Number(item.quantity)
-                                    )}
-                                  </strong>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))
+                                        <div
+                                          style={{
+                                            opacity:
+                                              0.6,
+                                            fontSize:
+                                              13,
+                                          }}
+                                        >
+                                          Qty:{" "}
+                                          {
+                                            item.quantity
+                                          }
+                                        </div>
+                                      </div>
+
+                                      <strong>
+                                        {money(
+                                          Number(
+                                            item.price
+                                          ) *
+                                            Number(
+                                              item.quantity
+                                            )
+                                        )}
+                                      </strong>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      )
                     )}
                   </div>
                 )}
 
                 {/* SETTINGS */}
 
-                {accountTab === "settings" && (
+                {accountTab ===
+                  "settings" && (
                   <div>
-                    <p className="eyebrow">ACCOUNT SETTINGS</p>
-                    <h3>Personal details</h3>
+                    <p className="eyebrow">
+                      ACCOUNT SETTINGS
+                    </p>
+
+                    <h3>
+                      Personal details
+                    </h3>
 
                     <form
                       className="auth-form"
-                      onSubmit={saveProfileSettings}
+                      onSubmit={
+                        saveProfileSettings
+                      }
                     >
                       <input
                         type="text"
                         placeholder="Full name"
-                        value={profileName}
+                        value={
+                          profileName
+                        }
                         onChange={(e) =>
-                          setProfileName(e.target.value)
+                          setProfileName(
+                            e.target.value
+                          )
                         }
                         required
                       />
@@ -1661,23 +2412,124 @@ function App() {
                       <input
                         type="tel"
                         placeholder="Phone number"
-                        value={profilePhone}
+                        value={
+                          profilePhone
+                        }
                         onChange={(e) =>
-                          setProfilePhone(e.target.value)
+                          setProfilePhone(
+                            e.target.value
+                          )
                         }
                         required
                       />
 
                       <input
                         type="email"
-                        value={user.email || ""}
+                        value={
+                          user.email ||
+                          ""
+                        }
                         disabled
                       />
+
+                      <label className="field-label">
+                        State
+                      </label>
+
+                      {locationsLoading ? (
+                        <div className="location-loading">
+                          Loading Nigerian states...
+                        </div>
+                      ) : (
+                        <select
+                          value={
+                            profileState
+                          }
+                          onChange={(e) =>
+                            handleProfileStateChange(
+                              e.target
+                                .value
+                            )
+                          }
+                          required
+                        >
+                          <option value="">
+                            Select state
+                          </option>
+
+                          {states.map(
+                            (state) => (
+                              <option
+                                key={
+                                  state
+                                }
+                                value={
+                                  state
+                                }
+                              >
+                                {state}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      )}
+
+                      <label className="field-label">
+                        City / LGA
+                      </label>
+
+                      <select
+                        value={
+                          profileCity
+                        }
+                        onChange={(e) =>
+                          setProfileCity(
+                            e.target
+                              .value
+                          )
+                        }
+                        disabled={
+                          !profileState ||
+                          locationsLoading
+                        }
+                        required
+                      >
+                        <option value="">
+                          {!profileState
+                            ? "Select state first"
+                            : "Select city / LGA"}
+                        </option>
+
+                        {profileCities.map(
+                          (city) => (
+                            <option
+                              key={
+                                city
+                              }
+                              value={
+                                city
+                              }
+                            >
+                              {city}
+                            </option>
+                          )
+                        )}
+                      </select>
+
+                      {locationsError && (
+                        <p className="auth-message">
+                          {
+                            locationsError
+                          }
+                        </p>
+                      )}
 
                       <button
                         className="modal-action"
                         type="submit"
-                        disabled={settingsLoading}
+                        disabled={
+                          settingsLoading
+                        }
                       >
                         {settingsLoading
                           ? "Saving..."
@@ -1687,7 +2539,9 @@ function App() {
 
                     {settingsMessage && (
                       <p className="auth-message">
-                        {settingsMessage}
+                        {
+                          settingsMessage
+                        }
                       </p>
                     )}
 
@@ -1699,19 +2553,31 @@ function App() {
                           "1px solid rgba(128,128,128,.15)",
                       }}
                     >
-                      <p className="eyebrow">SECURITY</p>
-                      <h3>Change password</h3>
+                      <p className="eyebrow">
+                        SECURITY
+                      </p>
+
+                      <h3>
+                        Change password
+                      </h3>
 
                       <form
                         className="auth-form"
-                        onSubmit={changePassword}
+                        onSubmit={
+                          changePassword
+                        }
                       >
                         <input
                           type="password"
                           placeholder="New password"
-                          value={newPassword}
+                          value={
+                            newPassword
+                          }
                           onChange={(e) =>
-                            setNewPassword(e.target.value)
+                            setNewPassword(
+                              e.target
+                                .value
+                            )
                           }
                           minLength={6}
                           required
@@ -1720,7 +2586,9 @@ function App() {
                         <button
                           className="modal-action"
                           type="submit"
-                          disabled={passwordLoading}
+                          disabled={
+                            passwordLoading
+                          }
                         >
                           {passwordLoading
                             ? "Changing..."
@@ -1730,15 +2598,21 @@ function App() {
 
                       {passwordMessage && (
                         <p className="auth-message">
-                          {passwordMessage}
+                          {
+                            passwordMessage
+                          }
                         </p>
                       )}
                     </div>
 
                     <button
                       className="modal-secondary"
-                      style={{ marginTop: 25 }}
-                      onClick={logout}
+                      style={{
+                        marginTop: 25,
+                      }}
+                      onClick={
+                        logout
+                      }
                     >
                       🚪 Log out
                     </button>
@@ -1747,23 +2621,37 @@ function App() {
               </>
             ) : (
               <>
-                <p className="eyebrow">SHINDARA ACCOUNT</p>
+                <p className="eyebrow">
+                  SHINDARA ACCOUNT
+                </p>
 
                 <h2>
-                  {authMode === "signup"
+                  {authMode ===
+                  "signup"
                     ? "Create your account"
                     : "Welcome back"}
                 </h2>
 
-                <form className="auth-form" onSubmit={handleAuth}>
-                  {authMode === "signup" && (
+                <form
+                  className="auth-form"
+                  onSubmit={
+                    handleAuth
+                  }
+                >
+                  {authMode ===
+                    "signup" && (
                     <>
                       <input
                         type="text"
                         placeholder="Full name"
-                        value={fullName}
+                        value={
+                          fullName
+                        }
                         onChange={(e) =>
-                          setFullName(e.target.value)
+                          setFullName(
+                            e.target
+                              .value
+                          )
                         }
                         required
                       />
@@ -1771,9 +2659,14 @@ function App() {
                       <input
                         type="tel"
                         placeholder="Phone number"
-                        value={phone}
+                        value={
+                          phone
+                        }
                         onChange={(e) =>
-                          setPhone(e.target.value)
+                          setPhone(
+                            e.target
+                              .value
+                          )
                         }
                         required
                       />
@@ -1784,29 +2677,46 @@ function App() {
                     type="email"
                     placeholder="Email address"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) =>
+                      setEmail(
+                        e.target
+                          .value
+                      )
+                    }
                     required
                   />
 
                   <input
                     type="password"
                     placeholder="Password"
-                    value={password}
+                    value={
+                      password
+                    }
                     onChange={(e) =>
-                      setPassword(e.target.value)
+                      setPassword(
+                        e.target
+                          .value
+                      )
                     }
                     minLength={6}
                     required
                   />
 
-                  {authMode === "login" && (
+                  {authMode ===
+                    "login" && (
                     <button
                       type="button"
                       className="forgot-password"
                       onClick={() => {
-                        setForgotPassword(true);
-                        setResetEmail(email);
-                        setResetMessage("");
+                        setForgotPassword(
+                          true
+                        );
+                        setResetEmail(
+                          email
+                        );
+                        setResetMessage(
+                          ""
+                        );
                       }}
                     >
                       Forgot password?
@@ -1816,31 +2726,41 @@ function App() {
                   <button
                     className="modal-action"
                     type="submit"
-                    disabled={authLoading}
+                    disabled={
+                      authLoading
+                    }
                   >
                     {authLoading
                       ? "Please wait..."
-                      : authMode === "signup"
+                      : authMode ===
+                        "signup"
                       ? "Create account"
                       : "Sign in"}
                   </button>
                 </form>
 
                 {authMessage && (
-                  <p className="auth-message">{authMessage}</p>
+                  <p className="auth-message">
+                    {authMessage}
+                  </p>
                 )}
 
-                {authMode === "login" && (
+                {authMode ===
+                  "login" && (
                   <>
                     <div className="auth-divider">
-                      <span>or continue with</span>
+                      <span>
+                        or continue with
+                      </span>
                     </div>
 
                     <div className="social-auth-buttons">
                       <button
                         className="social-auth-button"
                         onClick={() =>
-                          signInWithProvider("google")
+                          signInWithProvider(
+                            "google"
+                          )
                         }
                       >
                         Google
@@ -1849,7 +2769,9 @@ function App() {
                       <button
                         className="social-auth-button"
                         onClick={() =>
-                          signInWithProvider("apple")
+                          signInWithProvider(
+                            "apple"
+                          )
                         }
                       >
                         Apple
@@ -1860,15 +2782,24 @@ function App() {
 
                 <button
                   className="modal-secondary"
-                  style={{ marginTop: 12 }}
+                  style={{
+                    marginTop: 12,
+                  }}
                   onClick={() => {
-                    setAuthMessage("");
+                    setAuthMessage(
+                      ""
+                    );
+
                     setAuthMode(
-                      authMode === "login" ? "signup" : "login"
+                      authMode ===
+                        "login"
+                        ? "signup"
+                        : "login"
                     );
                   }}
                 >
-                  {authMode === "login"
+                  {authMode ===
+                  "login"
                     ? "Create a new account"
                     : "Already have an account? Sign in"}
                 </button>
@@ -1883,36 +2814,64 @@ function App() {
       {forgotPassword && (
         <div
           className="modal-backdrop"
-          onClick={() => setForgotPassword(false)}
+          onClick={() =>
+            setForgotPassword(
+              false
+            )
+          }
         >
           <div
             className="account-modal"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
             <button
               className="modal-close"
-              onClick={() => setForgotPassword(false)}
+              onClick={() =>
+                setForgotPassword(
+                  false
+                )
+              }
             >
               ×
             </button>
 
-            <p className="eyebrow">SHINDARA ACCOUNT</p>
-            <h2>Reset your password</h2>
+            <p className="eyebrow">
+              SHINDARA ACCOUNT
+            </p>
 
-            <p style={{ opacity: 0.65 }}>
-              Enter your email and we'll send you a password reset link.
+            <h2>
+              Reset your password
+            </h2>
+
+            <p
+              style={{
+                opacity: 0.65,
+              }}
+            >
+              Enter your email and
+              we'll send you a password
+              reset link.
             </p>
 
             <form
               className="auth-form"
-              onSubmit={handleForgotPassword}
+              onSubmit={
+                handleForgotPassword
+              }
             >
               <input
                 type="email"
                 placeholder="Email address"
-                value={resetEmail}
+                value={
+                  resetEmail
+                }
                 onChange={(e) =>
-                  setResetEmail(e.target.value)
+                  setResetEmail(
+                    e.target
+                      .value
+                  )
                 }
                 required
               />
@@ -1920,7 +2879,9 @@ function App() {
               <button
                 className="modal-action"
                 type="submit"
-                disabled={resetLoading}
+                disabled={
+                  resetLoading
+                }
               >
                 {resetLoading
                   ? "Sending..."
@@ -1929,15 +2890,111 @@ function App() {
             </form>
 
             {resetMessage && (
-              <p className="auth-message">{resetMessage}</p>
+              <p className="auth-message">
+                {resetMessage}
+              </p>
             )}
 
             <button
               className="modal-secondary"
-              onClick={() => setForgotPassword(false)}
+              onClick={() =>
+                setForgotPassword(
+                  false
+                )
+              }
             >
               Back to sign in
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* PASSWORD RECOVERY */}
+
+      {passwordRecoveryOpen && (
+        <div className="modal-backdrop">
+          <div
+            className="account-modal"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+            <p className="eyebrow">
+              SHINDARA ACCOUNT
+            </p>
+
+            <h2>
+              Create a new password
+            </h2>
+
+            <p
+              style={{
+                opacity: 0.65,
+              }}
+            >
+              Choose a new password
+              for your Shindara
+              Phoneflair account.
+            </p>
+
+            <form
+              className="auth-form"
+              onSubmit={
+                handlePasswordRecovery
+              }
+            >
+              <input
+                type="password"
+                placeholder="New password"
+                value={
+                  recoveryPassword
+                }
+                onChange={(e) =>
+                  setRecoveryPassword(
+                    e.target
+                      .value
+                  )
+                }
+                minLength={6}
+                required
+              />
+
+              <input
+                type="password"
+                placeholder="Confirm new password"
+                value={
+                  recoveryConfirmPassword
+                }
+                onChange={(e) =>
+                  setRecoveryConfirmPassword(
+                    e.target
+                      .value
+                  )
+                }
+                minLength={6}
+                required
+              />
+
+              {recoveryMessage && (
+                <p className="auth-message">
+                  {
+                    recoveryMessage
+                  }
+                </p>
+              )}
+
+              <button
+                className="modal-action"
+                type="submit"
+                disabled={
+                  recoveryLoading
+                }
+              >
+                {recoveryLoading
+                  ? "Updating..."
+                  : "Update password"}
+              </button>
+            </form>
           </div>
         </div>
       )}
