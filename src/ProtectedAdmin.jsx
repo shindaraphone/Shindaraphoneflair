@@ -29,7 +29,10 @@ function ProtectedAdmin() {
           .maybeSingle();
 
       if (profileError) {
-        console.error("Profile check error:", profileError);
+        console.error(
+          "PROFILE CHECK ERROR:",
+          profileError
+        );
 
         await supabase.auth.signOut();
         setUser(null);
@@ -37,12 +40,20 @@ function ProtectedAdmin() {
       }
 
       if (!profile) {
+        console.error(
+          "No profile found for this user."
+        );
+
         await supabase.auth.signOut();
         setUser(null);
         return;
       }
 
       if (profile.is_admin !== true) {
+        console.error(
+          "User is not an administrator."
+        );
+
         await supabase.auth.signOut();
         setUser(null);
         return;
@@ -50,7 +61,11 @@ function ProtectedAdmin() {
 
       setUser(currentUser);
     } catch (error) {
-      console.error("Admin authentication error:", error);
+      console.error(
+        "ADMIN AUTH ERROR:",
+        error
+      );
+
       setUser(null);
     } finally {
       setChecking(false);
@@ -60,23 +75,18 @@ function ProtectedAdmin() {
   useEffect(() => {
     let mounted = true;
 
-    async function initialize() {
-      await checkAdmin();
+    checkAdmin();
 
-      if (!mounted) return;
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (event, session) => {
         if (!mounted) return;
 
-        /*
-         * IMPORTANT:
-         * Do NOT make Supabase async calls directly
-         * inside onAuthStateChange.
-         */
-
-        if (event === "SIGNED_OUT" || !session) {
+        if (
+          event === "SIGNED_OUT" ||
+          !session
+        ) {
           setUser(null);
           setChecking(false);
           return;
@@ -87,34 +97,24 @@ function ProtectedAdmin() {
           event === "TOKEN_REFRESHED" ||
           event === "USER_UPDATED"
         ) {
-          /*
-           * Run outside the Supabase auth callback.
-           */
           setTimeout(() => {
             if (mounted) {
               checkAdmin();
             }
           }, 0);
         }
-      });
-
-      return subscription;
-    }
-
-    let subscription;
-
-    initialize().then((result) => {
-      subscription = result;
-    });
+      }
+    );
 
     return () => {
       mounted = false;
-
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      subscription.unsubscribe();
     };
   }, []);
+
+  /*
+   * CHECKING ADMIN ACCESS
+   */
 
   if (checking) {
     return (
@@ -198,22 +198,23 @@ function ProtectedAdmin() {
     );
   }
 
-  if (!user) {
-  return (
-    <AdminLogin
-      onLogin={(loggedInUser) => {
-        setUser(loggedInUser);
+  /*
+   * NOT LOGGED IN
+   */
 
-        // Move to the admin dashboard
-        window.history.pushState(
-          {},
-          "",
-          "/admin"
-        );
-      }}
-    />
-  );
-}
+  if (!user) {
+    return (
+      <AdminLogin
+        onLogin={() => {
+          window.location.href = "/admin";
+        }}
+      />
+    );
+  }
+
+  /*
+   * ADMIN VERIFIED
+   */
 
   return <Admin />;
 }
