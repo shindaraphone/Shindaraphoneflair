@@ -17,13 +17,11 @@ function Admin() {
   const [customersLoading, setCustomersLoading] = useState(false);
 
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("info");
 
   const [productModal, setProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [savingProduct, setSavingProduct] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [deletingProductId, setDeletingProductId] = useState(null);
+  const [processingProduct, setProcessingProduct] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -44,128 +42,102 @@ function Admin() {
     loadCustomers();
   }, []);
 
-  function showMessage(text, type = "info") {
-    setMessage(text);
-    setMessageType(type);
-  }
-
-  function clearMessage() {
-    setMessage("");
-    setMessageType("info");
-  }
+  /* =========================
+     LOAD ORDERS
+  ========================= */
 
   async function loadOrders() {
     setLoading(true);
 
-    try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          order_items (
-            id,
-            product_name,
-            price,
-            quantity,
-            image_url
-          )
-        `)
-        .order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        order_items (
+          id,
+          product_name,
+          price,
+          quantity,
+          image_url
+        )
+      `)
+      .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("LOAD ORDERS ERROR:", error);
-        showMessage(`Orders error: ${error.message}`, "error");
-        setOrders([]);
-      } else {
-        setOrders(data || []);
-      }
-    } catch (error) {
-      console.error("LOAD ORDERS EXCEPTION:", error);
-      showMessage(
-        `Orders error: ${error?.message || "Unknown error"}`,
-        "error"
-      );
+    if (error) {
+      console.error("Orders error:", error);
+      setMessage(error.message);
       setOrders([]);
+    } else {
+      setOrders(data || []);
     }
 
     setLoading(false);
   }
 
+  /* =========================
+     LOAD PRODUCTS
+  ========================= */
+
   async function loadProducts() {
     setProductsLoading(true);
 
-    try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("LOAD PRODUCTS ERROR:", error);
-        showMessage(`Products error: ${error.message}`, "error");
-        setProducts([]);
-      } else {
-        setProducts(data || []);
-      }
-    } catch (error) {
-      console.error("LOAD PRODUCTS EXCEPTION:", error);
-
-      showMessage(
-        `Products error: ${error?.message || "Unknown error"}`,
-        "error"
-      );
-
+    if (error) {
+      console.error("Products error:", error);
+      setMessage(`Products could not be loaded: ${error.message}`);
       setProducts([]);
+    } else {
+      setProducts(data || []);
     }
 
     setProductsLoading(false);
   }
 
+  /* =========================
+     LOAD CUSTOMERS
+  ========================= */
+
   async function loadCustomers() {
     setCustomersLoading(true);
 
-    try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          "user_id, customer_name, customer_phone, delivery_city, delivery_state, created_at"
-        )
-        .order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        "user_id, customer_name, customer_phone, delivery_city, delivery_state, created_at"
+      )
+      .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("LOAD CUSTOMERS ERROR:", error);
-        showMessage(`Customers error: ${error.message}`, "error");
-        setCustomers([]);
-        setCustomersLoading(false);
-        return;
-      }
-
-      const uniqueCustomers = [];
-
-      for (const customer of data || []) {
-        const exists = uniqueCustomers.some(
-          (item) => item.user_id === customer.user_id
-        );
-
-        if (!exists) {
-          uniqueCustomers.push(customer);
-        }
-      }
-
-      setCustomers(uniqueCustomers);
-    } catch (error) {
-      console.error("LOAD CUSTOMERS EXCEPTION:", error);
-
-      showMessage(
-        `Customers error: ${error?.message || "Unknown error"}`,
-        "error"
-      );
-
+    if (error) {
+      console.error("Customers error:", error);
+      setMessage(error.message);
       setCustomers([]);
+      setCustomersLoading(false);
+      return;
     }
 
+    const uniqueCustomers = [];
+
+    for (const customer of data || []) {
+      const exists = uniqueCustomers.some(
+        (item) => item.user_id === customer.user_id
+      );
+
+      if (!exists) {
+        uniqueCustomers.push(customer);
+      }
+    }
+
+    setCustomers(uniqueCustomers);
     setCustomersLoading(false);
   }
+
+  /* =========================
+     NAVIGATION
+  ========================= */
 
   function openDashboard() {
     setActiveSection("dashboard");
@@ -173,21 +145,22 @@ function Admin() {
 
   function openProducts() {
     setActiveSection("products");
-    clearMessage();
     loadProducts();
   }
 
   function openOrders() {
     setActiveSection("orders");
-    clearMessage();
     loadOrders();
   }
 
   function openCustomers() {
     setActiveSection("customers");
-    clearMessage();
     loadCustomers();
   }
+
+  /* =========================
+     PRODUCT FORM
+  ========================= */
 
   function resetProductForm() {
     setProductForm({
@@ -207,7 +180,7 @@ function Admin() {
   function openAddProduct() {
     setEditingProduct(null);
     resetProductForm();
-    clearMessage();
+    setMessage("");
     setProductModal(true);
   }
 
@@ -226,147 +199,192 @@ function Admin() {
 
     setImageFile(null);
     setImagePreview(product.image_url || "");
-    clearMessage();
+    setMessage("");
     setProductModal(true);
   }
 
   function closeProductModal() {
-    if (savingProduct || uploadingImage) return;
+    if (savingProduct || processingProduct) return;
 
     setProductModal(false);
     setEditingProduct(null);
     resetProductForm();
   }
 
-  function handleImageChange(event) {
+  /* =========================
+     IMAGE PROCESSING
+     NO SUPABASE STORAGE
+  ========================= */
+
+  function compressImage(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        resolve(null);
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const img = new Image();
+
+        img.onload = () => {
+          const maxSize = 1000;
+
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = Math.round(
+                (height * maxSize) / width
+              );
+              width = maxSize;
+            } else {
+              width = Math.round(
+                (width * maxSize) / height
+              );
+              height = maxSize;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const context = canvas.getContext("2d");
+
+          context.drawImage(
+            img,
+            0,
+            0,
+            width,
+            height
+          );
+
+          const compressed = canvas.toDataURL(
+            "image/jpeg",
+            0.78
+          );
+
+          resolve(compressed);
+        };
+
+        img.onerror = () => {
+          reject(
+            new Error("Unable to process this image.")
+          );
+        };
+
+        img.src = reader.result;
+      };
+
+      reader.onerror = () => {
+        reject(
+          new Error("Unable to read this image.")
+        );
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleImageChange(event) {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      showMessage("Please select a valid image file.", "error");
+      setMessage("Please select an image file.");
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      showMessage("Image must be smaller than 5MB.", "error");
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage(
+        "Image is too large. Please choose an image below 10MB."
+      );
       return;
     }
 
-    setImageFile(file);
-
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-
-    clearMessage();
-  }
-
-  async function uploadProductImage(file) {
-    if (!file) {
-      return productForm.image_url || null;
-    }
-
-    setUploadingImage(true);
+    setMessage("");
+    setProcessingProduct(true);
 
     try {
-      const extension =
-        file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const compressedImage =
+        await compressImage(file);
 
-      const safeName =
-        file.name
-          .replace(/\.[^/.]+$/, "")
-          .replace(/[^a-zA-Z0-9-_]/g, "-")
-          .toLowerCase();
-
-      const fileName = `${Date.now()}-${safeName}.${extension}`;
-
-      console.log("Uploading image:", fileName);
-
-      const { data: uploadData, error: uploadError } =
-        await supabase.storage
-          .from("product-images")
-          .upload(fileName, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: file.type,
-          });
-
-      if (uploadError) {
-        console.error("IMAGE UPLOAD ERROR:", uploadError);
-
+      if (!compressedImage) {
         throw new Error(
-          `Image upload failed: ${uploadError.message}`
+          "Image could not be processed."
         );
       }
 
-      console.log("IMAGE UPLOAD SUCCESS:", uploadData);
+      setImageFile(file);
+      setImagePreview(compressedImage);
 
-      const { data: publicUrlData } = supabase.storage
-        .from("product-images")
-        .getPublicUrl(fileName);
-
-      const publicUrl = publicUrlData?.publicUrl;
-
-      if (!publicUrl) {
-        throw new Error(
-          "Image uploaded, but Supabase did not return a public image URL."
-        );
-      }
-
-      console.log("IMAGE PUBLIC URL:", publicUrl);
-
-      return publicUrl;
+      setProductForm((current) => ({
+        ...current,
+        image_url: compressedImage,
+      }));
     } catch (error) {
-      console.error("IMAGE UPLOAD EXCEPTION:", error);
-      throw error;
+      console.error("Image error:", error);
+      setMessage(
+        error?.message ||
+          "Unable to process product image."
+      );
     } finally {
-      setUploadingImage(false);
+      setProcessingProduct(false);
     }
   }
+
+  /* =========================
+     SAVE PRODUCT
+  ========================= */
 
   async function saveProduct(event) {
     event.preventDefault();
 
-    if (savingProduct || uploadingImage) return;
+    if (savingProduct || processingProduct) return;
 
     setSavingProduct(true);
-    clearMessage();
+    setMessage("");
 
     try {
-      const name = String(productForm.name || "").trim();
-      const description = String(
-        productForm.description || ""
-      ).trim();
-      const category = String(
-        productForm.category || ""
-      ).trim();
+      const name = productForm.name.trim();
+      const description =
+        productForm.description.trim();
+      const category =
+        productForm.category.trim();
 
       const price = Number(productForm.price);
       const stock = Number(productForm.stock);
 
       if (!name) {
-        throw new Error("Please enter a product name.");
+        throw new Error(
+          "Please enter a product name."
+        );
       }
 
       if (!category) {
-        throw new Error("Please enter a category.");
+        throw new Error(
+          "Please enter a category."
+        );
       }
 
       if (!Number.isFinite(price) || price < 0) {
-        throw new Error("Please enter a valid price.");
+        throw new Error(
+          "Please enter a valid price."
+        );
       }
 
-      if (!Number.isInteger(stock) || stock < 0) {
-        throw new Error("Please enter a valid stock quantity.");
-      }
-
-      let imageUrl = productForm.image_url || null;
-
-      /*
-       * Upload image first if the admin selected a new image.
-       */
-      if (imageFile) {
-        imageUrl = await uploadProductImage(imageFile);
+      if (
+        !Number.isInteger(stock) ||
+        stock < 0
+      ) {
+        throw new Error(
+          "Please enter a valid stock quantity."
+        );
       }
 
       const productData = {
@@ -375,173 +393,195 @@ function Admin() {
         price,
         category,
         stock,
-        image_url: imageUrl,
-        featured: Boolean(productForm.featured),
+        image_url:
+          productForm.image_url || null,
+        featured: Boolean(
+          productForm.featured
+        ),
       };
 
-      console.log("PRODUCT DATA:", productData);
+      /* =========================
+         UPDATE EXISTING PRODUCT
+      ========================= */
 
-      /*
-       * EDIT PRODUCT
-       */
       if (editingProduct) {
-        const productId = editingProduct.id;
-
-        console.log("UPDATING PRODUCT ID:", productId);
-
-        const { error } = await supabase
-          .from("products")
-          .update(productData)
-          .eq("id", productId);
+        const { data, error } =
+          await supabase
+            .from("products")
+            .update(productData)
+            .eq("id", editingProduct.id)
+            .select("*");
 
         if (error) {
-          console.error("UPDATE PRODUCT ERROR:", error);
-
           throw new Error(
             `Product could not be updated: ${error.message}`
           );
         }
 
-        showMessage(
-          "Product updated successfully.",
-          "success"
+        if (!data || data.length === 0) {
+          throw new Error(
+            "Product was not updated. Supabase did not return the updated product."
+          );
+        }
+
+        const updatedProduct = data[0];
+
+        setProducts((current) =>
+          current.map((product) =>
+            product.id === editingProduct.id
+              ? updatedProduct
+              : product
+          )
+        );
+
+        setMessage(
+          "Product updated successfully."
         );
       }
 
-      /*
-       * ADD PRODUCT
-       */
-      else {
-        console.log("ADDING PRODUCT:", productData);
+      /* =========================
+         ADD NEW PRODUCT
+      ========================= */
 
-        const { error } = await supabase
-          .from("products")
-          .insert([productData]);
+      else {
+        const { data, error } =
+          await supabase
+            .from("products")
+            .insert(productData)
+            .select("*");
 
         if (error) {
-          console.error("INSERT PRODUCT ERROR:", error);
-
           throw new Error(
             `Product could not be added: ${error.message}`
           );
         }
 
-        showMessage(
-          "Product added successfully.",
-          "success"
+        if (!data || data.length === 0) {
+          throw new Error(
+            "Product was not added. Supabase did not return the new product."
+          );
+        }
+
+        const newProduct = data[0];
+
+        setProducts((current) => [
+          newProduct,
+          ...current,
+        ]);
+
+        setMessage(
+          "Product added successfully."
         );
       }
 
       setProductModal(false);
       setEditingProduct(null);
       resetProductForm();
+      setActiveSection("products");
 
       /*
-       * Reload directly from Supabase.
+       * Final database refresh.
+       * This makes sure the screen matches Supabase.
        */
       await loadProducts();
-
-      setActiveSection("products");
     } catch (error) {
-      console.error("SAVE PRODUCT ERROR:", error);
+      console.error("Save product error:", error);
 
-      showMessage(
+      setMessage(
         error?.message ||
-          "Unable to save the product.",
-        "error"
+          "Unable to save product."
       );
     } finally {
       setSavingProduct(false);
     }
   }
 
-  async function deleteProduct(product) {
-    if (!product?.id) {
-      showMessage(
-        "This product has no valid ID, so it cannot be deleted.",
-        "error"
-      );
-      return;
-    }
+  /* =========================
+     DELETE PRODUCT
+  ========================= */
 
+  async function deleteProduct(product) {
     const confirmed = window.confirm(
       `Delete "${product.name}"?\n\nThis cannot be undone.`
     );
 
     if (!confirmed) return;
 
-    const productId = product.id;
-
-    setDeletingProductId(productId);
-    clearMessage();
+    setProcessingProduct(true);
+    setMessage("");
 
     try {
-      console.log(
-        "ATTEMPTING TO DELETE PRODUCT:",
-        productId,
-        product
-      );
-
       /*
-       * IMPORTANT:
-       * We deliberately DO NOT use .select() or .single()
-       * here. DELETE does not need to return a JSON object.
+       * Delete the product and ask Supabase
+       * to return the deleted row.
        */
-      const { error } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", productId);
+      const { data, error } =
+        await supabase
+          .from("products")
+          .delete()
+          .eq("id", product.id)
+          .select("id");
 
       if (error) {
-        console.error("DELETE PRODUCT ERROR:", error);
-
         throw new Error(
           `Product could not be deleted: ${error.message}`
         );
       }
 
       /*
+       * If RLS blocks the delete, Supabase
+       * normally returns zero rows.
+       */
+      if (!data || data.length === 0) {
+        throw new Error(
+          "Product could not be deleted. Supabase did not delete the selected product."
+        );
+      }
+
+      /*
        * Remove it immediately from the screen.
        */
-      setProducts((currentProducts) =>
-        currentProducts.filter(
-          (item) => item.id !== productId
+      setProducts((current) =>
+        current.filter(
+          (item) => item.id !== product.id
         )
       );
 
-      showMessage(
-        `"${product.name}" deleted successfully.`,
-        "success"
+      setMessage(
+        `"${product.name}" deleted successfully.`
       );
 
       /*
-       * Confirm the current database contents.
+       * Confirm the database state.
        */
       await loadProducts();
     } catch (error) {
-      console.error("DELETE PRODUCT EXCEPTION:", error);
+      console.error("Delete product error:", error);
 
-      showMessage(
+      setMessage(
         error?.message ||
-          "Product could not be deleted.",
-        "error"
+          "Product could not be deleted."
       );
     } finally {
-      setDeletingProductId(null);
+      setProcessingProduct(false);
     }
   }
 
-  async function updateStatus(orderId, status) {
+  /* =========================
+     UPDATE ORDER STATUS
+  ========================= */
+
+  async function updateStatus(
+    orderId,
+    status
+  ) {
     const { error } = await supabase
       .from("orders")
       .update({ status })
       .eq("id", orderId);
 
     if (error) {
-      showMessage(
-        `Order status error: ${error.message}`,
-        "error"
-      );
+      alert(error.message);
       return;
     }
 
@@ -557,15 +597,23 @@ function Admin() {
   function formatDate(date) {
     if (!date) return "";
 
-    return new Date(date).toLocaleString("en-NG", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    return new Date(date).toLocaleString(
+      "en-NG",
+      {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }
+    );
   }
+
+  /* =========================
+     DASHBOARD DATA
+  ========================= */
 
   const totalRevenue = orders
     .filter(
-      (order) => order.status !== "cancelled"
+      (order) =>
+        order.status !== "cancelled"
     )
     .reduce(
       (sum, order) =>
@@ -574,26 +622,33 @@ function Admin() {
     );
 
   const pendingOrders = orders.filter(
-    (order) => order.status === "pending"
+    (order) =>
+      order.status === "pending"
   ).length;
 
   const deliveredOrders = orders.filter(
-    (order) => order.status === "delivered"
+    (order) =>
+      order.status === "delivered"
   ).length;
 
-  const lowStockProducts = products.filter(
-    (product) =>
-      Number(product.stock || 0) > 0 &&
-      Number(product.stock || 0) <= 5
-  ).length;
+  const lowStockProducts =
+    products.filter((product) => {
+      const stock = Number(
+        product.stock || 0
+      );
 
-  const featuredProducts = products.filter(
-    (product) => product.featured
-  ).length;
+      return stock > 0 && stock <= 5;
+    }).length;
+
+  const featuredProducts =
+    products.filter(
+      (product) => product.featured
+    ).length;
 
   return (
     <div className="admin-page">
       <style>{`
+
         * {
           box-sizing: border-box;
         }
@@ -706,24 +761,11 @@ function Admin() {
 
         .admin-message {
           padding: 14px 16px;
+          background: rgba(124,58,237,.09);
           border-radius: 14px;
           margin-bottom: 20px;
           font-size: 14px;
           word-break: break-word;
-        }
-
-        .admin-message.info {
-          background: rgba(124,58,237,.09);
-        }
-
-        .admin-message.success {
-          background: rgba(22,163,74,.10);
-          color: #166534;
-        }
-
-        .admin-message.error {
-          background: rgba(220,38,38,.10);
-          color: #991b1b;
         }
 
         .admin-stats {
@@ -1212,9 +1254,12 @@ function Admin() {
             padding: 22px 16px;
           }
         }
+
       `}</style>
 
       <div className="admin-container">
+
+        {/* HEADER */}
 
         <header className="admin-header">
           <div>
@@ -1232,7 +1277,6 @@ function Admin() {
           <button
             className="admin-refresh"
             onClick={() => {
-              clearMessage();
               loadOrders();
               loadProducts();
               loadCustomers();
@@ -1241,6 +1285,8 @@ function Admin() {
             ↻ Refresh
           </button>
         </header>
+
+        {/* NAVIGATION */}
 
         <nav className="admin-nav">
 
@@ -1290,11 +1336,17 @@ function Admin() {
 
         </nav>
 
+        {/* MESSAGE */}
+
         {message && (
-          <div className={`admin-message ${messageType}`}>
+          <div className="admin-message">
             {message}
           </div>
         )}
+
+        {/* =========================
+            DASHBOARD
+        ========================= */}
 
         {activeSection === "dashboard" && (
           <>
@@ -1302,22 +1354,30 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Total products</span>
-                <strong>{products.length}</strong>
+                <strong>
+                  {products.length}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Total orders</span>
-                <strong>{orders.length}</strong>
+                <strong>
+                  {orders.length}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Customers</span>
-                <strong>{customers.length}</strong>
+                <strong>
+                  {customers.length}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Revenue</span>
-                <strong>{money(totalRevenue)}</strong>
+                <strong>
+                  {money(totalRevenue)}
+                </strong>
               </div>
 
             </div>
@@ -1326,22 +1386,30 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Pending orders</span>
-                <strong>{pendingOrders}</strong>
+                <strong>
+                  {pendingOrders}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Delivered orders</span>
-                <strong>{deliveredOrders}</strong>
+                <strong>
+                  {deliveredOrders}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Low stock</span>
-                <strong>{lowStockProducts}</strong>
+                <strong>
+                  {lowStockProducts}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Featured products</span>
-                <strong>{featuredProducts}</strong>
+                <strong>
+                  {featuredProducts}
+                </strong>
               </div>
 
             </div>
@@ -1350,7 +1418,9 @@ function Admin() {
 
               <div>🚀</div>
 
-              <h2>Your store is ready to grow.</h2>
+              <h2>
+                Your store is ready to grow.
+              </h2>
 
               <p>
                 Add products, manage orders and
@@ -1367,6 +1437,10 @@ function Admin() {
             </div>
           </>
         )}
+
+        {/* =========================
+            PRODUCTS
+        ========================= */}
 
         {activeSection === "products" && (
           <>
@@ -1393,7 +1467,9 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>All products</span>
-                <strong>{products.length}</strong>
+                <strong>
+                  {products.length}
+                </strong>
               </div>
 
               <div className="admin-stat">
@@ -1422,7 +1498,9 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Low stock</span>
-                <strong>{lowStockProducts}</strong>
+                <strong>
+                  {lowStockProducts}
+                </strong>
               </div>
 
             </div>
@@ -1436,7 +1514,9 @@ function Admin() {
 
                 <div>📦</div>
 
-                <h2>No products yet</h2>
+                <h2>
+                  No products yet
+                </h2>
 
                 <p>
                   Add your first product.
@@ -1459,9 +1539,6 @@ function Admin() {
                     product.stock || 0
                   );
 
-                  const isDeleting =
-                    deletingProductId === product.id;
-
                   return (
                     <article
                       className="admin-product-card"
@@ -1472,12 +1549,12 @@ function Admin() {
 
                         {product.image_url ? (
                           <img
-                            src={product.image_url}
-                            alt={product.name}
-                            onError={(event) => {
-                              event.currentTarget.style.display =
-                                "none";
-                            }}
+                            src={
+                              product.image_url
+                            }
+                            alt={
+                              product.name
+                            }
                           />
                         ) : (
                           <span
@@ -1498,10 +1575,14 @@ function Admin() {
                             "Electronics"}
                         </span>
 
-                        <h3>{product.name}</h3>
+                        <h3>
+                          {product.name}
+                        </h3>
 
                         <div className="admin-product-price">
-                          {money(product.price)}
+                          {money(
+                            product.price
+                          )}
                         </div>
 
                         <div
@@ -1529,9 +1610,13 @@ function Admin() {
                           <button
                             className="secondary-button"
                             onClick={() =>
-                              openEditProduct(product)
+                              openEditProduct(
+                                product
+                              )
                             }
-                            disabled={isDeleting}
+                            disabled={
+                              processingProduct
+                            }
                           >
                             ✏️ Edit
                           </button>
@@ -1539,13 +1624,15 @@ function Admin() {
                           <button
                             className="danger-button"
                             onClick={() =>
-                              deleteProduct(product)
+                              deleteProduct(
+                                product
+                              )
                             }
-                            disabled={isDeleting}
+                            disabled={
+                              processingProduct
+                            }
                           >
-                            {isDeleting
-                              ? "Deleting..."
-                              : "🗑️ Delete"}
+                            🗑️ Delete
                           </button>
 
                         </div>
@@ -1560,6 +1647,10 @@ function Admin() {
             )}
           </>
         )}
+
+        {/* =========================
+            ORDERS
+        ========================= */}
 
         {activeSection === "orders" && (
           <>
@@ -1586,22 +1677,30 @@ function Admin() {
 
               <div className="admin-stat">
                 <span>Total orders</span>
-                <strong>{orders.length}</strong>
+                <strong>
+                  {orders.length}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Pending</span>
-                <strong>{pendingOrders}</strong>
+                <strong>
+                  {pendingOrders}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Delivered</span>
-                <strong>{deliveredOrders}</strong>
+                <strong>
+                  {deliveredOrders}
+                </strong>
               </div>
 
               <div className="admin-stat">
                 <span>Revenue</span>
-                <strong>{money(totalRevenue)}</strong>
+                <strong>
+                  {money(totalRevenue)}
+                </strong>
               </div>
 
             </div>
@@ -1615,11 +1714,13 @@ function Admin() {
 
                 <div>📦</div>
 
-                <h2>No orders yet</h2>
+                <h2>
+                  No orders yet
+                </h2>
 
                 <p>
-                  New customer orders will appear
-                  here.
+                  New customer orders will
+                  appear here.
                 </p>
 
               </div>
@@ -1692,7 +1793,9 @@ function Admin() {
 
                     <div className="order-customer">
 
-                      <h3>Customer</h3>
+                      <h3>
+                        Customer
+                      </h3>
 
                       <p>
                         👤{" "}
@@ -1711,10 +1814,12 @@ function Admin() {
 
                       <p>
                         {order.delivery_city}
+
                         {order.delivery_city &&
                         order.delivery_state
                           ? ", "
                           : ""}
+
                         {order.delivery_state}
                       </p>
 
@@ -1722,7 +1827,9 @@ function Admin() {
 
                     <div className="order-products">
 
-                      <h3>Products</h3>
+                      <h3>
+                        Products
+                      </h3>
 
                       {order.order_items?.map(
                         (item) => (
@@ -1760,7 +1867,9 @@ function Admin() {
                               </strong>
 
                               <p>
-                                {item.quantity}
+                                {
+                                  item.quantity
+                                }
                                 {" × "}
                                 {money(
                                   item.price
@@ -1778,10 +1887,14 @@ function Admin() {
 
                     <div className="order-total">
 
-                      <span>Total</span>
+                      <span>
+                        Total
+                      </span>
 
                       <strong>
-                        {money(order.total)}
+                        {money(
+                          order.total
+                        )}
                       </strong>
 
                     </div>
@@ -1795,6 +1908,10 @@ function Admin() {
           </>
         )}
 
+        {/* =========================
+            CUSTOMERS
+        ========================= */}
+
         {activeSection === "customers" && (
           <>
             <div className="section-heading">
@@ -1804,7 +1921,9 @@ function Admin() {
                   CUSTOMER DIRECTORY
                 </p>
 
-                <h2>Customers</h2>
+                <h2>
+                  Customers
+                </h2>
               </div>
 
               <button
@@ -1819,7 +1938,10 @@ function Admin() {
             <div className="admin-stats">
 
               <div className="admin-stat">
-                <span>Customers</span>
+                <span>
+                  Customers
+                </span>
+
                 <strong>
                   {customers.length}
                 </strong>
@@ -1836,71 +1958,88 @@ function Admin() {
 
                 <div>👥</div>
 
-                <h2>No customers yet</h2>
+                <h2>
+                  No customers yet
+                </h2>
 
                 <p>
-                  Customers who place orders
-                  will appear here.
+                  Customers who place
+                  orders will appear here.
                 </p>
 
               </div>
             ) : (
               <div className="customers-grid">
 
-                {customers.map((customer) => (
+                {customers.map(
+                  (customer) => (
 
-                  <article
-                    className="customer-card"
-                    key={customer.user_id}
-                  >
+                    <article
+                      className="customer-card"
+                      key={
+                        customer.user_id
+                      }
+                    >
 
-                    <div className="customer-avatar">
-                      👤
-                    </div>
+                      <div className="customer-avatar">
+                        👤
+                      </div>
 
-                    <div>
+                      <div>
 
-                      <h3>
-                        {customer.customer_name}
-                      </h3>
+                        <h3>
+                          {
+                            customer.customer_name
+                          }
+                        </h3>
 
-                      <p>
-                        📱{" "}
-                        {customer.customer_phone}
-                      </p>
+                        <p>
+                          📱{" "}
+                          {
+                            customer.customer_phone
+                          }
+                        </p>
 
-                      <p>
-                        📍{" "}
-                        {customer.delivery_city}
+                        <p>
+                          📍{" "}
+                          {
+                            customer.delivery_city
+                          }
 
-                        {customer.delivery_city &&
-                        customer.delivery_state
-                          ? ", "
-                          : ""}
+                          {customer.delivery_city &&
+                          customer.delivery_state
+                            ? ", "
+                            : ""}
 
-                        {customer.delivery_state}
-                      </p>
+                          {
+                            customer.delivery_state
+                          }
+                        </p>
 
-                      <small>
-                        Last order:{" "}
-                        {formatDate(
-                          customer.created_at
-                        )}
-                      </small>
+                        <small>
+                          Last order:{" "}
+                          {formatDate(
+                            customer.created_at
+                          )}
+                        </small>
 
-                    </div>
+                      </div>
 
-                  </article>
+                    </article>
 
-                ))}
+                  )
+                )}
 
               </div>
             )}
-
           </>
         )}
 
       </div>
+
+      {/* =========================
+          PRODUCT MODAL
+      ========================= */}
 
       {productModal && (
 
@@ -1921,7 +2060,7 @@ function Admin() {
               onClick={closeProductModal}
               disabled={
                 savingProduct ||
-                uploadingImage
+                processingProduct
               }
             >
               ×
@@ -1939,7 +2078,7 @@ function Admin() {
                 : "Add product"}
             </h2>
 
-            <p style={{ opacity: 0.6 }}>
+            <p style={{ opacity: .6 }}>
               Add the product details below.
             </p>
 
@@ -1955,11 +2094,14 @@ function Admin() {
               <input
                 type="text"
                 placeholder="e.g. iPhone 15 Case"
-                value={productForm.name}
+                value={
+                  productForm.name
+                }
                 onChange={(event) =>
                   setProductForm({
                     ...productForm,
-                    name: event.target.value,
+                    name:
+                      event.target.value,
                   })
                 }
                 required
@@ -1992,11 +2134,14 @@ function Admin() {
                 min="0"
                 step="0.01"
                 placeholder="50000"
-                value={productForm.price}
+                value={
+                  productForm.price
+                }
                 onChange={(event) =>
                   setProductForm({
                     ...productForm,
-                    price: event.target.value,
+                    price:
+                      event.target.value,
                   })
                 }
                 required
@@ -2009,7 +2154,9 @@ function Admin() {
               <input
                 type="text"
                 placeholder="Phones, Chargers, Cases..."
-                value={productForm.category}
+                value={
+                  productForm.category
+                }
                 onChange={(event) =>
                   setProductForm({
                     ...productForm,
@@ -2029,11 +2176,14 @@ function Admin() {
                 min="0"
                 step="1"
                 placeholder="10"
-                value={productForm.stock}
+                value={
+                  productForm.stock
+                }
                 onChange={(event) =>
                   setProductForm({
                     ...productForm,
-                    stock: event.target.value,
+                    stock:
+                      event.target.value,
                   })
                 }
                 required
@@ -2046,17 +2196,17 @@ function Admin() {
               <div className="image-upload-box">
 
                 {imagePreview ? (
-                  <div className="image-preview">
 
+                  <div className="image-preview">
                     <img
                       src={imagePreview}
                       alt="Product preview"
                     />
-
                   </div>
-                ) : (
-                  <div className="image-preview">
 
+                ) : (
+
+                  <div className="image-preview">
                     <span
                       style={{
                         fontSize: 50
@@ -2064,8 +2214,8 @@ function Admin() {
                     >
                       📷
                     </span>
-
                   </div>
+
                 )}
 
                 <label
@@ -2085,16 +2235,9 @@ function Admin() {
                   }
                 />
 
-                {imageFile && (
+                {processingProduct && (
                   <p className="uploading-text">
-                    Selected:{" "}
-                    {imageFile.name}
-                  </p>
-                )}
-
-                {uploadingImage && (
-                  <p className="uploading-text">
-                    Uploading image...
+                    Processing image...
                   </p>
                 )}
 
@@ -2139,7 +2282,7 @@ function Admin() {
                   }
                   disabled={
                     savingProduct ||
-                    uploadingImage
+                    processingProduct
                   }
                 >
                   Cancel
@@ -2150,11 +2293,11 @@ function Admin() {
                   className="primary-button"
                   disabled={
                     savingProduct ||
-                    uploadingImage
+                    processingProduct
                   }
                 >
-                  {uploadingImage
-                    ? "Uploading image..."
+                  {processingProduct
+                    ? "Processing image..."
                     : savingProduct
                     ? "Saving..."
                     : editingProduct
