@@ -10,64 +10,23 @@ import "./index.css";
 
 const path = window.location.pathname;
 
-/*
-========================================
-ROUTES
-========================================
-*/
-
-const isAdminLoginPage =
-  path === "/admin-login";
-
-const isAdminPage =
-  path === "/admin";
-
-const isPrivacyPage =
-  path === "/privacy-policy";
-
-const isTermsPage =
-  path === "/terms";
-
-/*
-========================================
-RENDER
-========================================
-*/
+const isAdminLoginPage = path === "/admin-login";
+const isAdminPage = path === "/admin";
+const isPrivacyPage = path === "/privacy-policy";
+const isTermsPage = path === "/terms";
 
 ReactDOM.createRoot(
   document.getElementById("root")
 ).render(
   <React.StrictMode>
-
-    {isAdminLoginPage ? (
-
-      /*
-       * Admin login is handled INSIDE
-       * ProtectedAdmin.
-       */
+    {isAdminLoginPage || isAdminPage ? (
       <ProtectedAdmin />
-
-    ) : isAdminPage ? (
-
-      /*
-       * ProtectedAdmin checks the Supabase
-       * session and admin status.
-       */
-      <ProtectedAdmin />
-
     ) : isPrivacyPage ? (
-
       <PrivacyPolicy />
-
     ) : isTermsPage ? (
-
       <TermsOfService />
-
     ) : (
-
       <App />
-
     )}
-
   </React.StrictMode>
 );
