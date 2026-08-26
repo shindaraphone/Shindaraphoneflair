@@ -1,115 +1,121 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-function ProtectedAdmin({ children }) {
+import Admin from "./Admin";
+import AdminLogin from "./AdminLogin";
+
+function ProtectedAdmin() {
   const [checking, setChecking] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState(null);
+
   async function checkAdmin() {
     try {
       setChecking(true);
+
       const {
-        data: { user },
+        data: { user: currentUser },
         error: userError,
       } = await supabase.auth.getUser();
-      if (userError || !user) {
-        setIsAdmin(false);
-        window.location.replace("/admin-login");
+
+      if (userError || !currentUser) {
+        setUser(null);
         return;
       }
+
       const { data: profile, error: profileError } =
         await supabase
           .from("profiles")
           .select("id, email, is_admin")
-          .eq("id", user.id)
+          .eq("id", currentUser.id)
           .maybeSingle();
+
       if (profileError) {
-        console.error(
-          "Admin profile check error:",
-          profileError
-        );
+        console.error("Profile check error:", profileError);
+
         await supabase.auth.signOut();
-        setIsAdmin(false);
-        window.location.replace("/admin-login");
+        setUser(null);
         return;
       }
+
       if (!profile) {
-        console.error(
-          "No profile found for admin user."
-        );
         await supabase.auth.signOut();
-        setIsAdmin(false);
-        window.location.replace("/admin-login");
+        setUser(null);
         return;
       }
+
       if (profile.is_admin !== true) {
-        console.error(
-          "User is authenticated but is not an admin."
-        );
         await supabase.auth.signOut();
-        setIsAdmin(false);
-        window.location.replace("/admin-login");
+        setUser(null);
         return;
       }
-      setIsAdmin(true);
+
+      setUser(currentUser);
     } catch (error) {
-      console.error(
-        "Admin authentication error:",
-        error
-      );
-      setIsAdmin(false);
-      try {
-        await supabase.auth.signOut();
-      } catch (signOutError) {
-        console.error(
-          "Sign out error:",
-          signOutError
-        );
-      }
-      window.location.replace("/admin-login");
+      console.error("Admin authentication error:", error);
+      setUser(null);
     } finally {
       setChecking(false);
     }
   }
+
   useEffect(() => {
     let mounted = true;
-    async function verify() {
-      if (!mounted) return;
+
+    async function initialize() {
       await checkAdmin();
-    }
-    verify();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+
+      if (!mounted) return;
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
         if (!mounted) return;
-        if (
-          event === "SIGNED_OUT" ||
-          !session
-        ) {
-          setIsAdmin(false);
-          if (
-            window.location.pathname === "/admin"
-          ) {
-            window.location.replace(
-              "/admin-login"
-            );
-          }
+
+        /*
+         * IMPORTANT:
+         * Do NOT make Supabase async calls directly
+         * inside onAuthStateChange.
+         */
+
+        if (event === "SIGNED_OUT" || !session) {
+          setUser(null);
+          setChecking(false);
           return;
         }
-        if (event === "SIGNED_IN") {
-          checkAdmin();
+
+        if (
+          event === "SIGNED_IN" ||
+          event === "TOKEN_REFRESHED" ||
+          event === "USER_UPDATED"
+        ) {
+          /*
+           * Run outside the Supabase auth callback.
+           */
+          setTimeout(() => {
+            if (mounted) {
+              checkAdmin();
+            }
+          }, 0);
         }
-      }
-    );
+      });
+
+      return subscription;
+    }
+
+    let subscription;
+
+    initialize().then((result) => {
+      subscription = result;
+    });
+
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, []);
-  /*
-  ========================================
-  LOADING
-  ========================================
-  */
+
   if (checking) {
     return (
       <div className="protected-admin-loading">
@@ -117,11 +123,11 @@ function ProtectedAdmin({ children }) {
           * {
             box-sizing: border-box;
           }
-          html,
+
           body {
             margin: 0;
-            padding: 0;
           }
+
           .protected-admin-loading {
             min-height: 100vh;
             display: flex;
@@ -142,50 +148,48 @@ function ProtectedAdmin({ children }) {
               "SF Pro Display",
               "Segoe UI",
               sans-serif;
-            color: #111;
           }
+
           .protected-admin-loading-box {
-            width: min(360px, 100%);
             text-align: center;
           }
+
           .protected-admin-spinner {
-            width: 44px;
-            height: 44px;
-            border: 4px solid
-              rgba(0,0,0,.08);
+            width: 42px;
+            height: 42px;
+            border: 4px solid rgba(0,0,0,.08);
             border-top-color: #111;
             border-radius: 50%;
             animation:
-              protectedSpin
-              .8s
-              linear
-              infinite;
-            margin:
-              0 auto 20px;
+              protectedSpin .8s linear infinite;
+            margin: 0 auto 18px;
           }
+
           .protected-admin-loading-box strong {
             display: block;
-            font-size: 16px;
-            font-weight: 800;
+            font-size: 15px;
           }
+
           .protected-admin-loading-box p {
-            margin: 8px 0 0;
+            margin-top: 7px;
             font-size: 13px;
             opacity: .5;
           }
+
           @keyframes protectedSpin {
             to {
               transform: rotate(360deg);
             }
           }
         `}</style>
+
         <div className="protected-admin-loading-box">
-          <div
-            className="protected-admin-spinner"
-          />
+          <div className="protected-admin-spinner"></div>
+
           <strong>
             Checking admin access...
           </strong>
+
           <p>
             Please wait a moment.
           </p>
@@ -193,19 +197,18 @@ function ProtectedAdmin({ children }) {
       </div>
     );
   }
-  /*
-  ========================================
-  NOT ADMIN
-  ========================================
-  */
-  if (!isAdmin) {
-    return null;
+
+  if (!user) {
+    return (
+      <AdminLogin
+        onLogin={(loggedInUser) => {
+          setUser(loggedInUser);
+        }}
+      />
+    );
   }
-  /*
-  ========================================
-  VERIFIED ADMIN
-  ========================================
-  */
-  return children;
+
+  return <Admin />;
 }
+
 export default ProtectedAdmin;
