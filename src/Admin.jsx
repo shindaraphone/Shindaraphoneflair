@@ -501,71 +501,57 @@ function Admin() {
   ========================= */
 
   async function deleteProduct(product) {
-    const confirmed = window.confirm(
-      `Delete "${product.name}"?\n\nThis cannot be undone.`
+  const confirmed = window.confirm(
+    `Delete "${product.name}"?\n\nThis cannot be undone.`
+  );
+
+  if (!confirmed) return;
+
+  setMessage("Deleting product...");
+
+  try {
+    // 1. Delete the product from Supabase
+    const { data, error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", product.id)
+      .select("id");
+
+    if (error) {
+      console.error("DELETE ERROR:", error);
+      throw new Error(
+        `Product could not be deleted: ${error.message}`
+      );
+    }
+
+    // Supabase returns the deleted rows here.
+    if (!data || data.length === 0) {
+      throw new Error(
+        "Product was not deleted. Supabase returned no deleted row."
+      );
+    }
+
+    // 2. Immediately remove it from the screen
+    setProducts((currentProducts) =>
+      currentProducts.filter(
+        (item) => item.id !== product.id
+      )
     );
 
-    if (!confirmed) return;
+    setMessage("Product deleted successfully.");
 
-    setProcessingProduct(true);
-    setMessage("");
+    // 3. Verify the database again
+    await loadProducts();
 
-    try {
-      /*
-       * Delete the product and ask Supabase
-       * to return the deleted row.
-       */
-      const { data, error } =
-        await supabase
-          .from("products")
-          .delete()
-          .eq("id", product.id)
-          .select("id");
+  } catch (error) {
+    console.error("PRODUCT DELETE ERROR:", error);
 
-      if (error) {
-        throw new Error(
-          `Product could not be deleted: ${error.message}`
-        );
-      }
-
-      /*
-       * If RLS blocks the delete, Supabase
-       * normally returns zero rows.
-       */
-      if (!data || data.length === 0) {
-        throw new Error(
-          "Product could not be deleted. Supabase did not delete the selected product."
-        );
-      }
-
-      /*
-       * Remove it immediately from the screen.
-       */
-      setProducts((current) =>
-        current.filter(
-          (item) => item.id !== product.id
-        )
-      );
-
-      setMessage(
-        `"${product.name}" deleted successfully.`
-      );
-
-      /*
-       * Confirm the database state.
-       */
-      await loadProducts();
-    } catch (error) {
-      console.error("Delete product error:", error);
-
-      setMessage(
-        error?.message ||
-          "Product could not be deleted."
-      );
-    } finally {
-      setProcessingProduct(false);
-    }
+    setMessage(
+      error?.message ||
+        "Product could not be deleted."
+    );
   }
+}
 
   /* =========================
      UPDATE ORDER STATUS
