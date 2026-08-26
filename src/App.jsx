@@ -763,17 +763,9 @@ function App() {
 
         if (error) throw error;
 
-        if (data?.user) {
-          const {
-            error: profileError,
-          } = await supabase
-            .from("profiles")
-            .upsert({
-              id: data.user.id,
-              name: cleanName,
-              phone: cleanPhone,
-              email: cleanEmail,
-            });
+        setEmail("");
+setPassword("");
+setAccountOpen(false);
 
           if (profileError) {
             console.error(
