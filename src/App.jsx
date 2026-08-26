@@ -411,89 +411,94 @@ function App() {
   ========================================================= */
 
   useEffect(() => {
-    let mounted = true;
+  let mounted = true;
 
-    async function initializeAuth() {
-      const { data, error } =
-        await supabase.auth.getUser();
+  async function initializeAuth() {
+    const { data, error } =
+      await supabase.auth.getUser();
 
+    if (!mounted) return;
+
+    if (error) {
+      console.error("Initial auth error:", error);
+      setUser(null);
+      setCart([]);
+      return;
+    }
+
+    const currentUser = data?.user || null;
+
+    setUser(currentUser);
+
+    if (currentUser) {
+      // Load these AFTER auth initialization,
+      // not inside onAuthStateChange.
+      await loadProfile(currentUser.id);
+      await loadCart(currentUser.id);
+    } else {
+      setCart([]);
+    }
+  }
+
+  initializeAuth();
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(
+    (event, session) => {
       if (!mounted) return;
 
-      if (error) {
-        console.error(
-          "Initial auth error:",
-          error
-        );
+      const currentUser =
+        session?.user || null;
+
+      if (event === "SIGNED_OUT") {
         setUser(null);
+        setProfile(null);
+        setOrders([]);
+        setCart([]);
+        setCartOpen(false);
+        setCheckoutOpen(false);
+        setAccountOpen(false);
+        return;
+      }
+
+      setUser(currentUser);
+
+      if (!currentUser) {
+        setProfile(null);
+        setOrders([]);
         setCart([]);
         return;
       }
 
-      const currentUser =
-        data?.user || null;
-
-      setUser(currentUser);
-
-      if (currentUser) {
-        await loadProfile(currentUser.id);
-        await loadCart(currentUser.id);
-      } else {
-        setCart([]);
-      }
-    }
-
-    initializeAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      /*
+       * IMPORTANT:
+       * Do NOT call Supabase async functions directly
+       * inside onAuthStateChange.
+       *
+       * Delay them until the auth callback finishes.
+       */
+      setTimeout(async () => {
         if (!mounted) return;
 
-        const currentUser =
-          session?.user || null;
-
-        /*
-         * SIGNED_OUT:
-         * Immediately empty the visible cart.
-         *
-         * We DO NOT delete cart_items from Supabase.
-         *
-         * This is what allows:
-         *
-         * Login A → cart A
-         * Logout → empty cart
-         * Login A again → cart A returns
-         */
-        if (event === "SIGNED_OUT") {
-          setUser(null);
-          setProfile(null);
-          setOrders([]);
-          setCart([]);
-          setCartOpen(false);
-          setCheckoutOpen(false);
-          setAccountOpen(false);
-          return;
-        }
-
-        setUser(currentUser);
-
-        if (currentUser) {
+        try {
           await loadProfile(currentUser.id);
           await loadCart(currentUser.id);
-        } else {
-          setProfile(null);
-          setOrders([]);
-          setCart([]);
+        } catch (error) {
+          console.error(
+            "Post-login cart/profile loading error:",
+            error
+          );
         }
-      }
-    );
+      }, 0);
+    }
+  );
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  return () => {
+    mounted = false;
+    subscription.unsubscribe();
+  };
+}, []);
 
   /* =========================================================
      PRODUCTS
