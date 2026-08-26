@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
@@ -8,6 +8,46 @@ const TIKTOK =
 
 const PAYSTACK_PUBLIC_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
+
+const NIGERIAN_STATES = [
+  "Abia",
+  "Adamawa",
+  "Akwa Ibom",
+  "Anambra",
+  "Bauchi",
+  "Bayelsa",
+  "Benue",
+  "Borno",
+  "Cross River",
+  "Delta",
+  "Ebonyi",
+  "Edo",
+  "Ekiti",
+  "Enugu",
+  "Gombe",
+  "Imo",
+  "Jigawa",
+  "Kaduna",
+  "Kano",
+  "Katsina",
+  "Kebbi",
+  "Kogi",
+  "Kwara",
+  "Lagos",
+  "Nasarawa",
+  "Niger",
+  "Ogun",
+  "Ondo",
+  "Osun",
+  "Oyo",
+  "Plateau",
+  "Rivers",
+  "Sokoto",
+  "Taraba",
+  "Yobe",
+  "Zamfara",
+  "Federal Capital Territory"
+];
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
@@ -56,124 +96,6 @@ function loadPaystackScript() {
 
     document.body.appendChild(script);
   });
-}
-
-function Icon({ name, size = 20 }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    "aria-hidden": true,
-  };
-
-  const paths = {
-    user: (
-      <>
-        <circle cx="12" cy="8" r="3.5" />
-        <path d="M5 20c.7-3.7 3-5.5 7-5.5s6.3 1.8 7 5.5" />
-      </>
-    ),
-    cart: (
-      <>
-        <path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 1.9-1.4L21 8H6" />
-        <circle cx="9" cy="20" r="1" />
-        <circle cx="18" cy="20" r="1" />
-      </>
-    ),
-    search: (
-      <>
-        <circle cx="11" cy="11" r="6.5" />
-        <path d="m16 16 5 5" />
-      </>
-    ),
-    arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
-    plus: (
-      <>
-        <path d="M12 5v14" />
-        <path d="M5 12h14" />
-      </>
-    ),
-    minus: <path d="M5 12h14" />,
-    close: (
-      <>
-        <path d="m6 6 12 12" />
-        <path d="m18 6-12 12" />
-      </>
-    ),
-    check: (
-      <>
-        <path d="m5 12 4 4L19 6" />
-      </>
-    ),
-    truck: (
-      <>
-        <path d="M3 6h11v10H3z" />
-        <path d="M14 10h4l3 3v3h-7z" />
-        <circle cx="7" cy="18" r="1.5" />
-        <circle cx="18" cy="18" r="1.5" />
-      </>
-    ),
-    shield: (
-      <>
-        <path d="M12 3 20 6v5c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6z" />
-        <path d="m8.5 12 2.3 2.3 4.7-5" />
-      </>
-    ),
-    message: (
-      <>
-        <path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.5 8.5 0 0 1-4-.9L4 20l1.3-3.5A7.4 7.4 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5a7.5 7.5 0 0 1 8 7z" />
-      </>
-    ),
-    package: (
-      <>
-        <path d="m4 7 8-4 8 4-8 4z" />
-        <path d="M4 7v10l8 4 8-4V7" />
-        <path d="M12 11v10" />
-        <path d="m8 5 8 4" />
-      </>
-    ),
-    settings: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.5 1.5-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20h-2.1v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.5-1.5.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H7v-2.1h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.5-1.5.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V4H15v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2V12h-.2a1.7 1.7 0 0 0-1.3 1z" />
-      </>
-    ),
-    logout: (
-      <>
-        <path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5" />
-        <path d="M14 8l4 4-4 4" />
-        <path d="M8 12h10" />
-      </>
-    ),
-    mail: (
-      <>
-        <rect x="3" y="5" width="18" height="14" rx="2" />
-        <path d="m4 7 8 6 8-6" />
-      </>
-    ),
-    phone: (
-      <>
-        <path d="M7 3h3l1 5-2 1.5a16 16 0 0 0 5.5 5.5L16 13l5 1v3a3 3 0 0 1-3 3C10.8 20 4 13.2 4 6a3 3 0 0 1 3-3z" />
-      </>
-    ),
-    chevron: <path d="m9 18 6-6-6-6" />,
-    sun: (
-      <>
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-      </>
-    ),
-    moon: (
-      <path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5z" />
-    ),
-  };
-
-  return <svg {...common}>{paths[name]}</svg>;
 }
 
 function App() {
@@ -232,13 +154,6 @@ function App() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
 
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("shindara-theme") || "system";
-  });
-
   useEffect(() => {
     let mounted = true;
 
@@ -282,18 +197,6 @@ function App() {
       subscription.unsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("shindara-theme", theme);
-
-    const root = document.documentElement;
-
-    if (theme === "system") {
-      root.removeAttribute("data-theme");
-    } else {
-      root.setAttribute("data-theme", theme);
-    }
-  }, [theme]);
 
   useEffect(() => {
     loadProducts();
@@ -343,6 +246,8 @@ function App() {
   }
 
   async function loadProfile(userId) {
+    if (!userId) return;
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -356,12 +261,27 @@ function App() {
 
     setProfile(data || null);
 
-    if (data) {
-      setProfileName(data.name || "");
-      setProfilePhone(data.phone || "");
-      setCustomerName(data.name || "");
-      setCustomerPhone(data.phone || "");
+    const name =
+      data?.name ||
+      user_metadata_name(userId) ||
+      "";
+
+    const savedPhone = data?.phone || "";
+
+    setProfileName(name);
+    setProfilePhone(savedPhone);
+
+    if (data?.name) {
+      setCustomerName(data.name);
     }
+
+    if (data?.phone) {
+      setCustomerPhone(data.phone);
+    }
+  }
+
+  function user_metadata_name() {
+    return "";
   }
 
   async function loadOrders() {
@@ -443,13 +363,6 @@ function App() {
           return;
         }
 
-        if (password.length < 6) {
-          setAuthMessage(
-            "Password must be at least 6 characters."
-          );
-          return;
-        }
-
         const { data, error } =
           await supabase.auth.signUp({
             email: cleanEmail,
@@ -471,12 +384,17 @@ function App() {
           const { error: profileError } =
             await supabase
               .from("profiles")
-              .upsert({
-                id: data.user.id,
-                name: cleanName,
-                phone: cleanPhone,
-                email: cleanEmail,
-              });
+              .upsert(
+                {
+                  id: data.user.id,
+                  name: cleanName,
+                  phone: cleanPhone,
+                  email: cleanEmail,
+                },
+                {
+                  onConflict: "id",
+                }
+              );
 
           if (profileError) {
             console.error(
@@ -488,11 +406,11 @@ function App() {
 
         if (data?.user && !data.session) {
           setAuthMessage(
-            "Account created successfully. Please check your email to confirm your account."
+            "Account created successfully! Please check your email to confirm your account."
           );
         } else {
           setAuthMessage(
-            "Account created successfully."
+            "Account created successfully!"
           );
         }
 
@@ -556,7 +474,9 @@ function App() {
           },
         });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
     } catch (error) {
       console.error(error);
 
@@ -593,7 +513,9 @@ function App() {
           }
         );
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setResetMessage(
         "Password reset link sent. Please check your email."
@@ -613,7 +535,12 @@ function App() {
   async function saveProfileSettings(event) {
     event.preventDefault();
 
-    if (!user) return;
+    if (!user) {
+      setSettingsMessage(
+        "You must be signed in to update your profile."
+      );
+      return;
+    }
 
     setSettingsLoading(true);
     setSettingsMessage("");
@@ -624,8 +551,9 @@ function App() {
 
       if (!cleanName) {
         setSettingsMessage(
-          "Please enter your name."
+          "Please enter your full name."
         );
+        setSettingsLoading(false);
         return;
       }
 
@@ -633,31 +561,45 @@ function App() {
         setSettingsMessage(
           "Please enter your phone number."
         );
+        setSettingsLoading(false);
         return;
       }
 
-      const { error } = await supabase
+      const profileData = {
+        id: user.id,
+        name: cleanName,
+        phone: cleanPhone,
+        email: user.email || "",
+      };
+
+      const { data, error } = await supabase
         .from("profiles")
-        .upsert({
-          id: user.id,
-          name: cleanName,
-          phone: cleanPhone,
-          email: user.email || "",
-        });
+        .upsert(profileData, {
+          onConflict: "id",
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      await loadProfile(user.id);
+      setProfile(data);
+      setProfileName(data.name || "");
+      setProfilePhone(data.phone || "");
+
+      setCustomerName(data.name || "");
+      setCustomerPhone(data.phone || "");
 
       setSettingsMessage(
-        "Your account details have been updated successfully."
+        "Your profile has been updated successfully."
       );
     } catch (error) {
       console.error("Settings error:", error);
 
       setSettingsMessage(
         error?.message ||
-          "Unable to update your details."
+          "Unable to update your profile."
       );
     } finally {
       setSettingsLoading(false);
@@ -675,6 +617,7 @@ function App() {
         setPasswordMessage(
           "Password must be at least 6 characters."
         );
+        setPasswordLoading(false);
         return;
       }
 
@@ -683,7 +626,9 @@ function App() {
           password: newPassword,
         });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setNewPassword("");
 
@@ -797,26 +742,6 @@ function App() {
     0
   );
 
-  const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    if (!term) return products;
-
-    return products.filter((product) => {
-      return [
-        product.name,
-        product.category,
-        product.description,
-      ]
-        .filter(Boolean)
-        .some((value) =>
-          String(value)
-            .toLowerCase()
-            .includes(term)
-        );
-    });
-  }, [products, search]);
-
   function openCheckout() {
     if (!cart.length) return;
 
@@ -834,6 +759,20 @@ function App() {
       return;
     }
 
+    setCustomerName(
+      profile?.name ||
+        customerName ||
+        user.user_metadata?.full_name ||
+        ""
+    );
+
+    setCustomerPhone(
+      profile?.phone ||
+        customerPhone ||
+        user.user_metadata?.phone ||
+        ""
+    );
+
     setCheckoutOpen(true);
   }
 
@@ -843,8 +782,10 @@ function App() {
         .from("orders")
         .insert({
           user_id: user.id,
-          customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
+          customer_name:
+            customerName.trim(),
+          customer_phone:
+            customerPhone.trim(),
           delivery_address:
             deliveryAddress.trim(),
           delivery_city:
@@ -858,7 +799,9 @@ function App() {
         .select()
         .single();
 
-    if (orderError) throw orderError;
+    if (orderError) {
+      throw orderError;
+    }
 
     const items = cart.map((item) => ({
       order_id: order.id,
@@ -901,16 +844,8 @@ function App() {
       return;
     }
 
-    if (
-      !customerName.trim() ||
-      !customerPhone.trim() ||
-      !deliveryAddress.trim() ||
-      !deliveryCity.trim() ||
-      !deliveryState.trim()
-    ) {
-      setOrderMessage(
-        "Please complete all delivery details."
-      );
+    if (!deliveryState) {
+      setOrderMessage("Please select your state.");
       return;
     }
 
@@ -1013,6 +948,8 @@ function App() {
             setDeliveryAddress("");
             setDeliveryCity("");
             setDeliveryState("");
+
+            await loadOrders();
           } catch (error) {
             console.error(
               "Payment/order error:",
@@ -1033,20 +970,6 @@ function App() {
 
           setOrderMessage(
             "Payment was cancelled. Your order has not been placed."
-          );
-        },
-
-        onError: (error) => {
-          console.error(
-            "Paystack transaction error:",
-            error
-          );
-
-          setOrderLoading(false);
-
-          setOrderMessage(
-            error?.message ||
-              "Paystack encountered an error. Please try again."
           );
         },
       });
@@ -1098,82 +1021,10 @@ function App() {
     );
   }
 
-  function cycleTheme() {
-    setTheme((current) => {
-      if (current === "system") return "light";
-      if (current === "light") return "dark";
-      return "system";
-    });
-  }
-
-  function themeLabel() {
-    if (theme === "system") return "System";
-    if (theme === "light") return "Light";
-    return "Dark";
-  }
-
   return (
     <div className="app">
 
       <style>{`
-
-        :root {
-          --bg: #f5f5f7;
-          --surface: rgba(255,255,255,.78);
-          --surface-solid: #ffffff;
-          --surface-soft: rgba(118,118,128,.08);
-          --text: #111111;
-          --muted: #6e6e73;
-          --border: rgba(0,0,0,.09);
-          --shadow: 0 25px 80px rgba(0,0,0,.08);
-          --black: #111111;
-          --accent: #6d28d9;
-          --accent-soft: rgba(109,40,217,.1);
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root:not([data-theme="light"]) {
-            --bg: #09090b;
-            --surface: rgba(28,28,30,.82);
-            --surface-solid: #1c1c1e;
-            --surface-soft: rgba(255,255,255,.07);
-            --text: #f5f5f7;
-            --muted: #a1a1a6;
-            --border: rgba(255,255,255,.1);
-            --shadow: 0 25px 80px rgba(0,0,0,.35);
-            --black: #f5f5f7;
-            --accent: #a78bfa;
-            --accent-soft: rgba(167,139,250,.13);
-          }
-        }
-
-        :root[data-theme="dark"] {
-          --bg: #09090b;
-          --surface: rgba(28,28,30,.82);
-          --surface-solid: #1c1c1e;
-          --surface-soft: rgba(255,255,255,.07);
-          --text: #f5f5f7;
-          --muted: #a1a1a6;
-          --border: rgba(255,255,255,.1);
-          --shadow: 0 25px 80px rgba(0,0,0,.35);
-          --black: #f5f5f7;
-          --accent: #a78bfa;
-          --accent-soft: rgba(167,139,250,.13);
-        }
-
-        :root[data-theme="light"] {
-          --bg: #f5f5f7;
-          --surface: rgba(255,255,255,.78);
-          --surface-solid: #ffffff;
-          --surface-soft: rgba(118,118,128,.08);
-          --text: #111111;
-          --muted: #6e6e73;
-          --border: rgba(0,0,0,.09);
-          --shadow: 0 25px 80px rgba(0,0,0,.08);
-          --black: #111111;
-          --accent: #6d28d9;
-          --accent-soft: rgba(109,40,217,.1);
-        }
 
         * {
           box-sizing: border-box;
@@ -1181,29 +1032,21 @@ function App() {
 
         html {
           scroll-behavior: smooth;
-          background: var(--bg);
         }
 
         body {
           margin: 0;
-          font-family:
-            Inter,
-            -apple-system,
-            BlinkMacSystemFont,
-            "SF Pro Display",
-            "SF Pro Text",
-            "Segoe UI",
-            sans-serif;
-          background: var(--bg);
-          color: var(--text);
+          font-family: Inter, -apple-system, BlinkMacSystemFont,
+            "SF Pro Display", "Segoe UI", sans-serif;
+          background: #f7f7f8;
+          color: #111;
           overflow-x: hidden;
-          transition:
-            background .35s ease,
-            color .35s ease;
         }
 
         button,
-        input {
+        input,
+        select,
+        textarea {
           font: inherit;
         }
 
@@ -1212,33 +1055,33 @@ function App() {
           -webkit-tap-highlight-color: transparent;
         }
 
-        button {
-          color: inherit;
+        button:disabled {
+          opacity: .55;
+          cursor: not-allowed;
         }
 
         .app {
           min-height: 100vh;
           background:
             radial-gradient(
-              circle at 10% 8%,
-              var(--accent-soft),
-              transparent 25%
+              circle at 15% 10%,
+              rgba(124, 58, 237, 0.08),
+              transparent 28%
             ),
             radial-gradient(
-              circle at 90% 20%,
-              rgba(59,130,246,.07),
+              circle at 85% 20%,
+              rgba(59, 130, 246, 0.08),
               transparent 25%
             ),
-            var(--bg);
-          transition: background .35s ease;
+            #f7f7f8;
         }
 
         .announcement-bar {
           width: 100%;
           overflow: hidden;
-          background: var(--text);
-          color: var(--bg);
-          padding: 9px 0;
+          background: #111;
+          color: white;
+          padding: 11px 0;
           white-space: nowrap;
           position: relative;
           z-index: 1000;
@@ -1247,7 +1090,7 @@ function App() {
         .announcement-track {
           display: flex;
           width: max-content;
-          animation: marquee 26s linear infinite;
+          animation: marquee 22s linear infinite;
         }
 
         .announcement-group {
@@ -1258,16 +1101,17 @@ function App() {
 
         .announcement-group span {
           display: inline-block;
-          margin-right: 75px;
-          font-size: 11px;
+          margin-right: 80px;
+          font-size: 13px;
           font-weight: 700;
-          letter-spacing: .6px;
+          letter-spacing: .4px;
         }
 
         @keyframes marquee {
           from {
             transform: translateX(0);
           }
+
           to {
             transform: translateX(-50%);
           }
@@ -1280,47 +1124,44 @@ function App() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 24px;
-          padding: 15px 5%;
-          background: var(--surface);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border-bottom: 1px solid var(--border);
+          gap: 20px;
+          padding: 16px 5%;
+          background: rgba(255,255,255,.82);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-bottom: 1px solid rgba(0,0,0,.06);
         }
 
         .logo {
           text-decoration: none;
-          color: var(--text);
-          font-weight: 850;
-          font-size: 20px;
-          letter-spacing: -1.2px;
-          line-height: .95;
+          color: #111;
+          font-weight: 800;
+          font-size: 21px;
+          letter-spacing: -1px;
           white-space: nowrap;
         }
 
         .logo span {
           display: block;
-          margin-top: 4px;
-          font-size: 9px;
-          font-weight: 650;
-          letter-spacing: 2.2px;
+          font-weight: 500;
+          font-size: 11px;
+          letter-spacing: 1.8px;
           text-transform: uppercase;
-          opacity: .48;
+          opacity: .55;
         }
 
         .nav {
           display: flex;
           align-items: center;
-          gap: 27px;
+          gap: 28px;
         }
 
         .nav a {
-          color: var(--text);
+          color: #222;
           text-decoration: none;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 600;
-          opacity: .68;
-          transition: opacity .2s ease;
+          opacity: .75;
         }
 
         .nav a:hover {
@@ -1330,190 +1171,89 @@ function App() {
         .header-actions {
           display: flex;
           align-items: center;
-          gap: 7px;
+          gap: 8px;
         }
 
-        .icon-button,
         .account-button,
         .cart-button {
-          border: 1px solid var(--border);
-          background: var(--surface-solid);
-          color: var(--text);
+          border: 1px solid rgba(0,0,0,.08);
+          background: white;
+          color: #111;
           border-radius: 999px;
-          min-height: 40px;
-          padding: 9px 13px;
+          padding: 10px 14px;
           cursor: pointer;
           font-weight: 700;
-          font-size: 12px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          transition:
-            transform .18s ease,
-            background .18s ease,
-            border-color .18s ease;
+          font-size: 13px;
         }
 
-        .icon-button {
-          width: 40px;
-          padding: 0;
-        }
-
-        .account-button:hover,
-        .cart-button:hover,
-        .icon-button:hover,
-        .add-button:hover,
-        .shop-button:hover,
-        .checkout-button:hover {
-          transform: translateY(-1px);
-        }
-
-        .cart-button,
-        .shop-button,
-        .add-button,
-        .checkout-button,
-        .modal-action {
-          background: var(--text);
-          color: var(--bg);
-        }
-
-        .cart-count {
-          min-width: 19px;
-          height: 19px;
-          padding: 0 5px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          background: rgba(255,255,255,.16);
-          font-size: 10px;
+        .cart-button {
+          background: #111;
+          color: white;
         }
 
         .hero {
-          min-height: 680px;
+          min-height: 650px;
           display: flex;
           align-items: center;
-          padding: 100px 7%;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .hero::before {
-          content: "";
-          position: absolute;
-          width: 420px;
-          height: 420px;
-          border-radius: 50%;
-          right: 4%;
-          top: 15%;
+          padding: 80px 7%;
           background:
             radial-gradient(
-              circle,
-              var(--accent-soft),
-              transparent 67%
+              circle at 70% 40%,
+              rgba(124,58,237,.16),
+              transparent 35%
+            ),
+            radial-gradient(
+              circle at 90% 80%,
+              rgba(37,99,235,.13),
+              transparent 30%
             );
-          filter: blur(4px);
-          pointer-events: none;
         }
 
         .hero-content {
-          max-width: 780px;
-          position: relative;
-          z-index: 2;
-          animation: heroIn .8s ease both;
-        }
-
-        @keyframes heroIn {
-          from {
-            opacity: 0;
-            transform: translateY(18px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          max-width: 720px;
         }
 
         .eyebrow {
-          font-size: 10px;
-          font-weight: 850;
-          letter-spacing: 2.2px;
-          opacity: .48;
-          margin: 0 0 15px;
-          text-transform: uppercase;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2px;
+          opacity: .55;
+          margin: 0 0 14px;
         }
 
         .hero h1 {
-          font-size: clamp(52px, 8vw, 96px);
-          line-height: .91;
-          letter-spacing: -6px;
-          margin: 0 0 30px;
-          max-width: 850px;
+          font-size: clamp(48px, 7vw, 88px);
+          line-height: .94;
+          letter-spacing: -5px;
+          margin: 0 0 28px;
         }
 
         .hero-text {
-          max-width: 555px;
+          max-width: 550px;
           font-size: 18px;
-          line-height: 1.7;
-          color: var(--muted);
-          margin-bottom: 34px;
+          line-height: 1.65;
+          opacity: .68;
+          margin-bottom: 32px;
         }
 
         .shop-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          color: var(--bg);
+          display: inline-block;
+          background: #111;
+          color: white;
           text-decoration: none;
-          padding: 15px 21px;
+          padding: 15px 22px;
           border-radius: 999px;
-          font-weight: 750;
-          font-size: 13px;
-          transition: transform .2s ease;
+          font-weight: 700;
         }
 
         .section {
-          padding: 95px 7%;
+          padding: 90px 7%;
         }
 
         .section h2 {
           margin: 0 0 35px;
-          font-size: clamp(34px, 5vw, 52px);
-          letter-spacing: -3px;
-          line-height: 1;
-        }
-
-        .section-heading {
-          display: flex;
-          justify-content: space-between;
-          align-items: end;
-          gap: 20px;
-          margin-bottom: 35px;
-        }
-
-        .section-heading h2 {
-          margin-bottom: 0;
-        }
-
-        .search-wrapper {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: var(--surface-solid);
-          border: 1px solid var(--border);
-          border-radius: 999px;
-          padding: 7px 12px;
-          width: min(300px, 100%);
-        }
-
-        .search-wrapper input {
-          width: 100%;
-          border: 0;
-          outline: 0;
-          background: transparent;
-          color: var(--text);
-          font-size: 13px;
+          font-size: 46px;
+          letter-spacing: -2.5px;
         }
 
         .category-grid {
@@ -1523,40 +1263,29 @@ function App() {
         }
 
         .category-card {
-          min-height: 155px;
+          min-height: 150px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
           padding: 20px;
           text-decoration: none;
-          color: var(--text);
-          background: var(--surface);
-          border: 1px solid var(--border);
+          color: inherit;
+          background: rgba(255,255,255,.8);
+          border: 1px solid rgba(0,0,0,.06);
           border-radius: 22px;
-          transition:
-            transform .25s ease,
-            background .25s ease;
-          backdrop-filter: blur(15px);
+          transition: transform .2s ease;
         }
 
         .category-card:hover {
-          transform: translateY(-5px);
-          background: var(--surface-solid);
+          transform: translateY(-4px);
         }
 
-        .category-icon {
-          width: 45px;
-          height: 45px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 15px;
-          background: var(--surface-soft);
-          font-size: 21px;
+        .category-card span {
+          font-size: 30px;
         }
 
         .category-card strong {
-          font-size: 13px;
+          font-size: 14px;
         }
 
         .product-grid {
@@ -1566,40 +1295,26 @@ function App() {
         }
 
         .product-card {
-          background: var(--surface-solid);
-          border: 1px solid var(--border);
-          border-radius: 25px;
+          background: white;
+          border: 1px solid rgba(0,0,0,.06);
+          border-radius: 24px;
           overflow: hidden;
-          box-shadow: 0 12px 45px rgba(0,0,0,.035);
-          transition:
-            transform .25s ease,
-            box-shadow .25s ease;
-        }
-
-        .product-card:hover {
-          transform: translateY(-5px);
-          box-shadow: var(--shadow);
+          box-shadow: 0 10px 35px rgba(0,0,0,.04);
         }
 
         .product-image {
-          height: 280px;
-          background: var(--surface-soft);
+          height: 270px;
+          background: #f0f0f2;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          position: relative;
         }
 
         .product-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform .45s ease;
-        }
-
-        .product-card:hover .product-image img {
-          transform: scale(1.035);
         }
 
         .product-info {
@@ -1607,152 +1322,108 @@ function App() {
         }
 
         .product-category {
-          font-size: 9px;
-          font-weight: 850;
+          font-size: 10px;
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 1.5px;
-          color: var(--muted);
-          margin: 0 0 8px;
+          letter-spacing: 1px;
+          opacity: .45;
+          margin: 0 0 7px;
         }
 
         .product-info h3 {
-          margin: 0 0 9px;
-          font-size: 16px;
-          letter-spacing: -.4px;
-        }
-
-        .product-description {
-          color: var(--muted);
-          font-size: 12px;
-          line-height: 1.55;
-          margin: 0;
-          min-height: 37px;
+          margin: 0 0 10px;
+          font-size: 17px;
         }
 
         .price {
-          font-size: 19px;
-          font-weight: 850;
-          margin: 16px 0 13px;
+          font-size: 20px;
+          font-weight: 800;
+          margin: 14px 0;
         }
 
         .add-button {
           width: 100%;
           border: 0;
           border-radius: 12px;
+          background: #111;
+          color: white;
           padding: 13px;
           cursor: pointer;
-          font-weight: 750;
-          font-size: 12px;
-          transition: transform .18s ease;
-        }
-
-        .add-button:disabled {
-          opacity: .45;
-          cursor: not-allowed;
+          font-weight: 700;
         }
 
         .trust-section {
           display: grid;
           grid-template-columns: repeat(3,1fr);
-          gap: 15px;
-          padding: 70px 7%;
-          background: var(--text);
-          color: var(--bg);
+          gap: 20px;
+          padding: 50px 7%;
+          background: #111;
+          color: white;
         }
 
         .trust-section > div {
           padding: 25px;
-          border: 1px solid rgba(255,255,255,.12);
-          border-radius: 22px;
-          background: rgba(255,255,255,.04);
+          border-radius: 20px;
+          background: rgba(255,255,255,.05);
         }
 
-        .trust-icon {
-          width: 43px;
-          height: 43px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 14px;
-          background: rgba(255,255,255,.08);
+        .trust-section span {
+          font-size: 28px;
         }
 
         .trust-section h3 {
-          margin: 17px 0 6px;
-          font-size: 15px;
+          margin-bottom: 5px;
         }
 
         .trust-section p {
-          opacity: .55;
-          margin: 0;
-          font-size: 13px;
-          line-height: 1.5;
+          opacity: .6;
         }
 
         footer {
-          padding: 65px 7%;
-          background: var(--text);
-          color: var(--bg);
+          padding: 60px 7%;
+          background: #090909;
+          color: white;
           display: flex;
           justify-content: space-between;
           gap: 30px;
           flex-wrap: wrap;
-          border-top: 1px solid rgba(255,255,255,.08);
         }
 
         .footer-logo {
           font-size: 20px;
-          letter-spacing: -.7px;
-        }
-
-        .footer-description {
-          color: var(--bg);
-          opacity: .55;
-          font-size: 13px;
         }
 
         .social-links {
           display: flex;
-          gap: 8px;
+          gap: 10px;
           margin-top: 20px;
         }
 
         .social-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          border: 1px solid rgba(255,255,255,.13);
+          display: inline-block;
+          border: 1px solid rgba(255,255,255,.15);
           background: rgba(255,255,255,.06);
-          color: var(--bg);
+          color: white;
           padding: 10px 13px;
           border-radius: 999px;
           text-decoration: none;
           cursor: pointer;
-          font-size: 12px;
-          font-weight: 700;
         }
 
         .whatsapp-floating {
           position: fixed;
-          right: 20px;
-          bottom: 20px;
+          right: 22px;
+          bottom: 22px;
           z-index: 950;
-          width: 55px;
-          height: 55px;
-          border: 1px solid var(--border);
+          width: 58px;
+          height: 58px;
+          border: 0;
           border-radius: 50%;
-          background: var(--text);
-          color: var(--bg);
-          box-shadow: var(--shadow);
+          background: #111;
+          color: white;
+          box-shadow: 0 12px 30px rgba(0,0,0,.2);
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform .2s ease;
-        }
-
-        .whatsapp-floating:hover {
-          transform: translateY(-4px);
+          font-size: 22px;
         }
 
         .modal-backdrop,
@@ -1761,22 +1432,12 @@ function App() {
           inset: 0;
           z-index: 2000;
           background: rgba(0,0,0,.55);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 18px;
-          animation: fadeIn .2s ease;
-        }
-
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
         }
 
         .account-modal {
@@ -1784,92 +1445,75 @@ function App() {
           width: min(620px, 100%);
           max-height: 90vh;
           overflow-y: auto;
-          background: var(--surface-solid);
-          color: var(--text);
-          border: 1px solid var(--border);
+          background: white;
+          color: #111;
           border-radius: 28px;
           padding: 30px;
           box-shadow: 0 30px 100px rgba(0,0,0,.3);
-          animation: modalIn .25s ease;
-        }
-
-        @keyframes modalIn {
-          from {
-            opacity: 0;
-            transform: translateY(15px) scale(.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
         }
 
         .modal-close {
           position: absolute;
-          right: 17px;
-          top: 17px;
+          right: 18px;
+          top: 18px;
           width: 36px;
           height: 36px;
-          border: 1px solid var(--border);
+          border: 0;
           border-radius: 50%;
-          background: var(--surface-soft);
-          color: var(--text);
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          background: rgba(0,0,0,.06);
+          font-size: 24px;
           cursor: pointer;
         }
 
         .auth-form {
           display: grid;
-          gap: 11px;
+          gap: 12px;
         }
 
-        .auth-form input {
+        .auth-form input,
+        .auth-form select {
           width: 100%;
           padding: 14px 15px;
-          border: 1px solid var(--border);
+          border: 1px solid rgba(0,0,0,.12);
           border-radius: 13px;
           outline: none;
-          background: var(--surface-soft);
-          color: var(--text);
+          background: #fafafa;
+          color: #111;
         }
 
-        .auth-form input::placeholder {
-          color: var(--muted);
-        }
-
-        .auth-form input:focus {
-          border-color: var(--text);
-          background: var(--surface-solid);
-        }
-
-        .modal-action,
-        .modal-secondary {
-          width: 100%;
-          padding: 14px;
-          border-radius: 13px;
-          font-weight: 750;
-          cursor: pointer;
-          border: 1px solid var(--border);
-          font-size: 13px;
+        .auth-form input:focus,
+        .auth-form select:focus {
+          border-color: #111;
+          background: white;
         }
 
         .modal-action {
-          border-color: transparent;
+          width: 100%;
+          border: 0;
+          background: #111;
+          color: white;
+          padding: 14px;
+          border-radius: 13px;
+          font-weight: 700;
+          cursor: pointer;
         }
 
         .modal-secondary {
-          background: var(--surface-solid);
-          color: var(--text);
+          width: 100%;
+          border: 1px solid rgba(0,0,0,.1);
+          background: white;
+          color: #111;
+          padding: 13px;
+          border-radius: 13px;
+          font-weight: 700;
+          cursor: pointer;
         }
 
         .auth-message {
           padding: 12px;
           border-radius: 12px;
-          background: var(--accent-soft);
-          color: var(--text);
-          font-size: 12px;
+          background: rgba(124,58,237,.08);
+          font-size: 13px;
           line-height: 1.5;
         }
 
@@ -1878,8 +1522,8 @@ function App() {
           align-items: center;
           gap: 12px;
           margin: 18px 0;
-          font-size: 11px;
-          color: var(--muted);
+          font-size: 12px;
+          opacity: .5;
         }
 
         .auth-divider::before,
@@ -1887,19 +1531,18 @@ function App() {
           content: "";
           height: 1px;
           flex: 1;
-          background: var(--border);
+          background: currentColor;
         }
 
         .social-auth-buttons {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 9px;
+          gap: 10px;
         }
 
         .social-auth-button {
-          border: 1px solid var(--border);
-          background: var(--surface-solid);
-          color: var(--text);
+          border: 1px solid rgba(0,0,0,.1);
+          background: white;
           border-radius: 13px;
           padding: 13px;
           cursor: pointer;
@@ -1909,56 +1552,11 @@ function App() {
         .forgot-password {
           border: 0;
           background: none;
-          color: var(--muted);
           padding: 0;
           text-align: right;
           cursor: pointer;
-          font-size: 11px;
-        }
-
-        .account-tabs {
-          display: grid;
-          grid-template-columns: repeat(3,1fr);
-          gap: 7px;
-          margin: 25px 0;
-        }
-
-        .account-tab {
-          min-height: 42px;
-          border-radius: 12px;
-          border: 1px solid var(--border);
-          background: var(--surface-solid);
-          color: var(--text);
-          cursor: pointer;
-          font-size: 11px;
-          font-weight: 750;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 5px;
-        }
-
-        .account-tab.active {
-          background: var(--text);
-          color: var(--bg);
-          border-color: transparent;
-        }
-
-        .profile-card {
-          padding: 20px;
-          border-radius: 19px;
-          background: var(--surface-soft);
-          margin-bottom: 15px;
-          border: 1px solid var(--border);
-        }
-
-        .profile-line {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          margin: 10px 0;
-          color: var(--muted);
-          font-size: 13px;
+          font-size: 12px;
+          opacity: .65;
         }
 
         .cart-overlay {
@@ -1968,54 +1566,39 @@ function App() {
         }
 
         .cart-drawer {
-          width: min(480px, 100%);
+          width: min(470px, 100%);
           height: 100%;
-          background: var(--surface-solid);
-          color: var(--text);
+          background: white;
+          color: #111;
           padding: 25px;
           overflow-y: auto;
-          box-shadow: -20px 0 60px rgba(0,0,0,.25);
-          animation: drawerIn .25s ease;
-        }
-
-        @keyframes drawerIn {
-          from {
-            transform: translateX(30px);
-            opacity: .5;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
+          box-shadow: -20px 0 60px rgba(0,0,0,.2);
         }
 
         .cart-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 15px;
         }
 
         .cart-header h2 {
-          margin: 0;
-          font-size: 31px;
-          letter-spacing: -1.5px;
+          margin-top: 0;
         }
 
         .cart-item {
           display: flex;
-          gap: 13px;
+          gap: 14px;
           padding: 16px 0;
-          border-bottom: 1px solid var(--border);
+          border-bottom: 1px solid rgba(0,0,0,.07);
         }
 
         .cart-item-image {
-          width: 76px;
-          height: 76px;
+          width: 80px;
+          height: 80px;
           flex-shrink: 0;
-          border-radius: 15px;
+          border-radius: 14px;
           overflow: hidden;
-          background: var(--surface-soft);
+          background: #f1f1f1;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -2034,13 +1617,7 @@ function App() {
 
         .cart-item-info h3 {
           margin: 0 0 5px;
-          font-size: 13px;
-        }
-
-        .cart-item-info p {
-          margin: 0;
-          color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
         }
 
         .quantity-controls {
@@ -2051,25 +1628,21 @@ function App() {
         }
 
         .quantity-controls button {
-          width: 29px;
-          height: 29px;
-          border: 1px solid var(--border);
-          background: var(--surface-solid);
-          color: var(--text);
+          width: 30px;
+          height: 30px;
+          border: 1px solid rgba(0,0,0,.1);
+          background: white;
           border-radius: 8px;
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
         }
 
         .remove-cart-item,
         .clear-cart-button {
           border: 0;
           background: none;
-          color: var(--muted);
           cursor: pointer;
-          font-size: 11px;
+          opacity: .55;
+          font-size: 12px;
           margin-top: 8px;
         }
 
@@ -2080,18 +1653,19 @@ function App() {
         .cart-total {
           display: flex;
           justify-content: space-between;
-          font-size: 19px;
+          font-size: 20px;
           margin-bottom: 15px;
         }
 
         .checkout-button {
           width: 100%;
           border: 0;
+          background: #111;
+          color: white;
           padding: 15px;
           border-radius: 13px;
-          font-weight: 750;
+          font-weight: 700;
           cursor: pointer;
-          transition: transform .18s ease;
         }
 
         .clear-cart-button {
@@ -2099,119 +1673,11 @@ function App() {
           margin: 15px auto 0;
         }
 
-        .order-card {
-          padding: 18px;
-          border: 1px solid var(--border);
-          border-radius: 18px;
-          margin-bottom: 12px;
-          background: var(--surface-soft);
-        }
-
-        .order-top {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .order-date {
-          color: var(--muted);
-          font-size: 12px;
-          margin-top: 6px;
-        }
-
-        .status-pill {
-          padding: 6px 10px;
-          border-radius: 999px;
-          background: var(--surface-solid);
-          border: 1px solid var(--border);
-          font-size: 10px;
-          height: fit-content;
-        }
-
-        .order-bottom {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          margin-top: 13px;
-        }
-
-        .view-items {
-          width: auto;
-          padding: 9px 12px;
-        }
-
-        .order-items {
-          margin-top: 15px;
-          padding-top: 15px;
-          border-top: 1px solid var(--border);
-        }
-
-        .order-item-row {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          padding: 8px 0;
-          font-size: 12px;
-        }
-
-        .order-item-row small {
-          display: block;
-          color: var(--muted);
-          margin-top: 3px;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 60px 20px;
-        }
-
-        .empty-icon {
-          width: 58px;
-          height: 58px;
-          border-radius: 18px;
-          background: var(--surface-soft);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 15px;
-        }
-
-        .empty-state h3 {
-          margin-bottom: 8px;
-        }
-
-        .empty-state p {
-          color: var(--muted);
-          font-size: 13px;
-        }
-
-        .loading-state,
-        .error-state {
-          padding: 60px 20px;
-          text-align: center;
-          color: var(--muted);
-        }
-
-        .error-state .add-button {
-          width: auto;
-          padding: 11px 18px;
-        }
-
-        @media (max-width: 1050px) {
-          .category-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-
-          .product-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-          }
-        }
-
         @media (max-width: 768px) {
+
           .header {
-            padding: 11px 13px;
-            gap: 7px;
+            padding: 12px;
+            gap: 8px;
           }
 
           .logo {
@@ -2224,68 +1690,40 @@ function App() {
 
           .header-actions {
             margin-left: auto;
+            gap: 5px;
           }
 
           .account-button,
           .cart-button {
-            min-height: 37px;
-            padding: 8px 10px;
-            font-size: 10px;
-          }
-
-          .account-button svg,
-          .cart-button svg {
-            width: 15px;
-            height: 15px;
-          }
-
-          .icon-button {
-            width: 37px;
-            min-height: 37px;
+            padding: 9px 10px;
+            font-size: 11px;
           }
 
           .hero {
-            min-height: 570px;
-            padding: 75px 20px;
+            min-height: 550px;
+            padding: 65px 20px;
           }
 
           .hero h1 {
-            font-size: clamp(45px, 13vw, 65px);
-            letter-spacing: -4px;
+            font-size: clamp(42px, 13vw, 62px);
+            letter-spacing: -3px;
           }
 
           .hero-text {
             font-size: 15px;
-            line-height: 1.6;
           }
 
           .section {
-            padding: 65px 16px;
+            padding: 55px 16px;
           }
 
           .section h2 {
-            font-size: 34px;
-            letter-spacing: -2px;
-          }
-
-          .section-heading {
-            display: block;
-          }
-
-          .search-wrapper {
-            margin-top: 15px;
-            width: 100%;
+            font-size: 32px;
+            letter-spacing: -1.5px;
           }
 
           .category-grid {
             grid-template-columns: repeat(2,1fr);
-            gap: 9px;
-          }
-
-          .category-card {
-            min-height: 135px;
-            padding: 16px;
-            border-radius: 18px;
           }
 
           .product-grid {
@@ -2294,7 +1732,7 @@ function App() {
           }
 
           .product-image {
-            height: 175px;
+            height: 170px;
           }
 
           .product-info {
@@ -2302,36 +1740,31 @@ function App() {
           }
 
           .product-info h3 {
-            font-size: 13px;
-          }
-
-          .product-description {
-            font-size: 11px;
+            font-size: 14px;
           }
 
           .price {
             font-size: 16px;
-            margin: 13px 0;
           }
 
           .add-button {
-            font-size: 11px;
-            padding: 11px 7px;
+            font-size: 12px;
+            padding: 10px 7px;
           }
 
           .trust-section {
             grid-template-columns: 1fr;
-            padding: 45px 16px;
+            padding: 35px 16px;
           }
 
           footer {
-            padding: 45px 16px;
+            padding: 40px 16px;
           }
 
           .account-modal {
-            width: calc(100% - 8px);
+            width: calc(100% - 16px);
             padding: 23px 17px;
-            border-radius: 23px;
+            border-radius: 22px;
           }
 
           .social-auth-buttons {
@@ -2348,23 +1781,24 @@ function App() {
           }
 
           .announcement-track {
-            animation-duration: 18s;
+            animation-duration: 17s;
           }
 
           .announcement-group span {
-            font-size: 10px;
-            margin-right: 42px;
+            font-size: 11px;
+            margin-right: 45px;
           }
 
           .whatsapp-floating {
-            width: 51px;
-            height: 51px;
+            width: 52px;
+            height: 52px;
             right: 14px;
             bottom: 14px;
           }
         }
 
-        @media (max-width: 390px) {
+        @media (max-width: 380px) {
+
           .product-grid {
             grid-template-columns: 1fr;
           }
@@ -2377,73 +1811,56 @@ function App() {
             gap: 3px;
           }
 
-          .account-button {
-            max-width: 74px;
-          }
-
+          .account-button,
           .cart-button {
-            max-width: 74px;
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          *,
-          *::before,
-          *::after {
-            scroll-behavior: auto !important;
-            animation-duration: .01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: .01ms !important;
+            padding: 8px;
+            font-size: 10px;
           }
         }
 
       `}</style>
-
-      {/* ANNOUNCEMENT */}
 
       <div className="announcement-bar">
         <div className="announcement-track">
 
           <div className="announcement-group">
             <span>
-              SHINDARA PHONEFLAIR • PREMIUM TECH FOR EVERYDAY LIFE
+              ✨ Premium phone accessories are screaming here!!! ✨
             </span>
 
             <span>
-              FREE TO BROWSE • SECURE PAYMENTS • QUALITY PRODUCTS
+              📱 Premium phone accessories are screaming here!!! 📱
             </span>
 
             <span>
-              PHONES • ACCESSORIES • GADGETS • ELECTRONICS
+              ⚡ Premium phone accessories are screaming here!!! ⚡
             </span>
 
             <span>
-              SHINDARA PHONEFLAIR • PREMIUM TECH FOR EVERYDAY LIFE
+              ✨ Premium phone accessories are screaming here!!! ✨
             </span>
           </div>
 
           <div className="announcement-group">
             <span>
-              SHINDARA PHONEFLAIR • PREMIUM TECH FOR EVERYDAY LIFE
+              ✨ Premium phone accessories are screaming here!!! ✨
             </span>
 
             <span>
-              FREE TO BROWSE • SECURE PAYMENTS • QUALITY PRODUCTS
+              📱 Premium phone accessories are screaming here!!! 📱
             </span>
 
             <span>
-              PHONES • ACCESSORIES • GADGETS • ELECTRONICS
+              ⚡ Premium phone accessories are screaming here!!! ⚡
             </span>
 
             <span>
-              SHINDARA PHONEFLAIR • PREMIUM TECH FOR EVERYDAY LIFE
+              ✨ Premium phone accessories are screaming here!!! ✨
             </span>
           </div>
 
         </div>
       </div>
-
-      {/* HEADER */}
 
       <header className="header">
 
@@ -2462,46 +1879,17 @@ function App() {
         <div className="header-actions">
 
           <button
-            className="icon-button"
-            title={`Theme: ${themeLabel()}`}
-            onClick={cycleTheme}
-          >
-            {theme === "dark" ? (
-              <Icon name="moon" size={17} />
-            ) : (
-              <Icon name="sun" size={17} />
-            )}
-          </button>
-
-          <button
-            className="icon-button"
-            onClick={() => setSearchOpen(!searchOpen)}
-            title="Search"
-          >
-            <Icon name="search" size={17} />
-          </button>
-
-          <button
             className="account-button"
             onClick={openAccount}
           >
-            <Icon name="user" size={16} />
-            <span>
-              {user ? "Account" : "Sign in"}
-            </span>
+            👤 {user ? "Account" : "Sign in"}
           </button>
 
           <button
             className="cart-button"
             onClick={() => setCartOpen(true)}
           >
-            <Icon name="cart" size={16} />
-
-            <span>Cart</span>
-
-            <span className="cart-count">
-              {cartCount}
-            </span>
+            🛒 Cart ({cartCount})
           </button>
 
         </div>
@@ -2509,8 +1897,6 @@ function App() {
       </header>
 
       <main>
-
-        {/* HERO */}
 
         <section className="hero" id="home">
 
@@ -2529,20 +1915,16 @@ function App() {
             <p className="hero-text">
               Phones, accessories, chargers,
               audio products, power banks and
-              everyday gadgets — selected for
-              the way you live.
+              everyday gadgets.
             </p>
 
             <a href="#shop" className="shop-button">
-              Shop now
-              <Icon name="arrow" size={16} />
+              Shop now →
             </a>
 
           </div>
 
         </section>
-
-        {/* CATEGORIES */}
 
         <section className="section" id="categories">
 
@@ -2558,7 +1940,7 @@ function App() {
               ["⚡", "Chargers"],
               ["🎧", "Audio"],
               ["🔋", "Power Banks"],
-              ["✦", "Gadgets"],
+              ["✨", "Gadgets"],
             ].map(([icon, name]) => (
 
               <a
@@ -2567,9 +1949,7 @@ function App() {
                 key={name}
               >
 
-                <div className="category-icon">
-                  {icon}
-                </div>
+                <span>{icon}</span>
 
                 <strong>{name}</strong>
 
@@ -2581,48 +1961,33 @@ function App() {
 
         </section>
 
-        {/* SHOP */}
-
         <section className="section" id="shop">
 
-          <div className="section-heading">
+          <p className="eyebrow">
+            SHINDARA STORE
+          </p>
 
-            <div>
-              <p className="eyebrow">
-                SHINDARA STORE
-              </p>
-
-              <h2>Popular picks</h2>
-            </div>
-
-            {searchOpen && (
-              <div className="search-wrapper">
-
-                <Icon name="search" size={16} />
-
-                <input
-                  autoFocus
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
-                  placeholder="Search products..."
-                />
-
-              </div>
-            )}
-
-          </div>
+          <h2>Popular picks</h2>
 
           {productsLoading ? (
 
-            <div className="loading-state">
+            <div
+              style={{
+                padding: "50px",
+                textAlign: "center",
+              }}
+            >
               Loading products...
             </div>
 
           ) : productsError ? (
 
-            <div className="error-state">
+            <div
+              style={{
+                padding: "50px",
+                textAlign: "center",
+              }}
+            >
 
               <p>{productsError}</p>
 
@@ -2635,33 +2000,22 @@ function App() {
 
             </div>
 
-          ) : filteredProducts.length === 0 ? (
+          ) : products.length === 0 ? (
 
-            <div className="empty-state">
-
-              <div className="empty-icon">
-                <Icon name="search" size={25} />
-              </div>
-
-              <h3>
-                {search
-                  ? "No products found"
-                  : "Products are coming soon"}
-              </h3>
-
-              <p>
-                {search
-                  ? "Try searching for another product."
-                  : "Check back soon for new products."}
-              </p>
-
+            <div
+              style={{
+                padding: "50px",
+                textAlign: "center",
+              }}
+            >
+              <p>Products are coming soon.</p>
             </div>
 
           ) : (
 
             <div className="product-grid">
 
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
 
                 <article
                   className="product-card"
@@ -2675,15 +2029,13 @@ function App() {
                       <img
                         src={product.image_url}
                         alt={product.name}
-                        loading="lazy"
                       />
 
                     ) : (
 
-                      <Icon
-                        name="package"
-                        size={45}
-                      />
+                      <span style={{ fontSize: 45 }}>
+                        📦
+                      </span>
 
                     )}
 
@@ -2699,7 +2051,13 @@ function App() {
                     <h3>{product.name}</h3>
 
                     {product.description && (
-                      <p className="product-description">
+                      <p
+                        style={{
+                          opacity: .65,
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                        }}
+                      >
                         {product.description}
                       </p>
                     )}
@@ -2742,60 +2100,35 @@ function App() {
 
         </section>
 
-        {/* TRUST */}
-
         <section className="trust-section">
 
           <div>
-
-            <div className="trust-icon">
-              <Icon name="truck" size={21} />
-            </div>
-
+            <span>🚚</span>
             <h3>Reliable delivery</h3>
-
             <p>
-              Your order is handled carefully
-              from checkout to delivery.
+              Get your order delivered safely.
             </p>
-
           </div>
 
           <div>
-
-            <div className="trust-icon">
-              <Icon name="shield" size={21} />
-            </div>
-
+            <span>🔒</span>
             <h3>Secure shopping</h3>
-
             <p>
-              Secure authentication and
-              Paystack-powered payments.
+              Shop with confidence.
             </p>
-
           </div>
 
           <div>
-
-            <div className="trust-icon">
-              <Icon name="message" size={21} />
-            </div>
-
+            <span>💬</span>
             <h3>Customer support</h3>
-
             <p>
-              Need help? Reach Shindara
-              Phoneflair directly.
+              We're here whenever you need us.
             </p>
-
           </div>
 
         </section>
 
       </main>
-
-      {/* FOOTER */}
 
       <footer id="contact">
 
@@ -2805,8 +2138,9 @@ function App() {
             Shindara Phoneflair
           </strong>
 
-          <p className="footer-description">
-            Phones • Accessories • Gadgets • Electronics
+          <p>
+            Phones • Accessories • Gadgets •
+            Electronics
           </p>
 
           <div className="social-links">
@@ -2815,8 +2149,7 @@ function App() {
               className="social-button"
               onClick={whatsapp}
             >
-              <Icon name="message" size={15} />
-              WhatsApp
+              📲 WhatsApp
             </button>
 
             <a
@@ -2825,30 +2158,25 @@ function App() {
               target="_blank"
               rel="noreferrer"
             >
-              TikTok
+              🎵 TikTok
             </a>
 
           </div>
 
         </div>
 
-        <p className="footer-description">
+        <p>
           © 2026 Shindara Phoneflair
         </p>
 
       </footer>
 
-      {/* WHATSAPP */}
-
       <button
         className="whatsapp-floating"
         onClick={whatsapp}
-        title="Chat on WhatsApp"
       >
-        <Icon name="message" size={22} />
+        💬
       </button>
-
-      {/* CART */}
 
       {cartOpen && (
 
@@ -2867,11 +2195,13 @@ function App() {
             <div className="cart-header">
 
               <div>
+
                 <p className="eyebrow">
                   SHINDARA
                 </p>
 
                 <h2>Your Cart</h2>
+
               </div>
 
               <button
@@ -2880,17 +2210,22 @@ function App() {
                   setCartOpen(false)
                 }
               >
-                <Icon name="close" size={17} />
+                ×
               </button>
 
             </div>
 
             {cart.length === 0 ? (
 
-              <div className="empty-state">
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "60px 20px",
+                }}
+              >
 
-                <div className="empty-icon">
-                  <Icon name="cart" size={25} />
+                <div style={{ fontSize: 55 }}>
+                  🛒
                 </div>
 
                 <h3>Your cart is empty</h3>
@@ -2915,7 +2250,7 @@ function App() {
 
               <>
 
-                <div>
+                <div className="cart-items">
 
                   {cart.map((item) => (
 
@@ -2935,10 +2270,7 @@ function App() {
 
                         ) : (
 
-                          <Icon
-                            name="package"
-                            size={28}
-                          />
+                          <span>📦</span>
 
                         )}
 
@@ -2961,10 +2293,7 @@ function App() {
                               )
                             }
                           >
-                            <Icon
-                              name="minus"
-                              size={14}
-                            />
+                            −
                           </button>
 
                           <strong>
@@ -2978,10 +2307,7 @@ function App() {
                               )
                             }
                           >
-                            <Icon
-                              name="plus"
-                              size={14}
-                            />
+                            +
                           </button>
 
                         </div>
@@ -3008,22 +2334,20 @@ function App() {
                 <div className="cart-footer">
 
                   <div className="cart-total">
+
                     <span>Total</span>
 
                     <strong>
                       {money(cartTotal)}
                     </strong>
+
                   </div>
 
                   <button
                     className="checkout-button"
                     onClick={openCheckout}
                   >
-                    Continue to checkout
-                    <Icon
-                      name="arrow"
-                      size={16}
-                    />
+                    Continue to checkout →
                   </button>
 
                   <button
@@ -3044,8 +2368,6 @@ function App() {
         </div>
 
       )}
-
-      {/* CHECKOUT */}
 
       {checkoutOpen && (
 
@@ -3071,18 +2393,25 @@ function App() {
                 setCheckoutOpen(false)
               }
             >
-              <Icon name="close" size={17} />
+              ×
             </button>
 
             {orderSuccess ? (
 
-              <div className="empty-state">
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "25px 5px",
+                }}
+              >
 
-                <div className="empty-icon">
-                  <Icon
-                    name="check"
-                    size={28}
-                  />
+                <div
+                  style={{
+                    fontSize: 60,
+                    marginBottom: 15,
+                  }}
+                >
+                  ✅
                 </div>
 
                 <p className="eyebrow">
@@ -3114,19 +2443,11 @@ function App() {
                   SHINDARA CHECKOUT
                 </p>
 
-                <h2>
-                  Delivery details
-                </h2>
+                <h2>Delivery details</h2>
 
-                <p
-                  style={{
-                    color: "var(--muted)",
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Tell us where to deliver
-                  your order.
+                <p style={{ opacity: .65 }}>
+                  Tell us where to deliver your
+                  order.
                 </p>
 
                 <form
@@ -3182,9 +2503,7 @@ function App() {
                     required
                   />
 
-                  <input
-                    type="text"
-                    placeholder="State"
+                  <select
                     value={deliveryState}
                     onChange={(event) =>
                       setDeliveryState(
@@ -3192,15 +2511,34 @@ function App() {
                       )
                     }
                     required
-                  />
+                  >
+
+                    <option value="">
+                      Select your state
+                    </option>
+
+                    {NIGERIAN_STATES.map(
+                      (state) => (
+                        <option
+                          key={state}
+                          value={state}
+                        >
+                          {state}
+                        </option>
+                      )
+                    )}
+
+                  </select>
 
                   <div
                     style={{
                       display: "flex",
-                      justifyContent: "space-between",
+                      justifyContent:
+                        "space-between",
                       padding: "15px 0",
                     }}
                   >
+
                     <strong>
                       Order total
                     </strong>
@@ -3208,6 +2546,7 @@ function App() {
                     <strong>
                       {money(cartTotal)}
                     </strong>
+
                   </div>
 
                   {orderMessage && (
@@ -3222,8 +2561,10 @@ function App() {
                     disabled={orderLoading}
                   >
                     {orderLoading
-                      ? "Processing..."
-                      : `Pay ${money(cartTotal)}`}
+                      ? "Opening Paystack..."
+                      : `Pay ${money(
+                          cartTotal
+                        )}`}
                   </button>
 
                 </form>
@@ -3237,8 +2578,6 @@ function App() {
         </div>
 
       )}
-
-      {/* ACCOUNT */}
 
       {accountOpen && (
 
@@ -3262,7 +2601,7 @@ function App() {
                 setAccountOpen(false)
               }
             >
-              <Icon name="close" size={17} />
+              ×
             </button>
 
             {user ? (
@@ -3277,75 +2616,85 @@ function App() {
                   {profile?.name
                     ? `Hello, ${
                         profile.name.split(" ")[0]
-                      }`
+                      } 👋`
                     : "My Account"}
                 </h2>
 
-                <div className="account-tabs">
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(3,1fr)",
+                    gap: 8,
+                    margin: "25px 0",
+                  }}
+                >
 
                   <button
-                    className={`account-tab ${
+                    className={
                       accountTab === "profile"
-                        ? "active"
-                        : ""
-                    }`}
+                        ? "modal-action"
+                        : "modal-secondary"
+                    }
                     onClick={() =>
                       setAccountTab("profile")
                     }
                   >
-                    <Icon
-                      name="user"
-                      size={15}
-                    />
-                    Profile
+                    👤 Profile
                   </button>
 
                   <button
-                    className={`account-tab ${
+                    className={
                       accountTab === "orders"
-                        ? "active"
-                        : ""
-                    }`}
+                        ? "modal-action"
+                        : "modal-secondary"
+                    }
                     onClick={() => {
                       setAccountTab("orders");
                       loadOrders();
                     }}
                   >
-                    <Icon
-                      name="package"
-                      size={15}
-                    />
-                    Orders
+                    📦 Orders
                   </button>
 
                   <button
-                    className={`account-tab ${
+                    className={
                       accountTab === "settings"
-                        ? "active"
-                        : ""
-                    }`}
+                        ? "modal-action"
+                        : "modal-secondary"
+                    }
                     onClick={() => {
                       setAccountTab("settings");
                       setSettingsMessage("");
                       setPasswordMessage("");
+
+                      setProfileName(
+                        profile?.name || ""
+                      );
+
+                      setProfilePhone(
+                        profile?.phone || ""
+                      );
                     }}
                   >
-                    <Icon
-                      name="settings"
-                      size={15}
-                    />
-                    Settings
+                    ⚙️ Settings
                   </button>
 
                 </div>
-
-                {/* PROFILE */}
 
                 {accountTab === "profile" && (
 
                   <div>
 
-                    <div className="profile-card">
+                    <div
+                      style={{
+                        padding: 20,
+                        borderRadius: 18,
+                        background:
+                          "rgba(128,128,128,.08)",
+                        marginBottom: 15,
+                      }}
+                    >
 
                       <p className="eyebrow">
                         PERSONAL INFORMATION
@@ -3356,37 +2705,39 @@ function App() {
                           "Customer"}
                       </h3>
 
-                      <div className="profile-line">
-                        <Icon
-                          name="mail"
-                          size={15}
-                        />
-                        {user.email}
-                      </div>
+                      <p>
+                        📧 {user.email}
+                      </p>
 
-                      <div className="profile-line">
-                        <Icon
-                          name="phone"
-                          size={15}
-                        />
+                      <p>
+                        📱{" "}
                         {profile?.phone ||
                           "Phone number not added"}
-                      </div>
+                      </p>
 
                     </div>
 
                     <button
                       className="modal-action"
-                      onClick={() =>
-                        setAccountTab("settings")
-                      }
+                      onClick={() => {
+                        setProfileName(
+                          profile?.name || ""
+                        );
+
+                        setProfilePhone(
+                          profile?.phone || ""
+                        );
+
+                        setSettingsMessage("");
+                        setAccountTab("settings");
+                      }}
                     >
                       Edit profile
                     </button>
 
                     <button
                       className="modal-secondary"
-                      style={{ marginTop: 9 }}
+                      style={{ marginTop: 10 }}
                       onClick={() => {
                         setAccountTab("orders");
                         loadOrders();
@@ -3398,8 +2749,6 @@ function App() {
                   </div>
 
                 )}
-
-                {/* ORDERS */}
 
                 {accountTab === "orders" && (
 
@@ -3413,13 +2762,23 @@ function App() {
 
                     {ordersLoading ? (
 
-                      <div className="loading-state">
+                      <div
+                        style={{
+                          padding: 35,
+                          textAlign: "center",
+                        }}
+                      >
                         Loading your orders...
                       </div>
 
                     ) : ordersError ? (
 
-                      <div className="error-state">
+                      <div
+                        style={{
+                          padding: 20,
+                          textAlign: "center",
+                        }}
+                      >
 
                         <p>{ordersError}</p>
 
@@ -3434,13 +2793,15 @@ function App() {
 
                     ) : orders.length === 0 ? (
 
-                      <div className="empty-state">
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: 35,
+                        }}
+                      >
 
-                        <div className="empty-icon">
-                          <Icon
-                            name="package"
-                            size={27}
-                          />
+                        <div style={{ fontSize: 50 }}>
+                          📦
                         </div>
 
                         <h3>No orders yet</h3>
@@ -3470,11 +2831,24 @@ function App() {
                         {orders.map((order) => (
 
                           <div
-                            className="order-card"
                             key={order.id}
+                            style={{
+                              padding: 18,
+                              border:
+                                "1px solid rgba(128,128,128,.2)",
+                              borderRadius: 18,
+                              marginBottom: 12,
+                            }}
                           >
 
-                            <div className="order-top">
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent:
+                                  "space-between",
+                                gap: 12,
+                              }}
+                            >
 
                               <div>
 
@@ -3485,15 +2859,30 @@ function App() {
                                     .toUpperCase()}
                                 </strong>
 
-                                <div className="order-date">
+                                <p
+                                  style={{
+                                    opacity: .6,
+                                    fontSize: 13,
+                                  }}
+                                >
                                   {formatDate(
                                     order.created_at
                                   )}
-                                </div>
+                                </p>
 
                               </div>
 
-                              <span className="status-pill">
+                              <span
+                                style={{
+                                  padding:
+                                    "6px 10px",
+                                  borderRadius: 999,
+                                  background:
+                                    "rgba(128,128,128,.12)",
+                                  fontSize: 12,
+                                  height: "fit-content",
+                                }}
+                              >
                                 {statusLabel(
                                   order.status
                                 )}
@@ -3501,14 +2890,26 @@ function App() {
 
                             </div>
 
-                            <div className="order-bottom">
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent:
+                                  "space-between",
+                                alignItems:
+                                  "center",
+                                marginTop: 12,
+                              }}
+                            >
 
                               <strong>
                                 {money(order.total)}
                               </strong>
 
                               <button
-                                className="modal-secondary view-items"
+                                className="modal-secondary"
+                                style={{
+                                  width: "auto",
+                                }}
                                 onClick={() =>
                                   setExpandedOrder(
                                     expandedOrder ===
@@ -3529,14 +2930,29 @@ function App() {
                             {expandedOrder ===
                               order.id && (
 
-                              <div className="order-items">
+                              <div
+                                style={{
+                                  marginTop: 15,
+                                  paddingTop: 15,
+                                  borderTop:
+                                    "1px solid rgba(128,128,128,.15)",
+                                }}
+                              >
 
                                 {order.order_items?.map(
                                   (item) => (
 
                                     <div
-                                      className="order-item-row"
                                       key={item.id}
+                                      style={{
+                                        display:
+                                          "flex",
+                                        justifyContent:
+                                          "space-between",
+                                        padding:
+                                          "8px 0",
+                                        gap: 10,
+                                      }}
                                     >
 
                                       <div>
@@ -3547,12 +2963,17 @@ function App() {
                                           }
                                         </strong>
 
-                                        <small>
+                                        <div
+                                          style={{
+                                            opacity: .6,
+                                            fontSize: 13,
+                                          }}
+                                        >
                                           Qty:{" "}
                                           {
                                             item.quantity
                                           }
-                                        </small>
+                                        </div>
 
                                       </div>
 
@@ -3588,8 +3009,6 @@ function App() {
 
                 )}
 
-                {/* SETTINGS */}
-
                 {accountTab === "settings" && (
 
                   <div>
@@ -3598,9 +3017,7 @@ function App() {
                       ACCOUNT SETTINGS
                     </p>
 
-                    <h3>
-                      Personal details
-                    </h3>
+                    <h3>Edit your details</h3>
 
                     <form
                       className="auth-form"
@@ -3662,56 +3079,7 @@ function App() {
                         marginTop: 30,
                         paddingTop: 25,
                         borderTop:
-                          "1px solid var(--border)",
-                      }}
-                    >
-
-                      <p className="eyebrow">
-                        APPEARANCE
-                      </p>
-
-                      <h3>
-                        Theme
-                      </h3>
-
-                      <button
-                        className="modal-secondary"
-                        onClick={cycleTheme}
-                      >
-                        {theme === "dark" ? (
-                          <Icon
-                            name="moon"
-                            size={16}
-                          />
-                        ) : (
-                          <Icon
-                            name="sun"
-                            size={16}
-                          />
-                        )}
-                        {" "}
-                        {themeLabel()} mode
-                      </button>
-
-                      <p
-                        style={{
-                          color: "var(--muted)",
-                          fontSize: 11,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        System follows your
-                        device appearance.
-                      </p>
-
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: 30,
-                        paddingTop: 25,
-                        borderTop:
-                          "1px solid var(--border)",
+                          "1px solid rgba(128,128,128,.15)",
                       }}
                     >
 
@@ -3766,12 +3134,7 @@ function App() {
                       style={{ marginTop: 25 }}
                       onClick={logout}
                     >
-                      <Icon
-                        name="logout"
-                        size={16}
-                      />
-                      {" "}
-                      Log out
+                      🚪 Log out
                     </button>
 
                   </div>
@@ -3781,8 +3144,6 @@ function App() {
               </>
 
             ) : (
-
-              /* LOGIN / SIGNUP */
 
               <>
 
@@ -3795,18 +3156,6 @@ function App() {
                     ? "Create your account"
                     : "Welcome back"}
                 </h2>
-
-                <p
-                  style={{
-                    color: "var(--muted)",
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {authMode === "signup"
-                    ? "Create an account to make checkout and order tracking easier."
-                    : "Sign in to access your account and orders."}
-                </p>
 
                 <form
                   className="auth-form"
@@ -3974,8 +3323,6 @@ function App() {
 
       )}
 
-      {/* FORGOT PASSWORD */}
-
       {forgotPassword && (
 
         <div
@@ -3998,7 +3345,7 @@ function App() {
                 setForgotPassword(false)
               }
             >
-              <Icon name="close" size={17} />
+              ×
             </button>
 
             <p className="eyebrow">
@@ -4009,13 +3356,7 @@ function App() {
               Reset your password
             </h2>
 
-            <p
-              style={{
-                color: "var(--muted)",
-                fontSize: 13,
-                lineHeight: 1.5,
-              }}
-            >
+            <p style={{ opacity: .65 }}>
               Enter your email and we'll send
               you a password reset link.
             </p>
