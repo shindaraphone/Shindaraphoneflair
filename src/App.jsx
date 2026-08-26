@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
@@ -9,300 +9,7 @@ const TIKTOK =
 const PAYSTACK_PUBLIC_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
-/*
-  Nigerian location dataset.
-  Includes states, LGAs and towns/cities.
-*/
-const NIGERIA_LOCATION_DATA_URL =
-  "https://unpkg.com/nigeria-state-lga-data@1.1.5/data/nigeria.json";
-
-const FALLBACK_LOCATIONS = [
-  {
-    name: "Lagos",
-    capital: "Ikeja",
-    lgas: [
-      "Agege",
-      "Ajeromi-Ifelodun",
-      "Alimosho",
-      "Amuwo-Odofin",
-      "Apapa",
-      "Badagry",
-      "Epe",
-      "Eti-Osa",
-      "Ibeju-Lekki",
-      "Ifako-Ijaiye",
-      "Ikeja",
-      "Ikorodu",
-      "Kosofe",
-      "Lagos Island",
-      "Lagos Mainland",
-      "Mushin",
-      "Ojo",
-      "Oshodi-Isolo",
-      "Shomolu",
-      "Surulere",
-    ],
-    towns: [
-      "Ikeja",
-      "Lekki",
-      "Ikorodu",
-      "Epe",
-      "Badagry",
-      "Victoria Island",
-      "Lagos Island",
-      "Lagos Mainland",
-      "Surulere",
-      "Yaba",
-      "Maryland",
-      "Ajah",
-      "Chevron",
-      "Festac",
-      "Apapa",
-      "Oshodi",
-      "Alimosho",
-      "Agege",
-      "Mushin",
-      "Ojota",
-      "Ketu",
-      "Magodo",
-      "Gbagada",
-      "Anthony",
-      "Ogba",
-      "Iyana Ipaja",
-      "Egbeda",
-      "Abule Egba",
-      "Ikoyi",
-      "Oniru",
-    ],
-  },
-  {
-    name: "Oyo",
-    capital: "Ibadan",
-    lgas: [
-      "Afijio",
-      "Akinyele",
-      "Atiba",
-      "Atisbo",
-      "Egbeda",
-      "Ibadan North",
-      "Ibadan North-East",
-      "Ibadan North-West",
-      "Ibadan South-East",
-      "Ibadan South-West",
-      "Ibarapa Central",
-      "Ibarapa East",
-      "Ibarapa North",
-      "Ido",
-      "Irepo",
-      "Iseyin",
-      "Itesiwaju",
-      "Iwajowa",
-      "Kajola",
-      "Lagelu",
-      "Ogbomoso North",
-      "Ogbomoso South",
-      "Ogo Oluwa",
-      "Olorunsogo",
-      "Oluyole",
-      "Ona Ara",
-      "Orelope",
-      "Ori Ire",
-      "Oyo East",
-      "Oyo West",
-      "Saki East",
-      "Saki West",
-      "Surulere",
-    ],
-    towns: [
-      "Ibadan",
-      "Ogbomoso",
-      "Oyo",
-      "Iseyin",
-      "Saki",
-      "Igboho",
-      "Eruwa",
-      "Iwo",
-      "Moniya",
-      "Apata",
-      "Akobo",
-      "Bodija",
-      "Mokola",
-      "Dugbe",
-      "Challenge",
-      "Ring Road",
-      "Oluyole",
-      "Eleyele",
-      "Ojoo",
-      "Agodi",
-      "Jericho",
-      "Samonda",
-      "Alakia",
-      "Lagos-Ibadan Expressway",
-    ],
-  },
-  {
-    name: "Ogun",
-    capital: "Abeokuta",
-    lgas: [
-      "Abeokuta North",
-      "Abeokuta South",
-      "Ado-Odo/Ota",
-      "Ewekoro",
-      "Ifo",
-      "Ijebu East",
-      "Ijebu North",
-      "Ijebu North East",
-      "Ijebu Ode",
-      "Ikenne",
-      "Imeko Afon",
-      "Ipokia",
-      "Obafemi Owode",
-      "Odeda",
-      "Odogbolu",
-      "Ogun Waterside",
-      "Remo North",
-      "Sagamu",
-      "Yewa North",
-      "Yewa South",
-    ],
-    towns: [
-      "Abeokuta",
-      "Ijebu Ode",
-      "Sagamu",
-      "Ifo",
-      "Ota",
-      "Agbara",
-      "Ado-Odo",
-      "Ijebu Igbo",
-      "Ikenne",
-      "Mowe",
-      "Ofada",
-      "Obantoko",
-      "Lafenwa",
-      "Kuto",
-      "Fajol",
-      "Oke-Ilewo",
-      "Adatan",
-      "GRA Abeokuta",
-      "Remo",
-      "Shagamu",
-    ],
-  },
-  {
-    name: "Kwara",
-    capital: "Ilorin",
-    lgas: [
-      "Asa",
-      "Baruten",
-      "Edu",
-      "Ekiti",
-      "Ilorin East",
-      "Ilorin South",
-      "Ilorin West",
-      "Irepodun",
-      "Isin",
-      "Kaiama",
-      "Moro",
-      "Offa",
-      "Oke Ero",
-      "Oyun",
-      "Patigi",
-      "Ifelodun",
-    ],
-    towns: [
-      "Ilorin",
-      "Offa",
-      "Jebba",
-      "Lafiagi",
-      "Patigi",
-      "Bacita",
-      "Omu-Aran",
-      "Erin-Ile",
-      "Share",
-      "Malete",
-      "Ajase-Ipo",
-      "Ilorin West",
-      "Ilorin East",
-      "Tanke",
-      "Fate",
-      "GRA Ilorin",
-      "Sango",
-      "Gambari",
-    ],
-  },
-  {
-    name: "Federal Capital Territory",
-    capital: "Abuja",
-    lgas: [
-      "Abaji",
-      "Bwari",
-      "Gwagwalada",
-      "Kuje",
-      "Kwali",
-      "Abuja Municipal",
-    ],
-    towns: [
-      "Abuja",
-      "Garki",
-      "Wuse",
-      "Maitama",
-      "Asokoro",
-      "Gwarinpa",
-      "Kubwa",
-      "Jabi",
-      "Utako",
-      "Wuye",
-      "Lugbe",
-      "Nyanya",
-      "Karu",
-      "Bwari",
-      "Gwagwalada",
-      "Kuje",
-      "Abaji",
-      "Kwali",
-    ],
-  },
-];
-
-const FALLBACK_STATES = [
-  "Abia",
-  "Adamawa",
-  "Akwa Ibom",
-  "Anambra",
-  "Bauchi",
-  "Bayelsa",
-  "Benue",
-  "Borno",
-  "Cross River",
-  "Delta",
-  "Ebonyi",
-  "Edo",
-  "Ekiti",
-  "Enugu",
-  "Federal Capital Territory",
-  "Gombe",
-  "Imo",
-  "Jigawa",
-  "Kaduna",
-  "Kano",
-  "Katsina",
-  "Kebbi",
-  "Kogi",
-  "Kwara",
-  "Lagos",
-  "Nasarawa",
-  "Niger",
-  "Ogun",
-  "Ondo",
-  "Osun",
-  "Oyo",
-  "Plateau",
-  "Rivers",
-  "Sokoto",
-  "Taraba",
-  "Yobe",
-  "Zamfara",
-];
+const CART_STORAGE_KEY = "shindara_phoneflair_cart";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
@@ -353,99 +60,48 @@ function loadPaystackScript() {
   });
 }
 
-function normalizeLocationData(raw) {
-  if (!raw) return [];
-
-  const source = Array.isArray(raw)
-    ? raw
-    : Array.isArray(raw.states)
-    ? raw.states
-    : [];
-
-  return source
-    .map((state) => ({
-      name:
-        state.name ||
-        state.state ||
-        state.stateName ||
-        "",
-      capital: state.capital || "",
-      lgas: Array.isArray(state.lgas)
-        ? state.lgas
-        : [],
-      towns: Array.isArray(state.towns)
-        ? state.towns
-        : Array.isArray(state.cities)
-        ? state.cities
-        : [],
-    }))
-    .filter((state) => state.name);
-}
-
 function App() {
   /* =========================
      CART
   ========================= */
 
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CART_STORAGE_KEY);
+
+      if (!saved) return [];
+
+      const parsed = JSON.parse(saved);
+
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [cartOpen, setCartOpen] = useState(false);
 
   /* =========================
      CHECKOUT
   ========================= */
 
-  const [checkoutOpen, setCheckoutOpen] =
-    useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
+  const [orderSuccess, setOrderSuccess] = useState(false);
 
-  const [orderLoading, setOrderLoading] =
-    useState(false);
-
-  const [orderMessage, setOrderMessage] =
-    useState("");
-
-  const [orderSuccess, setOrderSuccess] =
-    useState(false);
-
-  const [customerName, setCustomerName] =
-    useState("");
-
-  const [customerPhone, setCustomerPhone] =
-    useState("");
-
-  const [deliveryAddress, setDeliveryAddress] =
-    useState("");
-
-  const [deliveryCity, setDeliveryCity] =
-    useState("");
-
-  const [deliveryState, setDeliveryState] =
-    useState("");
-
-  const [citySearch, setCitySearch] =
-    useState("");
-
-  /* =========================
-     NIGERIA LOCATIONS
-  ========================= */
-
-  const [locations, setLocations] =
-    useState(FALLBACK_LOCATIONS);
-
-  const [locationsLoading, setLocationsLoading] =
-    useState(true);
-
-  const [citySuggestionsOpen, setCitySuggestionsOpen] =
-    useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
 
   /* =========================
      ACCOUNT
   ========================= */
 
-  const [accountOpen, setAccountOpen] =
-    useState(false);
-
-  const [accountTab, setAccountTab] =
-    useState("profile");
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountTab, setAccountTab] = useState("profile");
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -454,231 +110,75 @@ function App() {
      AUTH
   ========================= */
 
-  const [authMode, setAuthMode] =
-    useState("login");
+  const [authMode, setAuthMode] = useState("login");
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] =
-    useState("");
+  const [password, setPassword] = useState("");
 
-  const [fullName, setFullName] =
-    useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
 
-  const [phone, setPhone] =
-    useState("");
-
-  const [authMessage, setAuthMessage] =
-    useState("");
-
-  const [authLoading, setAuthLoading] =
-    useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
 
   /* =========================
      FORGOT PASSWORD
   ========================= */
 
-  const [forgotPassword, setForgotPassword] =
-    useState(false);
-
-  const [resetEmail, setResetEmail] =
-    useState("");
-
-  const [resetMessage, setResetMessage] =
-    useState("");
-
-  const [resetLoading, setResetLoading] =
-    useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   /* =========================
      PROFILE SETTINGS
   ========================= */
 
-  const [profileName, setProfileName] =
-    useState("");
+  const [profileName, setProfileName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
 
-  const [profilePhone, setProfilePhone] =
-    useState("");
-
-  const [settingsMessage, setSettingsMessage] =
-    useState("");
-
-  const [settingsLoading, setSettingsLoading] =
-    useState(false);
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   /* =========================
      PASSWORD
   ========================= */
 
-  const [newPassword, setNewPassword] =
-    useState("");
-
-  const [passwordMessage, setPasswordMessage] =
-    useState("");
-
-  const [passwordLoading, setPasswordLoading] =
-    useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   /* =========================
      ORDERS
   ========================= */
 
-  const [orders, setOrders] =
-    useState([]);
-
-  const [ordersLoading, setOrdersLoading] =
-    useState(false);
-
-  const [ordersError, setOrdersError] =
-    useState("");
-
-  const [expandedOrder, setExpandedOrder] =
-    useState(null);
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+  const [expandedOrder, setExpandedOrder] = useState(null);
 
   /* =========================
      PRODUCTS
   ========================= */
 
-  const [products, setProducts] =
-    useState([]);
-
-  const [productsLoading, setProductsLoading] =
-    useState(true);
-
-  const [productsError, setProductsError] =
-    useState("");
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState("");
 
   /* =========================
-     LOAD LOCATIONS
+     SAVE CART
   ========================= */
 
   useEffect(() => {
-    let mounted = true;
-
-    async function loadLocations() {
-      try {
-        const response = await fetch(
-          NIGERIA_LOCATION_DATA_URL
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            "Unable to load Nigerian locations."
-          );
-        }
-
-        const data = await response.json();
-
-        const normalized =
-          normalizeLocationData(data);
-
-        if (
-          mounted &&
-          normalized.length > 0
-        ) {
-          setLocations(normalized);
-        }
-      } catch (error) {
-        console.error(
-          "Location data error:",
-          error
-        );
-
-        if (mounted) {
-          setLocations(FALLBACK_LOCATIONS);
-        }
-      } finally {
-        if (mounted) {
-          setLocationsLoading(false);
-        }
-      }
+    try {
+      localStorage.setItem(
+        CART_STORAGE_KEY,
+        JSON.stringify(cart)
+      );
+    } catch (error) {
+      console.error("Unable to save cart:", error);
     }
-
-    loadLocations();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  /* =========================
-     LOCATION HELPERS
-  ========================= */
-
-  const stateNames = useMemo(() => {
-    const names = new Set([
-      ...FALLBACK_STATES,
-      ...locations.map(
-        (location) => location.name
-      ),
-    ]);
-
-    return Array.from(names).sort(
-      (a, b) => a.localeCompare(b)
-    );
-  }, [locations]);
-
-  const selectedLocation = useMemo(() => {
-    return locations.find(
-      (location) =>
-        location.name.toLowerCase() ===
-        deliveryState.toLowerCase()
-    );
-  }, [locations, deliveryState]);
-
-  const cityOptions = useMemo(() => {
-    if (!selectedLocation) {
-      return [];
-    }
-
-    const combined = [
-      ...(selectedLocation.towns || []),
-      ...(selectedLocation.lgas || []),
-      selectedLocation.capital,
-    ];
-
-    const unique = Array.from(
-      new Set(
-        combined
-          .filter(Boolean)
-          .map((item) =>
-            String(item).trim()
-          )
-          .filter(Boolean)
-      )
-    );
-
-    return unique.sort((a, b) =>
-      a.localeCompare(b)
-    );
-  }, [selectedLocation]);
-
-  const filteredCities = useMemo(() => {
-    const query =
-      citySearch.trim().toLowerCase();
-
-    if (!query) {
-      return cityOptions.slice(0, 80);
-    }
-
-    return cityOptions
-      .filter((city) =>
-        city.toLowerCase().includes(query)
-      )
-      .slice(0, 80);
-  }, [cityOptions, citySearch]);
-
-  function selectState(state) {
-    setDeliveryState(state);
-    setDeliveryCity("");
-    setCitySearch("");
-    setCitySuggestionsOpen(false);
-  }
-
-  function selectCity(city) {
-    setDeliveryCity(city);
-    setCitySearch(city);
-    setCitySuggestionsOpen(false);
-  }
+  }, [cart]);
 
   /* =========================
      INITIAL USER
@@ -688,20 +188,16 @@ function App() {
     let mounted = true;
 
     async function loadUser() {
-      const { data } =
-        await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
 
       if (!mounted) return;
 
-      const currentUser =
-        data?.user ?? null;
+      const currentUser = data?.user ?? null;
 
       setUser(currentUser);
 
       if (currentUser) {
-        await loadProfile(
-          currentUser.id
-        );
+        await loadProfile(currentUser.id);
       }
     }
 
@@ -713,15 +209,12 @@ function App() {
       async (_event, session) => {
         if (!mounted) return;
 
-        const currentUser =
-          session?.user ?? null;
+        const currentUser = session?.user ?? null;
 
         setUser(currentUser);
 
         if (currentUser) {
-          await loadProfile(
-            currentUser.id
-          );
+          await loadProfile(currentUser.id);
         } else {
           setProfile(null);
           setOrders([]);
@@ -762,17 +255,71 @@ function App() {
     };
   }, []);
 
+  /* =========================
+     CHECK CART AGAINST STOCK
+  ========================= */
+
+  useEffect(() => {
+    if (!products.length || !cart.length) return;
+
+    setCart((currentCart) => {
+      let changed = false;
+
+      const updated = currentCart
+        .map((item) => {
+          const latestProduct = products.find(
+            (product) => product.id === item.id
+          );
+
+          if (!latestProduct) {
+            changed = true;
+            return null;
+          }
+
+          const stock = Number(
+            latestProduct.stock || 0
+          );
+
+          if (stock <= 0) {
+            changed = true;
+            return null;
+          }
+
+          const currentQuantity = Number(
+            item.quantity || 1
+          );
+
+          const safeQuantity = Math.min(
+            currentQuantity,
+            stock
+          );
+
+          if (safeQuantity !== currentQuantity) {
+            changed = true;
+          }
+
+          return {
+            ...item,
+            ...latestProduct,
+            quantity: safeQuantity,
+          };
+        })
+        .filter(Boolean);
+
+      return changed ? updated : currentCart;
+    });
+  }, [products]);
+
   async function loadProducts() {
     setProductsLoading(true);
     setProductsError("");
 
-    const { data, error } =
-      await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
       console.error(error);
@@ -794,12 +341,11 @@ function App() {
   ========================= */
 
   async function loadProfile(userId) {
-    const { data, error } =
-      await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
 
     if (error) {
       console.error(
@@ -812,20 +358,39 @@ function App() {
     setProfile(data || null);
 
     if (data) {
-      const name =
+      setProfileName(
         data.name ||
-        data.full_name ||
-        "";
+          data.full_name ||
+          ""
+      );
 
-      const userPhone =
+      setProfilePhone(
         data.phone ||
-        "";
+          ""
+      );
 
-      setProfileName(name);
-      setProfilePhone(userPhone);
+      setCustomerName(
+        data.name ||
+          data.full_name ||
+          ""
+      );
 
-      setCustomerName(name);
-      setCustomerPhone(userPhone);
+      setCustomerPhone(
+        data.phone ||
+          ""
+      );
+
+      if (data.state) {
+        setDeliveryState(data.state);
+      }
+
+      if (data.city) {
+        setDeliveryCity(data.city);
+      }
+
+      if (data.address) {
+        setDeliveryAddress(data.address);
+      }
     }
   }
 
@@ -839,24 +404,23 @@ function App() {
     setOrdersLoading(true);
     setOrdersError("");
 
-    const { data, error } =
-      await supabase
-        .from("orders")
-        .select(`
-          *,
-          order_items (
-            id,
-            product_id,
-            product_name,
-            price,
-            quantity,
-            image_url
-          )
-        `)
-        .eq("user_id", user.id)
-        .order("created_at", {
-          ascending: false,
-        });
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        order_items (
+          id,
+          product_id,
+          product_name,
+          price,
+          quantity,
+          image_url
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
       console.error(
@@ -901,14 +465,9 @@ function App() {
 
     try {
       if (authMode === "signup") {
-        const cleanEmail =
-          email.trim();
-
-        const cleanName =
-          fullName.trim();
-
-        const cleanPhone =
-          phone.trim();
+        const cleanEmail = email.trim();
+        const cleanName = fullName.trim();
+        const cleanPhone = phone.trim();
 
         if (!cleanName) {
           setAuthMessage(
@@ -931,10 +490,7 @@ function App() {
           return;
         }
 
-        const {
-          data,
-          error,
-        } =
+        const { data, error } =
           await supabase.auth.signUp({
             email: cleanEmail,
             password,
@@ -952,22 +508,15 @@ function App() {
         }
 
         if (data?.user) {
-          const {
-            error: profileError,
-          } =
+          const { error: profileError } =
             await supabase
               .from("profiles")
-              .upsert(
-                {
-                  id: data.user.id,
-                  name: cleanName,
-                  phone: cleanPhone,
-                  email: cleanEmail,
-                },
-                {
-                  onConflict: "id",
-                }
-              );
+              .upsert({
+                id: data.user.id,
+                name: cleanName,
+                phone: cleanPhone,
+                email: cleanEmail,
+              });
 
           if (profileError) {
             console.error(
@@ -977,10 +526,7 @@ function App() {
           }
         }
 
-        if (
-          data?.user &&
-          !data.session
-        ) {
+        if (data?.user && !data.session) {
           setAuthMessage(
             "Account created successfully! Please check your email to confirm your account."
           );
@@ -993,13 +539,8 @@ function App() {
         setPassword("");
 
         if (data?.session) {
-          setCustomerName(
-            cleanName
-          );
-
-          setCustomerPhone(
-            cleanPhone
-          );
+          setCustomerName(cleanName);
+          setCustomerPhone(cleanPhone);
 
           setFullName("");
           setEmail("");
@@ -1011,16 +552,11 @@ function App() {
         return;
       }
 
-      const {
-        data,
-        error,
-      } =
-        await supabase.auth.signInWithPassword(
-          {
-            email: email.trim(),
-            password,
-          }
-        );
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
       if (error) {
         setAuthMessage(error.message);
@@ -1028,9 +564,7 @@ function App() {
       }
 
       if (data?.user) {
-        await loadProfile(
-          data.user.id
-        );
+        await loadProfile(data.user.id);
       }
 
       setEmail("");
@@ -1056,23 +590,19 @@ function App() {
      GOOGLE / APPLE
   ========================= */
 
-  async function signInWithProvider(
-    provider
-  ) {
+  async function signInWithProvider(provider) {
     setAuthLoading(true);
     setAuthMessage("");
 
     try {
       const { error } =
-        await supabase.auth.signInWithOAuth(
-          {
-            provider,
-            options: {
-              redirectTo:
-                window.location.origin,
-            },
-          }
-        );
+        await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo:
+              window.location.origin,
+          },
+        });
 
       if (error) {
         throw error;
@@ -1093,9 +623,7 @@ function App() {
      FORGOT PASSWORD
   ========================= */
 
-  async function handleForgotPassword(
-    event
-  ) {
+  async function handleForgotPassword(event) {
     event.preventDefault();
 
     setResetLoading(true);
@@ -1144,9 +672,7 @@ function App() {
      PROFILE SETTINGS
   ========================= */
 
-  async function saveProfileSettings(
-    event
-  ) {
+  async function saveProfileSettings(event) {
     event.preventDefault();
 
     if (!user) return;
@@ -1175,22 +701,32 @@ function App() {
         return;
       }
 
-      const profilePayload = {
+      const profileData = {
         id: user.id,
         name: cleanName,
         phone: cleanPhone,
         email: user.email || "",
       };
 
+      if (deliveryState) {
+        profileData.state =
+          deliveryState;
+      }
+
+      if (deliveryCity) {
+        profileData.city =
+          deliveryCity;
+      }
+
+      if (deliveryAddress) {
+        profileData.address =
+          deliveryAddress;
+      }
+
       const { error } =
         await supabase
           .from("profiles")
-          .upsert(
-            profilePayload,
-            {
-              onConflict: "id",
-            }
-          );
+          .upsert(profileData);
 
       if (error) {
         throw error;
@@ -1223,9 +759,7 @@ function App() {
      CHANGE PASSWORD
   ========================= */
 
-  async function changePassword(
-    event
-  ) {
+  async function changePassword(event) {
     event.preventDefault();
 
     setPasswordLoading(true);
@@ -1289,6 +823,12 @@ function App() {
   ========================= */
 
   function addToCart(product) {
+    const stock = Number(
+      product.stock || 0
+    );
+
+    if (stock <= 0) return;
+
     setCart((items) => {
       const existing =
         items.find(
@@ -1297,12 +837,22 @@ function App() {
         );
 
       if (existing) {
+        if (
+          Number(existing.quantity) >=
+          stock
+        ) {
+          return items;
+        }
+
         return items.map((item) =>
           item.id === product.id
             ? {
                 ...item,
+                ...product,
                 quantity:
-                  item.quantity + 1,
+                  Number(
+                    item.quantity
+                  ) + 1,
               }
             : item
         );
@@ -1320,15 +870,39 @@ function App() {
 
   function increaseQuantity(id) {
     setCart((items) =>
-      items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              quantity:
-                item.quantity + 1,
-            }
-          : item
-      )
+      items.map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+
+        const latestProduct =
+          products.find(
+            (product) =>
+              product.id === id
+          );
+
+        const stock = Number(
+          latestProduct?.stock ??
+            item.stock ??
+            0
+        );
+
+        const currentQuantity =
+          Number(item.quantity || 1);
+
+        if (
+          stock > 0 &&
+          currentQuantity >= stock
+        ) {
+          return item;
+        }
+
+        return {
+          ...item,
+          quantity:
+            currentQuantity + 1,
+        };
+      })
     );
   }
 
@@ -1340,13 +914,15 @@ function App() {
             ? {
                 ...item,
                 quantity:
-                  item.quantity - 1,
+                  Number(
+                    item.quantity || 1
+                  ) - 1,
               }
             : item
         )
         .filter(
           (item) =>
-            item.quantity > 0
+            Number(item.quantity) > 0
         )
     );
   }
@@ -1354,8 +930,7 @@ function App() {
   function removeFromCart(id) {
     setCart((items) =>
       items.filter(
-        (item) =>
-          item.id !== id
+        (item) => item.id !== id
       )
     );
   }
@@ -1368,9 +943,7 @@ function App() {
     cart.reduce(
       (total, item) =>
         total +
-        Number(
-          item.quantity || 0
-        ),
+        Number(item.quantity || 0),
       0
     );
 
@@ -1378,12 +951,8 @@ function App() {
     cart.reduce(
       (total, item) =>
         total +
-        Number(
-          item.price || 0
-        ) *
-          Number(
-            item.quantity || 0
-          ),
+        Number(item.price || 0) *
+          Number(item.quantity || 0),
       0
     );
 
@@ -1409,44 +978,38 @@ function App() {
     }
 
     setCheckoutOpen(true);
-
-    setCitySearch(
-      deliveryCity || ""
-    );
   }
 
   async function saveOrder(reference) {
-    const {
-      data: order,
-      error: orderError,
-    } = await supabase
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        customer_name:
-          customerName.trim(),
-        customer_phone:
-          customerPhone.trim(),
-        delivery_address:
-          deliveryAddress.trim(),
-        delivery_city:
-          deliveryCity.trim(),
-        delivery_state:
-          deliveryState.trim(),
-        total: cartTotal,
-        status: "paid",
-        payment_reference:
-          reference,
-      })
-      .select()
-      .single();
+    const { data: order, error: orderError } =
+      await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          customer_name:
+            customerName.trim(),
+          customer_phone:
+            customerPhone.trim(),
+          delivery_address:
+            deliveryAddress.trim(),
+          delivery_city:
+            deliveryCity.trim(),
+          delivery_state:
+            deliveryState.trim(),
+          total: cartTotal,
+          status: "paid",
+          payment_reference:
+            reference,
+        })
+        .select()
+        .single();
 
     if (orderError) {
       throw orderError;
     }
 
-    const items = cart.map(
-      (item) => ({
+    const items =
+      cart.map((item) => ({
         order_id: order.id,
         product_id: item.id,
         product_name:
@@ -1459,23 +1022,18 @@ function App() {
         ),
         image_url:
           item.image_url || null,
-      })
-    );
+      }));
 
-    const {
-      error: itemsError,
-    } = await supabase
-      .from("order_items")
-      .insert(items);
+    const { error: itemsError } =
+      await supabase
+        .from("order_items")
+        .insert(items);
 
     if (itemsError) {
       await supabase
         .from("orders")
         .delete()
-        .eq(
-          "id",
-          order.id
-        );
+        .eq("id", order.id);
 
       throw itemsError;
     }
@@ -1496,41 +1054,6 @@ function App() {
     if (!cart.length) {
       setOrderMessage(
         "Your cart is empty."
-      );
-      return;
-    }
-
-    if (!customerName.trim()) {
-      setOrderMessage(
-        "Please enter your full name."
-      );
-      return;
-    }
-
-    if (!customerPhone.trim()) {
-      setOrderMessage(
-        "Please enter your phone number."
-      );
-      return;
-    }
-
-    if (!deliveryAddress.trim()) {
-      setOrderMessage(
-        "Please enter your delivery address."
-      );
-      return;
-    }
-
-    if (!deliveryState.trim()) {
-      setOrderMessage(
-        "Please select your state."
-      );
-      return;
-    }
-
-    if (!deliveryCity.trim()) {
-      setOrderMessage(
-        "Please select or enter your city."
       );
       return;
     }
@@ -1647,10 +1170,7 @@ function App() {
                 `Order placed successfully! Your order number is ${String(
                   order.id
                 )
-                  .slice(
-                    0,
-                    8
-                  )
+                  .slice(0, 8)
                   .toUpperCase()}.`
               );
 
@@ -1661,7 +1181,6 @@ function App() {
               setDeliveryAddress("");
               setDeliveryCity("");
               setDeliveryState("");
-              setCitySearch("");
             } catch (error) {
               console.error(
                 "Payment/order error:",
@@ -1679,16 +1198,13 @@ function App() {
             }
           },
 
-        onCancel:
-          () => {
-            setOrderLoading(
-              false
-            );
+        onCancel: () => {
+          setOrderLoading(false);
 
-            setOrderMessage(
-              "Payment was cancelled. Your order has not been placed."
-            );
-          },
+          setOrderMessage(
+            "Payment was cancelled. Your order has not been placed."
+          );
+        },
       });
     } catch (error) {
       console.error(
@@ -1736,9 +1252,7 @@ function App() {
     );
   }
 
-  function statusLabel(
-    status
-  ) {
+  function statusLabel(status) {
     if (!status) return "Pending";
 
     return (
@@ -1762,8 +1276,13 @@ function App() {
 
         body {
           margin: 0;
-          font-family: Inter, -apple-system, BlinkMacSystemFont,
-            "SF Pro Display", "Segoe UI", sans-serif;
+          font-family:
+            Inter,
+            -apple-system,
+            BlinkMacSystemFont,
+            "SF Pro Display",
+            "Segoe UI",
+            sans-serif;
           background: #f7f7f8;
           color: #111;
           overflow-x: hidden;
@@ -1781,21 +1300,28 @@ function App() {
           -webkit-tap-highlight-color: transparent;
         }
 
+        button:disabled {
+          opacity: .5;
+          cursor: not-allowed;
+        }
+
         .app {
           min-height: 100vh;
           background:
             radial-gradient(
               circle at 15% 10%,
-              rgba(124, 58, 237, 0.08),
+              rgba(124, 58, 237, .08),
               transparent 28%
             ),
             radial-gradient(
               circle at 85% 20%,
-              rgba(59, 130, 246, 0.08),
+              rgba(59, 130, 246, .08),
               transparent 25%
             ),
             #f7f7f8;
         }
+
+        /* ANNOUNCEMENT */
 
         .announcement-bar {
           width: 100%;
@@ -1811,7 +1337,8 @@ function App() {
         .announcement-track {
           display: flex;
           width: max-content;
-          animation: marquee 22s linear infinite;
+          animation:
+            marquee 22s linear infinite;
         }
 
         .announcement-group {
@@ -1838,6 +1365,8 @@ function App() {
           }
         }
 
+        /* HEADER */
+
         .header {
           position: sticky;
           top: 0;
@@ -1847,10 +1376,14 @@ function App() {
           justify-content: space-between;
           gap: 20px;
           padding: 16px 5%;
-          background: rgba(255,255,255,.82);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(0,0,0,.06);
+          background:
+            rgba(255,255,255,.82);
+          backdrop-filter:
+            blur(20px);
+          -webkit-backdrop-filter:
+            blur(20px);
+          border-bottom:
+            1px solid rgba(0,0,0,.06);
         }
 
         .logo {
@@ -1897,7 +1430,8 @@ function App() {
 
         .account-button,
         .cart-button {
-          border: 1px solid rgba(0,0,0,.08);
+          border:
+            1px solid rgba(0,0,0,.08);
           background: white;
           color: #111;
           border-radius: 999px;
@@ -1911,6 +1445,8 @@ function App() {
           background: #111;
           color: white;
         }
+
+        /* HERO */
 
         .hero {
           min-height: 650px;
@@ -1943,7 +1479,8 @@ function App() {
         }
 
         .hero h1 {
-          font-size: clamp(48px, 7vw, 88px);
+          font-size:
+            clamp(48px, 7vw, 88px);
           line-height: .94;
           letter-spacing: -5px;
           margin: 0 0 28px;
@@ -1967,6 +1504,8 @@ function App() {
           font-weight: 700;
         }
 
+        /* SECTIONS */
+
         .section {
           padding: 90px 7%;
         }
@@ -1977,9 +1516,12 @@ function App() {
           letter-spacing: -2.5px;
         }
 
+        /* CATEGORIES */
+
         .category-grid {
           display: grid;
-          grid-template-columns: repeat(6, 1fr);
+          grid-template-columns:
+            repeat(6, 1fr);
           gap: 12px;
         }
 
@@ -1991,14 +1533,18 @@ function App() {
           padding: 20px;
           text-decoration: none;
           color: inherit;
-          background: rgba(255,255,255,.8);
-          border: 1px solid rgba(0,0,0,.06);
+          background:
+            rgba(255,255,255,.8);
+          border:
+            1px solid rgba(0,0,0,.06);
           border-radius: 22px;
-          transition: transform .2s ease;
+          transition:
+            transform .2s ease;
         }
 
         .category-card:hover {
-          transform: translateY(-4px);
+          transform:
+            translateY(-4px);
         }
 
         .category-card span {
@@ -2009,18 +1555,23 @@ function App() {
           font-size: 14px;
         }
 
+        /* PRODUCTS */
+
         .product-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr));
           gap: 18px;
         }
 
         .product-card {
           background: white;
-          border: 1px solid rgba(0,0,0,.06);
+          border:
+            1px solid rgba(0,0,0,.06);
           border-radius: 24px;
           overflow: hidden;
-          box-shadow: 0 10px 35px rgba(0,0,0,.04);
+          box-shadow:
+            0 10px 35px rgba(0,0,0,.04);
         }
 
         .product-image {
@@ -2062,6 +1613,24 @@ function App() {
           margin: 14px 0;
         }
 
+        .stock-text {
+          font-size: 12px;
+          margin: 0 0 10px;
+          opacity: .65;
+        }
+
+        .stock-low {
+          color: #b45309;
+          font-weight: 700;
+          opacity: 1;
+        }
+
+        .stock-out {
+          color: #dc2626;
+          font-weight: 700;
+          opacity: 1;
+        }
+
         .add-button {
           width: 100%;
           border: 0;
@@ -2073,14 +1642,12 @@ function App() {
           font-weight: 700;
         }
 
-        .add-button:disabled {
-          opacity: .45;
-          cursor: not-allowed;
-        }
+        /* TRUST */
 
         .trust-section {
           display: grid;
-          grid-template-columns: repeat(3,1fr);
+          grid-template-columns:
+            repeat(3,1fr);
           gap: 20px;
           padding: 50px 7%;
           background: #111;
@@ -2090,7 +1657,8 @@ function App() {
         .trust-section > div {
           padding: 25px;
           border-radius: 20px;
-          background: rgba(255,255,255,.05);
+          background:
+            rgba(255,255,255,.05);
         }
 
         .trust-section span {
@@ -2104,6 +1672,8 @@ function App() {
         .trust-section p {
           opacity: .6;
         }
+
+        /* FOOTER */
 
         footer {
           padding: 60px 7%;
@@ -2127,14 +1697,18 @@ function App() {
 
         .social-button {
           display: inline-block;
-          border: 1px solid rgba(255,255,255,.15);
-          background: rgba(255,255,255,.06);
+          border:
+            1px solid rgba(255,255,255,.15);
+          background:
+            rgba(255,255,255,.06);
           color: white;
           padding: 10px 13px;
           border-radius: 999px;
           text-decoration: none;
           cursor: pointer;
         }
+
+        /* WHATSAPP */
 
         .whatsapp-floating {
           position: fixed;
@@ -2147,19 +1721,25 @@ function App() {
           border-radius: 50%;
           background: #111;
           color: white;
-          box-shadow: 0 12px 30px rgba(0,0,0,.2);
+          box-shadow:
+            0 12px 30px rgba(0,0,0,.2);
           cursor: pointer;
           font-size: 22px;
         }
+
+        /* MODALS */
 
         .modal-backdrop,
         .cart-overlay {
           position: fixed;
           inset: 0;
           z-index: 2000;
-          background: rgba(0,0,0,.55);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+          background:
+            rgba(0,0,0,.55);
+          backdrop-filter:
+            blur(8px);
+          -webkit-backdrop-filter:
+            blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -2168,14 +1748,16 @@ function App() {
 
         .account-modal {
           position: relative;
-          width: min(620px, 100%);
+          width:
+            min(620px, 100%);
           max-height: 90vh;
           overflow-y: auto;
           background: white;
           color: #111;
           border-radius: 28px;
           padding: 30px;
-          box-shadow: 0 30px 100px rgba(0,0,0,.3);
+          box-shadow:
+            0 30px 100px rgba(0,0,0,.3);
         }
 
         .modal-close {
@@ -2186,7 +1768,8 @@ function App() {
           height: 36px;
           border: 0;
           border-radius: 50%;
-          background: rgba(0,0,0,.06);
+          background:
+            rgba(0,0,0,.06);
           font-size: 24px;
           cursor: pointer;
         }
@@ -2201,7 +1784,8 @@ function App() {
         .auth-form textarea {
           width: 100%;
           padding: 14px 15px;
-          border: 1px solid rgba(0,0,0,.12);
+          border:
+            1px solid rgba(0,0,0,.12);
           border-radius: 13px;
           outline: none;
           background: #fafafa;
@@ -2212,58 +1796,6 @@ function App() {
         .auth-form textarea:focus {
           border-color: #111;
           background: white;
-        }
-
-        .location-field {
-          position: relative;
-        }
-
-        .city-search-input {
-          width: 100%;
-          padding: 14px 15px;
-          border: 1px solid rgba(0,0,0,.12);
-          border-radius: 13px;
-          outline: none;
-          background: #fafafa;
-        }
-
-        .city-search-input:focus {
-          border-color: #111;
-          background: white;
-        }
-
-        .city-suggestions {
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: calc(100% + 5px);
-          max-height: 230px;
-          overflow-y: auto;
-          background: white;
-          border: 1px solid rgba(0,0,0,.1);
-          border-radius: 14px;
-          box-shadow: 0 18px 40px rgba(0,0,0,.15);
-          z-index: 50;
-        }
-
-        .city-suggestion {
-          width: 100%;
-          border: 0;
-          background: white;
-          padding: 12px 14px;
-          text-align: left;
-          cursor: pointer;
-          font-size: 14px;
-        }
-
-        .city-suggestion:hover {
-          background: #f3f3f5;
-        }
-
-        .city-help {
-          font-size: 11px;
-          opacity: .55;
-          margin-top: 6px;
         }
 
         .modal-action {
@@ -2277,14 +1809,10 @@ function App() {
           cursor: pointer;
         }
 
-        .modal-action:disabled {
-          opacity: .5;
-          cursor: not-allowed;
-        }
-
         .modal-secondary {
           width: 100%;
-          border: 1px solid rgba(0,0,0,.1);
+          border:
+            1px solid rgba(0,0,0,.1);
           background: white;
           color: #111;
           padding: 13px;
@@ -2296,7 +1824,8 @@ function App() {
         .auth-message {
           padding: 12px;
           border-radius: 12px;
-          background: rgba(124,58,237,.08);
+          background:
+            rgba(124,58,237,.08);
           font-size: 13px;
           line-height: 1.5;
         }
@@ -2315,17 +1844,20 @@ function App() {
           content: "";
           height: 1px;
           flex: 1;
-          background: currentColor;
+          background:
+            currentColor;
         }
 
         .social-auth-buttons {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns:
+            1fr 1fr;
           gap: 10px;
         }
 
         .social-auth-button {
-          border: 1px solid rgba(0,0,0,.1);
+          border:
+            1px solid rgba(0,0,0,.1);
           background: white;
           border-radius: 13px;
           padding: 13px;
@@ -2343,6 +1875,8 @@ function App() {
           opacity: .65;
         }
 
+        /* CART */
+
         .cart-overlay {
           align-items: stretch;
           justify-content: flex-end;
@@ -2350,13 +1884,15 @@ function App() {
         }
 
         .cart-drawer {
-          width: min(470px, 100%);
+          width:
+            min(470px, 100%);
           height: 100%;
           background: white;
           color: #111;
           padding: 25px;
           overflow-y: auto;
-          box-shadow: -20px 0 60px rgba(0,0,0,.2);
+          box-shadow:
+            -20px 0 60px rgba(0,0,0,.2);
         }
 
         .cart-header {
@@ -2373,7 +1909,8 @@ function App() {
           display: flex;
           gap: 14px;
           padding: 16px 0;
-          border-bottom: 1px solid rgba(0,0,0,.07);
+          border-bottom:
+            1px solid rgba(0,0,0,.07);
         }
 
         .cart-item-image {
@@ -2404,6 +1941,11 @@ function App() {
           font-size: 14px;
         }
 
+        .cart-item-stock {
+          font-size: 11px;
+          opacity: .6;
+        }
+
         .quantity-controls {
           display: flex;
           align-items: center;
@@ -2414,10 +1956,15 @@ function App() {
         .quantity-controls button {
           width: 30px;
           height: 30px;
-          border: 1px solid rgba(0,0,0,.1);
+          border:
+            1px solid rgba(0,0,0,.1);
           background: white;
           border-radius: 8px;
           cursor: pointer;
+        }
+
+        .quantity-controls button:disabled {
+          opacity: .35;
         }
 
         .remove-cart-item,
@@ -2457,26 +2004,7 @@ function App() {
           margin: 15px auto 0;
         }
 
-        .account-tabs {
-          display: grid;
-          grid-template-columns: repeat(3,1fr);
-          gap: 8px;
-          margin: 25px 0;
-        }
-
-        .profile-card {
-          padding: 20px;
-          border-radius: 18px;
-          background: rgba(128,128,128,.08);
-          margin-bottom: 15px;
-        }
-
-        .order-card {
-          padding: 18px;
-          border: 1px solid rgba(128,128,128,.2);
-          border-radius: 18px;
-          margin-bottom: 12px;
-        }
+        /* MOBILE */
 
         @media (max-width: 768px) {
 
@@ -2500,7 +2028,8 @@ function App() {
 
           .account-button,
           .cart-button {
-            padding: 9px 10px;
+            padding:
+              9px 10px;
             font-size: 11px;
           }
 
@@ -2510,7 +2039,8 @@ function App() {
           }
 
           .hero h1 {
-            font-size: clamp(42px, 13vw, 62px);
+            font-size:
+              clamp(42px, 13vw, 62px);
             letter-spacing: -3px;
           }
 
@@ -2528,11 +2058,13 @@ function App() {
           }
 
           .category-grid {
-            grid-template-columns: repeat(2,1fr);
+            grid-template-columns:
+              repeat(2,1fr);
           }
 
           .product-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
+            grid-template-columns:
+              repeat(2,minmax(0,1fr));
             gap: 10px;
           }
 
@@ -2567,18 +2099,23 @@ function App() {
           }
 
           .account-modal {
-            width: calc(100% - 16px);
-            padding: 23px 17px;
+            width:
+              calc(100% - 16px);
+            padding:
+              23px 17px;
             border-radius: 22px;
           }
 
           .social-auth-buttons {
-            grid-template-columns: 1fr;
+            grid-template-columns:
+              1fr;
           }
 
           .cart-drawer {
             width: 100%;
-            border-radius: 22px 22px 0 0;
+            height: 92%;
+            border-radius:
+              22px 22px 0 0;
           }
 
           .cart-overlay {
@@ -2600,16 +2137,13 @@ function App() {
             right: 14px;
             bottom: 14px;
           }
-
-          .account-tabs {
-            grid-template-columns: 1fr;
-          }
         }
 
         @media (max-width: 380px) {
 
           .product-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns:
+              1fr;
           }
 
           .product-image {
@@ -2637,6 +2171,7 @@ function App() {
         <div className="announcement-track">
 
           <div className="announcement-group">
+
             <span>
               ✨ Premium phone accessories, are screaming here!!! ✨
             </span>
@@ -2652,9 +2187,11 @@ function App() {
             <span>
               ✨ Premium phone accessories, are screaming here!!! ✨
             </span>
+
           </div>
 
           <div className="announcement-group">
+
             <span>
               ✨ Premium phone accessories, are screaming here!!! ✨
             </span>
@@ -2670,6 +2207,7 @@ function App() {
             <span>
               ✨ Premium phone accessories, are screaming here!!! ✨
             </span>
+
           </div>
 
         </div>
@@ -2686,7 +2224,9 @@ function App() {
           className="logo"
         >
           Shindara
-          <span>Phoneflair</span>
+          <span>
+            Phoneflair
+          </span>
         </a>
 
         <nav className="nav">
@@ -2756,9 +2296,10 @@ function App() {
             </h1>
 
             <p className="hero-text">
-              Phones, accessories, chargers,
-              audio products, power banks and
-              everyday gadgets.
+              Phones, accessories,
+              chargers, audio products,
+              power banks and everyday
+              gadgets.
             </p>
 
             <a
@@ -2878,8 +2419,7 @@ function App() {
 
             </div>
 
-          ) : products.length ===
-            0 ? (
+          ) : products.length === 0 ? (
 
             <div
               style={{
@@ -2898,109 +2438,163 @@ function App() {
             <div className="product-grid">
 
               {products.map(
-                (product) => (
+                (product) => {
 
-                  <article
-                    className="product-card"
-                    key={
-                      product.id
-                    }
-                  >
+                  const stock =
+                    Number(
+                      product.stock ||
+                        0
+                    );
 
-                    <div className="product-image">
+                  const lowStock =
+                    stock > 0 &&
+                    stock <= 5;
 
-                      {product.image_url ? (
+                  const cartItem =
+                    cart.find(
+                      (item) =>
+                        item.id ===
+                        product.id
+                    );
 
-                        <img
-                          src={
-                            product.image_url
-                          }
-                          alt={
-                            product.name
-                          }
-                        />
+                  const cartQuantity =
+                    Number(
+                      cartItem?.quantity ||
+                        0
+                    );
 
-                      ) : (
+                  const maxReached =
+                    stock > 0 &&
+                    cartQuantity >=
+                      stock;
 
-                        <span
-                          style={{
-                            fontSize:
-                              45,
-                          }}
-                        >
-                          📦
-                        </span>
+                  return (
 
-                      )}
+                    <article
+                      className="product-card"
+                      key={product.id}
+                    >
 
-                    </div>
+                      <div className="product-image">
 
-                    <div className="product-info">
+                        {product.image_url ? (
 
-                      <p className="product-category">
-                        {product.category ||
-                          "Electronics"}
-                      </p>
+                          <img
+                            src={
+                              product.image_url
+                            }
+                            alt={
+                              product.name
+                            }
+                          />
 
-                      <h3>
-                        {product.name}
-                      </h3>
+                        ) : (
 
-                      {product.description && (
-                        <p
-                          style={{
-                            opacity:
-                              .65,
-                            fontSize:
-                              13,
-                            lineHeight:
-                              1.5,
-                          }}
-                        >
-                          {
-                            product.description
-                          }
-                        </p>
-                      )}
+                          <span
+                            style={{
+                              fontSize: 45,
+                            }}
+                          >
+                            📦
+                          </span>
 
-                      <p className="price">
-                        {money(
-                          product.price
                         )}
-                      </p>
 
-                      {Number(
-                        product.stock ||
-                          0
-                      ) > 0 ? (
+                      </div>
 
-                        <button
-                          className="add-button"
-                          onClick={() =>
-                            addToCart(
-                              product
-                            )
-                          }
-                        >
-                          Add to cart
-                        </button>
+                      <div className="product-info">
 
-                      ) : (
+                        <p className="product-category">
+                          {product.category ||
+                            "Electronics"}
+                        </p>
 
-                        <button
-                          className="add-button"
-                          disabled
-                        >
-                          Out of stock
-                        </button>
+                        <h3>
+                          {product.name}
+                        </h3>
 
-                      )}
+                        {product.description && (
+                          <p
+                            style={{
+                              opacity:
+                                .65,
+                              fontSize:
+                                13,
+                              lineHeight:
+                                1.5,
+                            }}
+                          >
+                            {
+                              product.description
+                            }
+                          </p>
+                        )}
 
-                    </div>
+                        <p className="price">
+                          {money(
+                            product.price
+                          )}
+                        </p>
 
-                  </article>
+                        {stock <= 0 ? (
 
-                )
+                          <p className="stock-text stock-out">
+                            Out of stock
+                          </p>
+
+                        ) : lowStock ? (
+
+                          <p className="stock-text stock-low">
+                            Only{" "}
+                            {stock}{" "}
+                            left
+                          </p>
+
+                        ) : (
+
+                          <p className="stock-text">
+                            {stock} available
+                          </p>
+
+                        )}
+
+                        {stock > 0 ? (
+
+                          <button
+                            className="add-button"
+                            onClick={() =>
+                              addToCart(
+                                product
+                              )
+                            }
+                            disabled={
+                              maxReached
+                            }
+                          >
+                            {maxReached
+                              ? "Maximum in cart"
+                              : cartQuantity > 0
+                              ? `Add another (${cartQuantity} in cart)`
+                              : "Add to cart"}
+                          </button>
+
+                        ) : (
+
+                          <button
+                            className="add-button"
+                            disabled
+                          >
+                            Out of stock
+                          </button>
+
+                        )}
+
+                      </div>
+
+                    </article>
+
+                  );
+                }
               )}
 
             </div>
@@ -3016,30 +2610,42 @@ function App() {
         <section className="trust-section">
 
           <div>
-            <span>🚚</span>
+            <span>
+              🚚
+            </span>
+
             <h3>
               Reliable delivery
             </h3>
+
             <p>
               Get your order delivered safely.
             </p>
           </div>
 
           <div>
-            <span>🔒</span>
+            <span>
+              🔒
+            </span>
+
             <h3>
               Secure shopping
             </h3>
+
             <p>
               Shop with confidence.
             </p>
           </div>
 
           <div>
-            <span>💬</span>
+            <span>
+              💬
+            </span>
+
             <h3>
               Customer support
             </h3>
+
             <p>
               We're here whenever you need us.
             </p>
@@ -3062,17 +2668,14 @@ function App() {
           </strong>
 
           <p>
-            Phones • Accessories • Gadgets •
-            Electronics
+            Phones • Accessories • Gadgets • Electronics
           </p>
 
           <div className="social-links">
 
             <button
               className="social-button"
-              onClick={
-                whatsapp
-              }
+              onClick={whatsapp}
             >
               📲 WhatsApp
             </button>
@@ -3102,9 +2705,7 @@ function App() {
 
       <button
         className="whatsapp-floating"
-        onClick={
-          whatsapp
-        }
+        onClick={whatsapp}
       >
         💬
       </button>
@@ -3141,6 +2742,18 @@ function App() {
                   Your Cart
                 </h2>
 
+                <p
+                  style={{
+                    opacity: .55,
+                    fontSize: 13,
+                  }}
+                >
+                  {cartCount}{" "}
+                  {cartCount === 1
+                    ? "item"
+                    : "items"}
+                </p>
+
               </div>
 
               <button
@@ -3154,8 +2767,7 @@ function App() {
 
             </div>
 
-            {cart.length ===
-            0 ? (
+            {cart.length === 0 ? (
 
               <div
                 style={{
@@ -3168,8 +2780,7 @@ function App() {
 
                 <div
                   style={{
-                    fontSize:
-                      55,
+                    fontSize: 55,
                   }}
                 >
                   🛒
@@ -3180,16 +2791,13 @@ function App() {
                 </h3>
 
                 <p>
-                  Add something you love from
-                  our store.
+                  Add something you love from our store.
                 </p>
 
                 <button
                   className="modal-action"
                   onClick={() =>
-                    setCartOpen(
-                      false
-                    )
+                    setCartOpen(false)
                   }
                 >
                   Continue shopping
@@ -3204,96 +2812,149 @@ function App() {
                 <div className="cart-items">
 
                   {cart.map(
-                    (item) => (
+                    (item) => {
 
-                      <div
-                        className="cart-item"
-                        key={
-                          item.id
-                        }
-                      >
+                      const latestProduct =
+                        products.find(
+                          (product) =>
+                            product.id ===
+                            item.id
+                        );
 
-                        <div className="cart-item-image">
+                      const stock =
+                        Number(
+                          latestProduct?.stock ??
+                            item.stock ??
+                            0
+                        );
 
-                          {item.image_url ? (
+                      const quantity =
+                        Number(
+                          item.quantity ||
+                            1
+                        );
 
-                            <img
-                              src={
-                                item.image_url
-                              }
-                              alt={
-                                item.name
-                              }
-                            />
+                      const maximum =
+                        stock > 0 &&
+                        quantity >=
+                          stock;
 
-                          ) : (
+                      return (
 
-                            <span>
-                              📦
-                            </span>
+                        <div
+                          className="cart-item"
+                          key={item.id}
+                        >
 
-                          )}
+                          <div className="cart-item-image">
 
-                        </div>
+                            {item.image_url ? (
 
-                        <div className="cart-item-info">
+                              <img
+                                src={
+                                  item.image_url
+                                }
+                                alt={
+                                  item.name
+                                }
+                              />
 
-                          <h3>
-                            {item.name}
-                          </h3>
+                            ) : (
 
-                          <p>
-                            {money(
-                              item.price
+                              <span>
+                                📦
+                              </span>
+
                             )}
-                          </p>
 
-                          <div className="quantity-controls">
+                          </div>
+
+                          <div className="cart-item-info">
+
+                            <h3>
+                              {item.name}
+                            </h3>
+
+                            <p>
+                              {money(
+                                item.price
+                              )}
+                            </p>
+
+                            {stock > 0 && (
+
+                              <p className="cart-item-stock">
+                                {stock}{" "}
+                                available
+                              </p>
+
+                            )}
+
+                            <div className="quantity-controls">
+
+                              <button
+                                onClick={() =>
+                                  decreaseQuantity(
+                                    item.id
+                                  )
+                                }
+                                aria-label="Decrease quantity"
+                              >
+                                −
+                              </button>
+
+                              <strong>
+                                {quantity}
+                              </strong>
+
+                              <button
+                                onClick={() =>
+                                  increaseQuantity(
+                                    item.id
+                                  )
+                                }
+                                disabled={
+                                  maximum
+                                }
+                                aria-label="Increase quantity"
+                              >
+                                +
+                              </button>
+
+                            </div>
+
+                            {maximum && (
+                              <p
+                                style={{
+                                  fontSize:
+                                    11,
+                                  color:
+                                    "#b45309",
+                                  margin:
+                                    "7px 0 0",
+                                }}
+                              >
+                                Maximum available quantity reached.
+                              </p>
+                            )}
 
                             <button
+                              className="remove-cart-item"
                               onClick={() =>
-                                decreaseQuantity(
+                                removeFromCart(
                                   item.id
                                 )
                               }
                             >
-                              −
-                            </button>
-
-                            <strong>
-                              {
-                                item.quantity
-                              }
-                            </strong>
-
-                            <button
-                              onClick={() =>
-                                increaseQuantity(
-                                  item.id
-                                )
-                              }
-                            >
-                              +
+                              Remove
                             </button>
 
                           </div>
 
-                          <button
-                            className="remove-cart-item"
-                            onClick={() =>
-                              removeFromCart(
-                                item.id
-                              )
-                            }
-                          >
-                            Remove
-                          </button>
-
                         </div>
 
-                      </div>
-
-                    )
+                      );
+                    }
                   )}
 
                 </div>
@@ -3392,10 +3053,8 @@ function App() {
 
                 <div
                   style={{
-                    fontSize:
-                      60,
-                    marginBottom:
-                      15,
+                    fontSize: 60,
+                    marginBottom: 15,
                   }}
                 >
                   ✅
@@ -3440,12 +3099,10 @@ function App() {
 
                 <p
                   style={{
-                    opacity:
-                      .65,
+                    opacity: .65,
                   }}
                 >
-                  Tell us where to deliver your
-                  order.
+                  Tell us where to deliver your order.
                 </p>
 
                 <form
@@ -3500,137 +3157,35 @@ function App() {
                     required
                   />
 
-                  {/* STATE */}
-
-                  <select
+                  <input
+                    type="text"
+                    placeholder="City"
                     value={
-                      deliveryState
+                      deliveryCity
                     }
                     onChange={(event) =>
-                      selectState(
+                      setDeliveryCity(
                         event.target
                           .value
                       )
                     }
                     required
-                  >
+                  />
 
-                    <option value="">
-                      {locationsLoading
-                        ? "Loading states..."
-                        : "Select state"}
-                    </option>
-
-                    {stateNames.map(
-                      (state) => (
-
-                        <option
-                          key={
-                            state
-                          }
-                          value={
-                            state
-                          }
-                        >
-                          {state}
-                        </option>
-
+                  <input
+                    type="text"
+                    placeholder="State"
+                    value={
+                      deliveryState
+                    }
+                    onChange={(event) =>
+                      setDeliveryState(
+                        event.target
+                          .value
                       )
-                    )}
-
-                  </select>
-
-                  {/* CITY */}
-
-                  <div className="location-field">
-
-                    <input
-                      className="city-search-input"
-                      type="text"
-                      placeholder={
-                        deliveryState
-                          ? "Search or type your city"
-                          : "Select your state first"
-                      }
-                      value={
-                        citySearch
-                      }
-                      disabled={
-                        !deliveryState
-                      }
-                      onFocus={() =>
-                        deliveryState &&
-                        setCitySuggestionsOpen(
-                          true
-                        )
-                      }
-                      onChange={(event) => {
-                        const value =
-                          event.target
-                            .value;
-
-                        setCitySearch(
-                          value
-                        );
-
-                        setDeliveryCity(
-                          value
-                        );
-
-                        setCitySuggestionsOpen(
-                          true
-                        );
-                      }}
-                      required
-                    />
-
-                    {citySuggestionsOpen &&
-                      deliveryState &&
-                      filteredCities.length >
-                        0 && (
-
-                        <div className="city-suggestions">
-
-                          {filteredCities.map(
-                            (
-                              city
-                            ) => (
-
-                              <button
-                                type="button"
-                                className="city-suggestion"
-                                key={
-                                  city
-                                }
-                                onMouseDown={(
-                                  event
-                                ) =>
-                                  event.preventDefault()
-                                }
-                                onClick={() =>
-                                  selectCity(
-                                    city
-                                  )
-                                }
-                              >
-                                📍{" "}
-                                {city}
-                              </button>
-
-                            )
-                          )}
-
-                        </div>
-
-                      )}
-
-                    <div className="city-help">
-                      {deliveryState
-                        ? "Choose a suggestion or type your city/town manually."
-                        : "Select a state to see city suggestions."}
-                    </div>
-
-                  </div>
+                    }
+                    required
+                  />
 
                   <div
                     style={{
@@ -3738,7 +3293,17 @@ function App() {
                     : "My Account"}
                 </h2>
 
-                <div className="account-tabs">
+                <div
+                  style={{
+                    display:
+                      "grid",
+                    gridTemplateColumns:
+                      "repeat(3,1fr)",
+                    gap: 8,
+                    margin:
+                      "25px 0",
+                  }}
+                >
 
                   <button
                     className={
@@ -3804,7 +3369,17 @@ function App() {
 
                   <div>
 
-                    <div className="profile-card">
+                    <div
+                      style={{
+                        padding: 20,
+                        borderRadius:
+                          18,
+                        background:
+                          "rgba(128,128,128,.08)",
+                        marginBottom:
+                          15,
+                      }}
+                    >
 
                       <p className="eyebrow">
                         PERSONAL INFORMATION
@@ -3812,15 +3387,12 @@ function App() {
 
                       <h3>
                         {profile?.name ||
-                          profile?.full_name ||
                           "Customer"}
                       </h3>
 
                       <p>
                         📧{" "}
-                        {
-                          user.email
-                        }
+                        {user.email}
                       </p>
 
                       <p>
@@ -3828,6 +3400,18 @@ function App() {
                         {profile?.phone ||
                           "Phone number not added"}
                       </p>
+
+                      {profile?.city && (
+                        <p>
+                          📍{" "}
+                          {
+                            profile.city
+                          }
+                          {profile.state
+                            ? `, ${profile.state}`
+                            : ""}
+                        </p>
+                      )}
 
                     </div>
 
@@ -3845,8 +3429,7 @@ function App() {
                     <button
                       className="modal-secondary"
                       style={{
-                        marginTop:
-                          10,
+                        marginTop: 10,
                       }}
                       onClick={() => {
                         setAccountTab(
@@ -3942,8 +3525,7 @@ function App() {
                         </h3>
 
                         <p>
-                          Your completed orders
-                          will appear here.
+                          Your completed orders will appear here.
                         </p>
 
                         <button
@@ -3952,7 +3534,6 @@ function App() {
                             setAccountOpen(
                               false
                             );
-
                             window.location.hash =
                               "shop";
                           }}
@@ -3967,15 +3548,22 @@ function App() {
                       <div>
 
                         {orders.map(
-                          (
-                            order
-                          ) => (
+                          (order) => (
 
                             <div
-                              className="order-card"
                               key={
                                 order.id
                               }
+                              style={{
+                                padding:
+                                  18,
+                                border:
+                                  "1px solid rgba(128,128,128,.2)",
+                                borderRadius:
+                                  18,
+                                marginBottom:
+                                  12,
+                              }}
                             >
 
                               <div
@@ -3984,7 +3572,8 @@ function App() {
                                     "flex",
                                   justifyContent:
                                     "space-between",
-                                  gap: 12,
+                                  gap:
+                                    12,
                                 }}
                               >
 
@@ -4094,65 +3683,68 @@ function App() {
                                   }}
                                 >
 
-                                  {order.order_items?.map(
-                                    (
-                                      item
-                                    ) => (
+                                  {order
+                                    .order_items
+                                    ?.map(
+                                      (
+                                        item
+                                      ) => (
 
-                                      <div
-                                        key={
-                                          item.id
-                                        }
-                                        style={{
-                                          display:
-                                            "flex",
-                                          justifyContent:
-                                            "space-between",
-                                          padding:
-                                            "8px 0",
-                                          gap: 10,
-                                        }}
-                                      >
+                                        <div
+                                          key={
+                                            item.id
+                                          }
+                                          style={{
+                                            display:
+                                              "flex",
+                                            justifyContent:
+                                              "space-between",
+                                            padding:
+                                              "8px 0",
+                                            gap:
+                                              10,
+                                          }}
+                                        >
 
-                                        <div>
+                                          <div>
+
+                                            <strong>
+                                              {
+                                                item.product_name
+                                              }
+                                            </strong>
+
+                                            <div
+                                              style={{
+                                                opacity:
+                                                  .6,
+                                                fontSize:
+                                                  13,
+                                              }}
+                                            >
+                                              Qty:{" "}
+                                              {
+                                                item.quantity
+                                              }
+                                            </div>
+
+                                          </div>
 
                                           <strong>
-                                            {
-                                              item.product_name
-                                            }
+                                            {money(
+                                              Number(
+                                                item.price
+                                              ) *
+                                                Number(
+                                                  item.quantity
+                                                )
+                                            )}
                                           </strong>
-
-                                          <div
-                                            style={{
-                                              opacity:
-                                                .6,
-                                              fontSize:
-                                                13,
-                                            }}
-                                          >
-                                            Qty:{" "}
-                                            {
-                                              item.quantity
-                                            }
-                                          </div>
 
                                         </div>
 
-                                        <strong>
-                                          {money(
-                                            Number(
-                                              item.price
-                                            ) *
-                                              Number(
-                                                item.quantity
-                                              )
-                                          )}
-                                        </strong>
-
-                                      </div>
-
-                                    )
-                                  )}
+                                      )
+                                    )}
 
                                 </div>
 
@@ -4232,6 +3824,48 @@ function App() {
                         disabled
                       />
 
+                      <input
+                        type="text"
+                        placeholder="City"
+                        value={
+                          deliveryCity
+                        }
+                        onChange={(event) =>
+                          setDeliveryCity(
+                            event.target
+                              .value
+                          )
+                        }
+                      />
+
+                      <input
+                        type="text"
+                        placeholder="State"
+                        value={
+                          deliveryState
+                        }
+                        onChange={(event) =>
+                          setDeliveryState(
+                            event.target
+                              .value
+                          )
+                        }
+                      />
+
+                      <textarea
+                        placeholder="Delivery address"
+                        value={
+                          deliveryAddress
+                        }
+                        onChange={(event) =>
+                          setDeliveryAddress(
+                            event.target
+                              .value
+                          )
+                        }
+                        rows={3}
+                      />
+
                       <button
                         className="modal-action"
                         type="submit"
@@ -4248,9 +3882,7 @@ function App() {
 
                     {settingsMessage && (
                       <p className="auth-message">
-                        {
-                          settingsMessage
-                        }
+                        {settingsMessage}
                       </p>
                     )}
 
@@ -4479,7 +4111,9 @@ function App() {
 
                 {authMessage && (
                   <p className="auth-message">
-                    {authMessage}
+                    {
+                      authMessage
+                    }
                   </p>
                 )}
 
@@ -4487,6 +4121,7 @@ function App() {
                   "login" && (
 
                   <>
+
                     <div className="auth-divider">
                       <span>
                         or continue with
@@ -4526,6 +4161,7 @@ function App() {
                       </button>
 
                     </div>
+
                   </>
 
                 )}
@@ -4606,12 +4242,10 @@ function App() {
 
             <p
               style={{
-                opacity:
-                  .65,
+                opacity: .65,
               }}
             >
-              Enter your email and we'll send
-              you a password reset link.
+              Enter your email and we'll send you a password reset link.
             </p>
 
             <form
@@ -4652,9 +4286,7 @@ function App() {
 
             {resetMessage && (
               <p className="auth-message">
-                {
-                  resetMessage
-                }
+                {resetMessage}
               </p>
             )}
 
