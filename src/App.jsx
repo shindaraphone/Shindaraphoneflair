@@ -5,8 +5,10 @@ import { loadNigeriaLocations } from "./nigeriaLocations";
 const WHATSAPP = "2348118294548";
 const TIKTOK = "https://www.tiktok.com/@shindara.communication";
 
-// TEST MODE — CHANGE BACK TO pk_live_... WHEN TESTING IS FINISHED
-const PAYSTACK_PUBLIC_KEY = "pk_test_064c89b751af46db42ee4dc14ccb5ec906eaafe1";
+// TEST MODE
+// Change to your live public key when you are ready for real payments.
+const PAYSTACK_PUBLIC_KEY =
+  "pk_test_064c89b751af46db42ee4dc14ccb5ec906eaafe1";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
@@ -14,29 +16,39 @@ function money(value) {
 
 function loadPaystackScript() {
   return new Promise((resolve, reject) => {
-    if (window.PaystackPop) return resolve(window.PaystackPop);
+    if (window.PaystackPop) {
+      resolve(window.PaystackPop);
+      return;
+    }
 
     const src = "https://js.paystack.co/v2/inline.js";
     const existing = document.querySelector(`script[src="${src}"]`);
 
     if (existing) {
-      existing.addEventListener("load", () =>
-        window.PaystackPop
-          ? resolve(window.PaystackPop)
-          : reject(new Error("Paystack could not be loaded."))
-      );
+      existing.addEventListener("load", () => {
+        if (window.PaystackPop) {
+          resolve(window.PaystackPop);
+        } else {
+          reject(new Error("Paystack could not be loaded."));
+        }
+      });
+
       existing.addEventListener("error", reject);
       return;
     }
 
     const script = document.createElement("script");
+
     script.src = src;
     script.async = true;
 
-    script.onload = () =>
-      window.PaystackPop
-        ? resolve(window.PaystackPop)
-        : reject(new Error("Paystack could not be loaded."));
+    script.onload = () => {
+      if (window.PaystackPop) {
+        resolve(window.PaystackPop);
+      } else {
+        reject(new Error("Paystack could not be loaded."));
+      }
+    };
 
     script.onerror = () =>
       reject(new Error("Unable to load Paystack."));
@@ -46,214 +58,15 @@ function loadPaystackScript() {
 }
 
 function App() {
-  /* =========================
-     CART
-  ========================= */
-
-async function loadCart() {
-  if (!user) {
-    setCart([]);
-    return;
-  }
-  try {
-    const { data, error } = await supabase
-      .from("cart_items")
-      .select(`
-        id,
-        product_id,
-        quantity,
-        products (
-          id,
-          name,
-          price,
-          image,
-          category,
-          description,
-          stock
-        )
-      `)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    const savedCart = (data || [])
-      .filter((item) => item.products)
-      .map((item) => ({
-        ...item.products,
-        image_url: item.products.image,
-        cart_item_id: item.id,
-        quantity: Number(item.quantity || 1),
-      }));
-    setCart(savedCart);
-  } catch (error) {
-    console.error("Cart loading error:", error);
-    setCart([]);
-  }
-}
-useEffect(() => {
-  if (user) {
-    loadCart();
-  } else {
-    setCart([]);
-  }
-}, [user]);
-async function addToCart(product) {
-  if (!user) {
-    setAccountOpen(true);
-    setAuthMessage(
-      "Please sign in or create an account before adding items to your cart."
-    );
-    return;
-  }
-  try {
-    const existing = cart.find(
-      (item) => item.id === product.id
-    );
-    if (existing) {
-      const newQuantity = Number(existing.quantity) + 1;
-      const { error } = await supabase
-        .from("cart_items")
-        .update({
-          quantity: newQuantity,
-        })
-        .eq("id", existing.cart_item_id)
-        .eq("user_id", user.id);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from("cart_items")
-        .insert({
-          user_id: user.id,
-          product_id: product.id,
-          quantity: 1,
-        });
-      if (error) throw error;
-    }
-    await loadCart();
-  } catch (error) {
-    console.error("Add to cart error:", error);
-    setAuthMessage(
-      error?.message || "Unable to add this product to your cart."
-    );
-  }
-}
-async function increaseQuantity(id) {
-  if (!user) return;
-  const item = cart.find(
-    (product) => product.id === id
-  );
-  if (!item) return;
-  try {
-    const { error } = await supabase
-      .from("cart_items")
-      .update({
-        quantity: Number(item.quantity) + 1,
-      })
-      .eq("id", item.cart_item_id)
-      .eq("user_id", user.id);
-    if (error) throw error;
-    await loadCart();
-  } catch (error) {
-    console.error("Increase quantity error:", error);
-  }
-}
-async function decreaseQuantity(id) {
-  if (!user) return;
-  const item = cart.find(
-    (product) => product.id === id
-  );
-  if (!item) return;
-  try {
-    const newQuantity = Number(item.quantity) - 1;
-    if (newQuantity <= 0) {
-      const { error } = await supabase
-        .from("cart_items")
-        .delete()
-        .eq("id", item.cart_item_id)
-        .eq("user_id", user.id);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from("cart_items")
-        .update({
-          quantity: newQuantity,
-        })
-        .eq("id", item.cart_item_id)
-        .eq("user_id", user.id);
-      if (error) throw error;
-    }
-    await loadCart();
-  } catch (error) {
-    console.error("Decrease quantity error:", error);
-  }
-}
-async function removeFromCart(id) {
-  if (!user) return;
-  const item = cart.find(
-    (product) => product.id === id
-  );
-  if (!item) return;
-  try {
-    const { error } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("id", item.cart_item_id)
-      .eq("user_id", user.id);
-    if (error) throw error;
-    await loadCart();
-  } catch (error) {
-    console.error("Remove cart item error:", error);
-  }
-}
-async function clearCart() {
-  if (!user) return;
-  try {
-    const { error } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("user_id", user.id);
-    if (error) throw error;
-    setCart([]);
-  } catch (error) {
-    console.error("Clear cart error:", error);
-  }
-}
-const cartCount = cart.reduce(
-  (total, item) =>
-    total + Number(item.quantity || 0),
-  0
-);
-const cartTotal = cart.reduce(
-  (total, item) =>
-    total +
-    Number(item.price || 0) *
-      Number(item.quantity || 0),
-  0
-);
-
-  /* =========================
-     CHECKOUT
-  ========================= */
-
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [orderLoading, setOrderLoading] = useState(false);
-  const [orderMessage, setOrderMessage] = useState("");
-  const [orderSuccess, setOrderSuccess] = useState(false);
-
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryState, setDeliveryState] = useState("");
-  const [deliveryCity, setDeliveryCity] = useState("");
-
-  /* =========================
-     ACCOUNT
-  ========================= */
-
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [accountTab, setAccountTab] = useState("profile");
+  /* =====================================================
+     USER / ACCOUNT
+  ===================================================== */
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountTab, setAccountTab] = useState("profile");
 
   const [authMode, setAuthMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -277,26 +90,293 @@ const cartTotal = cart.reduce(
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  /* =========================
+  /* =====================================================
+     CART
+  ===================================================== */
+
+  const [cart, setCart] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cartLoading, setCartLoading] = useState(false);
+
+  /*
+   * IMPORTANT:
+   * The cart is stored in Supabase against user.id.
+   *
+   * Logged in:
+   *     load that user's cart.
+   *
+   * Logged out:
+   *     clear the local cart display.
+   *
+   * The database cart is NOT deleted when logging out.
+   * Therefore when the same user logs back in,
+   * their previous cart comes back.
+   */
+
+  async function loadCart(currentUser = user) {
+    if (!currentUser) {
+      setCart([]);
+      return;
+    }
+
+    setCartLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("cart_items")
+        .select(`
+          id,
+          user_id,
+          product_id,
+          quantity,
+          created_at,
+          products (
+            id,
+            name,
+            price,
+            image,
+            category,
+            description,
+            stock
+          )
+        `)
+        .eq("user_id", currentUser.id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const savedCart = (data || [])
+        .filter((item) => item.products)
+        .map((item) => ({
+          ...item.products,
+          image_url: item.products.image || null,
+          cart_item_id: item.id,
+          quantity: Number(item.quantity || 1),
+        }));
+
+      setCart(savedCart);
+    } catch (error) {
+      console.error("Cart loading error:", error);
+      setCart([]);
+    } finally {
+      setCartLoading(false);
+    }
+  }
+
+  /*
+   * Reload cart whenever the logged-in account changes.
+   */
+  useEffect(() => {
+    if (user) {
+      loadCart(user);
+    } else {
+      setCart([]);
+    }
+  }, [user]);
+
+  async function addToCart(product) {
+    if (!user) {
+      setAccountOpen(true);
+      setAuthMessage(
+        "Please sign in or create an account before adding items to your cart."
+      );
+      return;
+    }
+
+    try {
+      const existing = cart.find(
+        (item) => String(item.id) === String(product.id)
+      );
+
+      if (existing) {
+        const newQuantity = Number(existing.quantity) + 1;
+
+        const { error } = await supabase
+          .from("cart_items")
+          .update({
+            quantity: newQuantity,
+          })
+          .eq("id", existing.cart_item_id)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("cart_items")
+          .insert({
+            user_id: user.id,
+            product_id: product.id,
+            quantity: 1,
+          });
+
+        if (error) throw error;
+      }
+
+      await loadCart(user);
+    } catch (error) {
+      console.error("Add to cart error:", error);
+
+      setAuthMessage(
+        error?.message ||
+          "Unable to add this product to your cart."
+      );
+    }
+  }
+
+  async function increaseQuantity(id) {
+    if (!user) return;
+
+    const item = cart.find(
+      (product) => String(product.id) === String(id)
+    );
+
+    if (!item) return;
+
+    try {
+      const { error } = await supabase
+        .from("cart_items")
+        .update({
+          quantity: Number(item.quantity) + 1,
+        })
+        .eq("id", item.cart_item_id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await loadCart(user);
+    } catch (error) {
+      console.error("Increase quantity error:", error);
+    }
+  }
+
+  async function decreaseQuantity(id) {
+    if (!user) return;
+
+    const item = cart.find(
+      (product) => String(product.id) === String(id)
+    );
+
+    if (!item) return;
+
+    try {
+      const newQuantity = Number(item.quantity) - 1;
+
+      if (newQuantity <= 0) {
+        const { error } = await supabase
+          .from("cart_items")
+          .delete()
+          .eq("id", item.cart_item_id)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("cart_items")
+          .update({
+            quantity: newQuantity,
+          })
+          .eq("id", item.cart_item_id)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+      }
+
+      await loadCart(user);
+    } catch (error) {
+      console.error("Decrease quantity error:", error);
+    }
+  }
+
+  async function removeFromCart(id) {
+    if (!user) return;
+
+    const item = cart.find(
+      (product) => String(product.id) === String(id)
+    );
+
+    if (!item) return;
+
+    try {
+      const { error } = await supabase
+        .from("cart_items")
+        .delete()
+        .eq("id", item.cart_item_id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await loadCart(user);
+    } catch (error) {
+      console.error("Remove cart item error:", error);
+    }
+  }
+
+  async function clearCart() {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from("cart_items")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setCart([]);
+    } catch (error) {
+      console.error("Clear cart error:", error);
+    }
+  }
+
+  const cartCount = cart.reduce(
+    (total, item) =>
+      total + Number(item.quantity || 0),
+    0
+  );
+
+  const cartTotal = cart.reduce(
+    (total, item) =>
+      total +
+      Number(item.price || 0) *
+        Number(item.quantity || 0),
+    0
+  );
+
+  /* =====================================================
+     CHECKOUT
+  ===================================================== */
+
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderMessage, setOrderMessage] = useState("");
+  const [orderSuccess, setOrderSuccess] = useState(false);
+
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+
+  /* =====================================================
      ORDERS
-  ========================= */
+  ===================================================== */
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [expandedOrder, setExpandedOrder] = useState(null);
 
-  /* =========================
+  /* =====================================================
      PRODUCTS
-  ========================= */
+  ===================================================== */
 
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
 
-  /* =========================
-     NIGERIAN LOCATIONS
-  ========================= */
+  /* =====================================================
+     LOCATIONS
+  ===================================================== */
 
   const [locations, setLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
@@ -330,7 +410,10 @@ const cartTotal = cart.reduce(
   }, []);
 
   const states = useMemo(
-    () => locations.map((item) => item.name).filter(Boolean),
+    () =>
+      locations
+        .map((item) => item.name)
+        .filter(Boolean),
     [locations]
   );
 
@@ -349,17 +432,22 @@ const cartTotal = cart.reduce(
     setDeliveryCity("");
   }
 
-  /* =========================
-     USER
-  ========================= */
+  /* =====================================================
+     AUTH SESSION
+  ===================================================== */
 
   useEffect(() => {
     let mounted = true;
 
     async function loadUser() {
-      const { data } = await supabase.auth.getUser();
+      const { data, error } =
+        await supabase.auth.getUser();
 
       if (!mounted) return;
+
+      if (error) {
+        console.error("Get user error:", error);
+      }
 
       const currentUser = data?.user || null;
 
@@ -367,6 +455,9 @@ const cartTotal = cart.reduce(
 
       if (currentUser) {
         await loadProfile(currentUser.id);
+        await loadCart(currentUser);
+      } else {
+        setCart([]);
       }
     }
 
@@ -378,15 +469,19 @@ const cartTotal = cart.reduce(
       async (_event, session) => {
         if (!mounted) return;
 
-        const currentUser = session?.user || null;
+        const currentUser =
+          session?.user || null;
 
         setUser(currentUser);
 
         if (currentUser) {
           await loadProfile(currentUser.id);
+          await loadCart(currentUser);
         } else {
           setProfile(null);
           setOrders([]);
+          setCart([]);
+          setCartOpen(false);
         }
       }
     );
@@ -397,9 +492,9 @@ const cartTotal = cart.reduce(
     };
   }, []);
 
-  /* =========================
+  /* =====================================================
      PRODUCTS
-  ========================= */
+  ===================================================== */
 
   useEffect(() => {
     loadProducts();
@@ -429,10 +524,13 @@ const cartTotal = cart.reduce(
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
       console.error(error);
+
       setProducts([]);
       setProductsError(
         "We couldn't load our products right now."
@@ -444,9 +542,9 @@ const cartTotal = cart.reduce(
     setProductsLoading(false);
   }
 
-  /* =========================
+  /* =====================================================
      PROFILE
-  ========================= */
+  ===================================================== */
 
   async function loadProfile(userId) {
     const { data, error } = await supabase
@@ -465,14 +563,15 @@ const cartTotal = cart.reduce(
     if (data) {
       setProfileName(data.name || "");
       setProfilePhone(data.phone || "");
+
       setCustomerName(data.name || "");
       setCustomerPhone(data.phone || "");
     }
   }
 
-  /* =========================
+  /* =====================================================
      ORDERS
-  ========================= */
+  ===================================================== */
 
   async function loadOrders() {
     if (!user) return;
@@ -494,10 +593,13 @@ const cartTotal = cart.reduce(
         )
       `)
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
       console.error(error);
+
       setOrders([]);
       setOrdersError(
         "We couldn't load your orders right now."
@@ -513,6 +615,7 @@ const cartTotal = cart.reduce(
     setAuthMessage("");
     setSettingsMessage("");
     setPasswordMessage("");
+
     setAccountOpen(true);
 
     if (user) {
@@ -521,9 +624,9 @@ const cartTotal = cart.reduce(
     }
   }
 
-  /* =========================
+  /* =====================================================
      AUTH
-  ========================= */
+  ===================================================== */
 
   async function handleAuth(event) {
     event.preventDefault();
@@ -537,20 +640,26 @@ const cartTotal = cart.reduce(
         const cleanPhone = phone.trim();
         const cleanEmail = email.trim();
 
-        if (!cleanName)
-          return setAuthMessage(
+        if (!cleanName) {
+          setAuthMessage(
             "Please enter your full name."
           );
+          return;
+        }
 
-        if (!cleanPhone)
-          return setAuthMessage(
+        if (!cleanPhone) {
+          setAuthMessage(
             "Please enter your phone number."
           );
+          return;
+        }
 
-        if (!cleanEmail)
-          return setAuthMessage(
+        if (!cleanEmail) {
+          setAuthMessage(
             "Please enter your email address."
           );
+          return;
+        }
 
         const { data, error } =
           await supabase.auth.signUp({
@@ -579,7 +688,7 @@ const cartTotal = cart.reduce(
 
           if (profileError) {
             console.error(
-              "Profile save:",
+              "Profile save error:",
               profileError
             );
           }
@@ -594,9 +703,11 @@ const cartTotal = cart.reduce(
         } else {
           setCustomerName(cleanName);
           setCustomerPhone(cleanPhone);
+
           setFullName("");
           setEmail("");
           setPhone("");
+
           setAccountOpen(false);
         }
 
@@ -613,10 +724,12 @@ const cartTotal = cart.reduce(
 
       if (data?.user) {
         await loadProfile(data.user.id);
+        await loadCart(data.user);
       }
 
       setEmail("");
       setPassword("");
+
       setAccountOpen(false);
     } catch (error) {
       console.error(error);
@@ -693,9 +806,9 @@ const cartTotal = cart.reduce(
     }
   }
 
-  /* =========================
+  /* =====================================================
      PROFILE SETTINGS
-  ========================= */
+  ===================================================== */
 
   async function saveProfileSettings(event) {
     event.preventDefault();
@@ -710,7 +823,9 @@ const cartTotal = cart.reduce(
       const cleanPhone = profilePhone.trim();
 
       if (!cleanName) {
-        setSettingsMessage("Please enter your name.");
+        setSettingsMessage(
+          "Please enter your name."
+        );
         return;
       }
 
@@ -752,9 +867,9 @@ const cartTotal = cart.reduce(
     }
   }
 
-  /* =========================
+  /* =====================================================
      PASSWORD
-  ========================= */
+  ===================================================== */
 
   async function changePassword(event) {
     event.preventDefault();
@@ -792,101 +907,46 @@ const cartTotal = cart.reduce(
     }
   }
 
+  /* =====================================================
+     LOGOUT
+  ===================================================== */
+
   async function logout() {
-  await supabase.auth.signOut();
+    try {
+      /*
+       * Do NOT delete cart_items here.
+       *
+       * We only clear the cart displayed in memory.
+       * The database cart remains attached to user.id.
+       *
+       * When this same account logs in again,
+       * loadCart() retrieves it.
+       */
 
-  setUser(null);
-  setProfile(null);
-  setOrders([]);
-  setAccountOpen(false);
-}
+      const { error } =
+        await supabase.auth.signOut({
+          scope: "local",
+        });
 
-  /* =========================
-     CART FUNCTIONS
-  ========================= */
-
-  function addToCart(product) {
-    setCart((items) => {
-      const existing = items.find(
-        (item) => item.id === product.id
-      );
-
-      if (existing) {
-        return items.map((item) =>
-          item.id === product.id
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
-            : item
-        );
+      if (error) {
+        console.error("Logout error:", error);
       }
 
-      return [
-        ...items,
-        {
-          ...product,
-          quantity: 1,
-        },
-      ];
-    });
+      setUser(null);
+      setProfile(null);
+      setOrders([]);
+      setCart([]);
+      setCartOpen(false);
+      setAccountOpen(false);
+      setCheckoutOpen(false);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   }
 
-  function increaseQuantity(id) {
-    setCart((items) =>
-      items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item
-      )
-    );
-  }
-
-  function decreaseQuantity(id) {
-    setCart((items) =>
-      items
-        .map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                quantity: item.quantity - 1,
-              }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
-  }
-
-  function removeFromCart(id) {
-    setCart((items) =>
-      items.filter((item) => item.id !== id)
-    );
-  }
-
-  function clearCart() {
-    setCart([]);
-  }
-
-  const cartCount = cart.reduce(
-    (total, item) =>
-      total + Number(item.quantity || 0),
-    0
-  );
-
-  const cartTotal = cart.reduce(
-    (total, item) =>
-      total +
-      Number(item.price || 0) *
-        Number(item.quantity || 0),
-    0
-  );
-
-  /* =========================
+  /* =====================================================
      CHECKOUT
-  ========================= */
+  ===================================================== */
 
   function openCheckout() {
     if (!cart.length) return;
@@ -1074,6 +1134,14 @@ const cartTotal = cart.reduce(
             const order =
               await saveOrder(reference);
 
+            /*
+             * Payment + order completed.
+             *
+             * Now permanently remove this user's
+             * saved cart from Supabase.
+             */
+            await clearCart();
+
             setOrderSuccess(true);
 
             setOrderMessage(
@@ -1082,14 +1150,6 @@ const cartTotal = cart.reduce(
               )
                 .slice(0, 8)
                 .toUpperCase()}.`
-            );
-
-            // Clear cart AFTER successful order
-            setCart([]);
-
-            // Remove saved cart completely
-            localStorage.removeItem(
-              "shindara_cart"
             );
 
             setCustomerName("");
@@ -1129,9 +1189,9 @@ const cartTotal = cart.reduce(
     }
   }
 
-  /* =========================
+  /* =====================================================
      HELPERS
-  ========================= */
+  ===================================================== */
 
   function whatsapp() {
     const message = encodeURIComponent(
@@ -1166,9 +1226,9 @@ const cartTotal = cart.reduce(
     );
   }
 
-  /* =========================
+  /* =====================================================
      UI
-  ========================= */
+  ===================================================== */
 
   return (
     <div className="app">
@@ -1184,6 +1244,7 @@ const cartTotal = cart.reduce(
         button,input,select,textarea{font:inherit}
         button,a{-webkit-tap-highlight-color:transparent}
         button{cursor:pointer}
+
         .app{
           min-height:100vh;
           background:
@@ -1191,6 +1252,7 @@ const cartTotal = cart.reduce(
             radial-gradient(circle at 85% 20%,rgba(59,130,246,.08),transparent 25%),
             #f7f7f8
         }
+
         .announcement-bar{
           width:100%;
           overflow:hidden;
@@ -1199,25 +1261,30 @@ const cartTotal = cart.reduce(
           padding:11px 0;
           white-space:nowrap
         }
+
         .announcement-track{
           display:flex;
           width:max-content;
           animation:marquee 22s linear infinite
         }
+
         .announcement-group{
           display:flex;
           flex-shrink:0
         }
+
         .announcement-group span{
           margin-right:80px;
           font-size:13px;
           font-weight:700;
           letter-spacing:.4px
         }
+
         @keyframes marquee{
           from{transform:translateX(0)}
           to{transform:translateX(-50%)}
         }
+
         .header{
           position:sticky;
           top:0;
@@ -1231,6 +1298,7 @@ const cartTotal = cart.reduce(
           backdrop-filter:blur(20px);
           border-bottom:1px solid rgba(0,0,0,.06)
         }
+
         .logo{
           text-decoration:none;
           color:#111;
@@ -1238,6 +1306,7 @@ const cartTotal = cart.reduce(
           font-size:21px;
           letter-spacing:-1px
         }
+
         .logo span{
           display:block;
           font-size:11px;
@@ -1246,10 +1315,12 @@ const cartTotal = cart.reduce(
           text-transform:uppercase;
           opacity:.55
         }
+
         .nav{
           display:flex;
           gap:28px
         }
+
         .nav a{
           color:#222;
           text-decoration:none;
@@ -1257,10 +1328,12 @@ const cartTotal = cart.reduce(
           font-weight:600;
           opacity:.75
         }
+
         .header-actions{
           display:flex;
           gap:8px
         }
+
         .account-button,.cart-button{
           border:1px solid rgba(0,0,0,.08);
           border-radius:999px;
@@ -1269,10 +1342,12 @@ const cartTotal = cart.reduce(
           font-weight:700;
           font-size:13px
         }
+
         .cart-button{
           background:#111;
           color:#fff
         }
+
         .hero{
           min-height:650px;
           display:flex;
@@ -1282,9 +1357,11 @@ const cartTotal = cart.reduce(
             radial-gradient(circle at 70% 40%,rgba(124,58,237,.16),transparent 35%),
             radial-gradient(circle at 90% 80%,rgba(37,99,235,.13),transparent 30%)
         }
+
         .hero-content{
           max-width:720px
         }
+
         .eyebrow{
           font-size:11px;
           font-weight:800;
@@ -1292,12 +1369,14 @@ const cartTotal = cart.reduce(
           opacity:.55;
           margin:0 0 14px
         }
+
         .hero h1{
           font-size:clamp(48px,7vw,88px);
           line-height:.94;
           letter-spacing:-5px;
           margin:0 0 28px
         }
+
         .hero-text{
           max-width:550px;
           font-size:18px;
@@ -1305,6 +1384,7 @@ const cartTotal = cart.reduce(
           opacity:.68;
           margin-bottom:32px
         }
+
         .shop-button{
           display:inline-block;
           background:#111;
@@ -1314,19 +1394,23 @@ const cartTotal = cart.reduce(
           border-radius:999px;
           font-weight:700
         }
+
         .section{
           padding:90px 7%
         }
+
         .section h2{
           margin:0 0 35px;
           font-size:46px;
           letter-spacing:-2.5px
         }
+
         .category-grid{
           display:grid;
           grid-template-columns:repeat(6,1fr);
           gap:12px
         }
+
         .category-card{
           min-height:150px;
           display:flex;
@@ -1339,17 +1423,21 @@ const cartTotal = cart.reduce(
           border:1px solid rgba(0,0,0,.06);
           border-radius:22px
         }
+
         .category-card span{
           font-size:30px
         }
+
         .category-card strong{
           font-size:14px
         }
+
         .product-grid{
           display:grid;
           grid-template-columns:repeat(4,minmax(0,1fr));
           gap:18px
         }
+
         .product-card{
           background:#fff;
           border:1px solid rgba(0,0,0,.06);
@@ -1357,6 +1445,7 @@ const cartTotal = cart.reduce(
           overflow:hidden;
           box-shadow:0 10px 35px rgba(0,0,0,.04)
         }
+
         .product-image{
           height:270px;
           background:#f0f0f2;
@@ -1365,14 +1454,17 @@ const cartTotal = cart.reduce(
           justify-content:center;
           overflow:hidden
         }
+
         .product-image img{
           width:100%;
           height:100%;
           object-fit:cover
         }
+
         .product-info{
           padding:18px
         }
+
         .product-category{
           font-size:10px;
           font-weight:800;
@@ -1380,15 +1472,18 @@ const cartTotal = cart.reduce(
           letter-spacing:1px;
           opacity:.45
         }
+
         .product-info h3{
           margin:0 0 10px;
           font-size:17px
         }
+
         .price{
           font-size:20px;
           font-weight:800;
           margin:14px 0
         }
+
         .add-button,.modal-action,.checkout-button{
           width:100%;
           border:0;
@@ -1398,9 +1493,11 @@ const cartTotal = cart.reduce(
           padding:13px;
           font-weight:700
         }
+
         .add-button:disabled,.modal-action:disabled{
           opacity:.5
         }
+
         .trust-section{
           display:grid;
           grid-template-columns:repeat(3,1fr);
@@ -1409,17 +1506,21 @@ const cartTotal = cart.reduce(
           background:#111;
           color:#fff
         }
+
         .trust-section>div{
           padding:25px;
           border-radius:20px;
           background:rgba(255,255,255,.05)
         }
+
         .trust-section span{
           font-size:28px
         }
+
         .trust-section p{
           opacity:.6
         }
+
         footer{
           padding:60px 7%;
           background:#090909;
@@ -1429,11 +1530,13 @@ const cartTotal = cart.reduce(
           gap:30px;
           flex-wrap:wrap
         }
+
         .social-links{
           display:flex;
           gap:10px;
           margin-top:20px
         }
+
         .social-button{
           display:inline-block;
           border:1px solid rgba(255,255,255,.15);
@@ -1443,6 +1546,7 @@ const cartTotal = cart.reduce(
           border-radius:999px;
           text-decoration:none
         }
+
         .whatsapp-floating{
           position:fixed;
           right:22px;
@@ -1457,6 +1561,7 @@ const cartTotal = cart.reduce(
           box-shadow:0 12px 30px rgba(0,0,0,.2);
           font-size:22px
         }
+
         .modal-backdrop,.cart-overlay{
           position:fixed;
           inset:0;
@@ -1468,6 +1573,7 @@ const cartTotal = cart.reduce(
           justify-content:center;
           padding:18px
         }
+
         .account-modal{
           position:relative;
           width:min(620px,100%);
@@ -1478,6 +1584,7 @@ const cartTotal = cart.reduce(
           padding:30px;
           box-shadow:0 30px 100px rgba(0,0,0,.3)
         }
+
         .modal-close{
           position:absolute;
           right:18px;
@@ -1489,11 +1596,15 @@ const cartTotal = cart.reduce(
           background:#eee;
           font-size:24px
         }
+
         .auth-form{
           display:grid;
           gap:12px
         }
-        .auth-form input,.auth-form select,.auth-form textarea{
+
+        .auth-form input,
+        .auth-form select,
+        .auth-form textarea{
           width:100%;
           padding:14px 15px;
           border:1px solid rgba(0,0,0,.12);
@@ -1501,10 +1612,14 @@ const cartTotal = cart.reduce(
           background:#fafafa;
           outline:none
         }
-        .auth-form input:focus,.auth-form select:focus,.auth-form textarea:focus{
+
+        .auth-form input:focus,
+        .auth-form select:focus,
+        .auth-form textarea:focus{
           border-color:#111;
           background:#fff
         }
+
         .modal-secondary{
           width:100%;
           border:1px solid rgba(0,0,0,.1);
@@ -1514,6 +1629,7 @@ const cartTotal = cart.reduce(
           border-radius:13px;
           font-weight:700
         }
+
         .auth-message{
           padding:12px;
           border-radius:12px;
@@ -1521,6 +1637,7 @@ const cartTotal = cart.reduce(
           font-size:13px;
           line-height:1.5
         }
+
         .auth-divider{
           display:flex;
           align-items:center;
@@ -1529,17 +1646,21 @@ const cartTotal = cart.reduce(
           font-size:12px;
           opacity:.5
         }
-        .auth-divider:before,.auth-divider:after{
+
+        .auth-divider:before,
+        .auth-divider:after{
           content:"";
           height:1px;
           flex:1;
           background:currentColor
         }
+
         .social-auth-buttons{
           display:grid;
           grid-template-columns:1fr 1fr;
           gap:10px
         }
+
         .social-auth-button{
           border:1px solid rgba(0,0,0,.1);
           background:#fff;
@@ -1547,6 +1668,7 @@ const cartTotal = cart.reduce(
           padding:13px;
           font-weight:700
         }
+
         .forgot-password{
           border:0;
           background:none;
@@ -1554,11 +1676,13 @@ const cartTotal = cart.reduce(
           font-size:12px;
           opacity:.65
         }
+
         .cart-overlay{
           align-items:stretch;
           justify-content:flex-end;
           padding:0
         }
+
         .cart-drawer{
           width:min(470px,100%);
           height:100%;
@@ -1566,16 +1690,19 @@ const cartTotal = cart.reduce(
           padding:25px;
           overflow-y:auto
         }
+
         .cart-header{
           display:flex;
           justify-content:space-between
         }
+
         .cart-item{
           display:flex;
           gap:14px;
           padding:16px 0;
           border-bottom:1px solid rgba(0,0,0,.07)
         }
+
         .cart-item-image{
           width:80px;
           height:80px;
@@ -1587,25 +1714,30 @@ const cartTotal = cart.reduce(
           align-items:center;
           justify-content:center
         }
+
         .cart-item-image img{
           width:100%;
           height:100%;
           object-fit:cover
         }
+
         .cart-item-info{
           flex:1;
           min-width:0
         }
+
         .cart-item-info h3{
           margin:0 0 5px;
           font-size:14px
         }
+
         .quantity-controls{
           display:flex;
           align-items:center;
           gap:10px;
           margin-top:10px
         }
+
         .quantity-controls button{
           width:30px;
           height:30px;
@@ -1613,25 +1745,31 @@ const cartTotal = cart.reduce(
           background:#fff;
           border-radius:8px
         }
-        .remove-cart-item,.clear-cart-button{
+
+        .remove-cart-item,
+        .clear-cart-button{
           border:0;
           background:none;
           font-size:12px;
           opacity:.55
         }
+
         .cart-footer{
           padding-top:20px
         }
+
         .cart-total{
           display:flex;
           justify-content:space-between;
           font-size:20px;
           margin-bottom:15px
         }
+
         .location-loading{
           font-size:12px;
           opacity:.55
         }
+
         .field-label{
           font-size:12px;
           font-weight:700;
@@ -1644,79 +1782,102 @@ const cartTotal = cart.reduce(
             padding:12px;
             gap:8px
           }
+
           .logo{
             font-size:17px
           }
+
           .nav{
             display:none
           }
+
           .header-actions{
             margin-left:auto;
             gap:5px
           }
-          .account-button,.cart-button{
+
+          .account-button,
+          .cart-button{
             padding:9px 10px;
             font-size:11px
           }
+
           .hero{
             min-height:550px;
             padding:65px 20px
           }
+
           .hero h1{
             font-size:clamp(42px,13vw,62px);
             letter-spacing:-3px
           }
+
           .hero-text{
             font-size:15px
           }
+
           .section{
             padding:55px 16px
           }
+
           .section h2{
             font-size:32px
           }
+
           .category-grid{
             grid-template-columns:repeat(2,1fr)
           }
+
           .product-grid{
             grid-template-columns:repeat(2,minmax(0,1fr));
             gap:10px
           }
+
           .product-image{
             height:170px
           }
+
           .product-info{
             padding:13px
           }
+
           .product-info h3{
             font-size:14px
           }
+
           .price{
             font-size:16px
           }
+
           .add-button{
             font-size:12px;
             padding:10px 7px
           }
+
           .trust-section{
             grid-template-columns:1fr;
             padding:35px 16px
           }
+
           footer{
             padding:40px 16px
           }
+
           .account-modal{
             width:calc(100% - 16px);
             padding:23px 17px;
             border-radius:22px
           }
+
           .social-auth-buttons{
             grid-template-columns:1fr
           }
+
           .cart-drawer{
             width:100%;
             border-radius:22px 22px 0 0
           }
+
           .cart-overlay{
             align-items:flex-end
           }
@@ -1726,17 +1887,20 @@ const cartTotal = cart.reduce(
           .product-grid{
             grid-template-columns:1fr
           }
+
           .product-image{
             height:220px
           }
         }
       `}</style>
 
-      {/* ANNOUNCEMENT */}
+      {/* =====================================================
+          ANNOUNCEMENT
+      ===================================================== */}
 
       <div className="announcement-bar">
         <div className="announcement-track">
-          {[1,2].map((group) => (
+          {[1, 2].map((group) => (
             <div
               className="announcement-group"
               key={group}
@@ -1744,9 +1908,11 @@ const cartTotal = cart.reduce(
               <span>
                 ✨ Premium phone accessories, are screaming here!!! ✨
               </span>
+
               <span>
                 📱 Premium phone accessories, are screaming here!!! 📱
               </span>
+
               <span>
                 ⚡ Premium phone accessories, are screaming here!!! ⚡
               </span>
@@ -1755,7 +1921,9 @@ const cartTotal = cart.reduce(
         </div>
       </div>
 
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <header className="header">
         <a href="#home" className="logo">
@@ -1766,7 +1934,9 @@ const cartTotal = cart.reduce(
         <nav className="nav">
           <a href="#home">Home</a>
           <a href="#shop">Shop</a>
-          <a href="#categories">Categories</a>
+          <a href="#categories">
+            Categories
+          </a>
           <a href="#contact">Contact</a>
         </nav>
 
@@ -1787,7 +1957,9 @@ const cartTotal = cart.reduce(
         </div>
       </header>
 
-      {/* HERO */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
 
       <main>
         <section className="hero" id="home">
@@ -1808,21 +1980,30 @@ const cartTotal = cart.reduce(
               gadgets.
             </p>
 
-            <a href="#shop" className="shop-button">
+            <a
+              href="#shop"
+              className="shop-button"
+            >
               Shop now →
             </a>
           </div>
         </section>
 
-        {/* CATEGORIES */}
+        {/* =====================================================
+            CATEGORIES
+        ===================================================== */}
 
         <section
           className="section"
           id="categories"
         >
-          <p className="eyebrow">EXPLORE</p>
+          <p className="eyebrow">
+            EXPLORE
+          </p>
 
-          <h2>Shop by category</h2>
+          <h2>
+            Shop by category
+          </h2>
 
           <div className="category-grid">
             {[
@@ -1845,7 +2026,9 @@ const cartTotal = cart.reduce(
           </div>
         </section>
 
-        {/* SHOP */}
+        {/* =====================================================
+            SHOP
+        ===================================================== */}
 
         <section
           className="section"
@@ -1855,13 +2038,15 @@ const cartTotal = cart.reduce(
             SHINDARA STORE
           </p>
 
-          <h2>Popular picks</h2>
+          <h2>
+            Popular picks
+          </h2>
 
           {productsLoading ? (
             <div
               style={{
-                padding:50,
-                textAlign:"center"
+                padding: 50,
+                textAlign: "center",
               }}
             >
               Loading products...
@@ -1869,8 +2054,8 @@ const cartTotal = cart.reduce(
           ) : productsError ? (
             <div
               style={{
-                padding:50,
-                textAlign:"center"
+                padding: 50,
+                textAlign: "center",
               }}
             >
               <p>{productsError}</p>
@@ -1885,8 +2070,8 @@ const cartTotal = cart.reduce(
           ) : products.length === 0 ? (
             <div
               style={{
-                padding:50,
-                textAlign:"center"
+                padding: 50,
+                textAlign: "center",
               }}
             >
               Products are coming soon.
@@ -1899,15 +2084,15 @@ const cartTotal = cart.reduce(
                   key={product.id}
                 >
                   <div className="product-image">
-                    {product.image_url ? (
+                    {product.image ? (
                       <img
-                        src={product.image_url}
+                        src={product.image}
                         alt={product.name}
                       />
                     ) : (
                       <span
                         style={{
-                          fontSize:45
+                          fontSize: 45,
                         }}
                       >
                         📦
@@ -1921,13 +2106,15 @@ const cartTotal = cart.reduce(
                         "Electronics"}
                     </p>
 
-                    <h3>{product.name}</h3>
+                    <h3>
+                      {product.name}
+                    </h3>
 
                     {product.description && (
                       <p
                         style={{
-                          opacity:.65,
-                          fontSize:13
+                          opacity: 0.65,
+                          fontSize: 13,
                         }}
                       >
                         {product.description}
@@ -1963,12 +2150,16 @@ const cartTotal = cart.reduce(
           )}
         </section>
 
-        {/* TRUST */}
+        {/* =====================================================
+            TRUST
+        ===================================================== */}
 
         <section className="trust-section">
           <div>
             <span>🚚</span>
-            <h3>Reliable delivery</h3>
+            <h3>
+              Reliable delivery
+            </h3>
             <p>
               Get your order delivered safely.
             </p>
@@ -1976,7 +2167,9 @@ const cartTotal = cart.reduce(
 
           <div>
             <span>🔒</span>
-            <h3>Secure shopping</h3>
+            <h3>
+              Secure shopping
+            </h3>
             <p>
               Shop with confidence.
             </p>
@@ -1984,7 +2177,9 @@ const cartTotal = cart.reduce(
 
           <div>
             <span>💬</span>
-            <h3>Customer support</h3>
+            <h3>
+              Customer support
+            </h3>
             <p>
               We're here whenever you need us.
             </p>
@@ -1992,7 +2187,9 @@ const cartTotal = cart.reduce(
         </section>
       </main>
 
-      {/* FOOTER */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
 
       <footer id="contact">
         <div>
@@ -2028,7 +2225,9 @@ const cartTotal = cart.reduce(
         </p>
       </footer>
 
-      {/* WHATSAPP */}
+      {/* =====================================================
+          WHATSAPP
+      ===================================================== */}
 
       <button
         className="whatsapp-floating"
@@ -2037,7 +2236,9 @@ const cartTotal = cart.reduce(
         💬
       </button>
 
-      {/* CART */}
+      {/* =====================================================
+          CART
+      ===================================================== */}
 
       {cartOpen && (
         <div
@@ -2058,7 +2259,9 @@ const cartTotal = cart.reduce(
                   SHINDARA
                 </p>
 
-                <h2>Your Cart</h2>
+                <h2>
+                  Your Cart
+                </h2>
               </div>
 
               <button
@@ -2071,16 +2274,25 @@ const cartTotal = cart.reduce(
               </button>
             </div>
 
-            {!cart.length ? (
+            {cartLoading ? (
               <div
                 style={{
-                  textAlign:"center",
-                  padding:60
+                  textAlign: "center",
+                  padding: 60,
+                }}
+              >
+                Loading your cart...
+              </div>
+            ) : !cart.length ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 60,
                 }}
               >
                 <div
                   style={{
-                    fontSize:55
+                    fontSize: 55,
                   }}
                 >
                   🛒
@@ -2108,7 +2320,7 @@ const cartTotal = cart.reduce(
                 {cart.map((item) => (
                   <div
                     className="cart-item"
-                    key={item.id}
+                    key={item.cart_item_id}
                   >
                     <div className="cart-item-image">
                       {item.image_url ? (
@@ -2172,7 +2384,9 @@ const cartTotal = cart.reduce(
 
                 <div className="cart-footer">
                   <div className="cart-total">
-                    <span>Total</span>
+                    <span>
+                      Total
+                    </span>
 
                     <strong>
                       {money(cartTotal)}
@@ -2199,7 +2413,9 @@ const cartTotal = cart.reduce(
         </div>
       )}
 
-      {/* CHECKOUT */}
+      {/* =====================================================
+          CHECKOUT
+      ===================================================== */}
 
       {checkoutOpen && (
         <div
@@ -2228,13 +2444,13 @@ const cartTotal = cart.reduce(
             {orderSuccess ? (
               <div
                 style={{
-                  textAlign:"center",
-                  padding:25
+                  textAlign: "center",
+                  padding: 25,
                 }}
               >
                 <div
                   style={{
-                    fontSize:60
+                    fontSize: 60,
                   }}
                 >
                   ✅
@@ -2385,9 +2601,10 @@ const cartTotal = cart.reduce(
 
                   <div
                     style={{
-                      display:"flex",
-                      justifyContent:"space-between",
-                      padding:"15px 0"
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      padding: "15px 0",
                     }}
                   >
                     <strong>
@@ -2423,7 +2640,9 @@ const cartTotal = cart.reduce(
         </div>
       )}
 
-      {/* ACCOUNT */}
+      {/* =====================================================
+          ACCOUNT
+      ===================================================== */}
 
       {accountOpen && (
         <div
@@ -2465,19 +2684,19 @@ const cartTotal = cart.reduce(
 
                 <div
                   style={{
-                    display:"grid",
+                    display: "grid",
                     gridTemplateColumns:
                       "repeat(3,1fr)",
-                    gap:8,
-                    margin:"25px 0"
+                    gap: 8,
+                    margin: "25px 0",
                   }}
                 >
                   {[
-                    ["profile","👤 Profile"],
-                    ["orders","📦 Orders"],
-                    ["settings","⚙️ Settings"]
+                    ["profile", "👤 Profile"],
+                    ["orders", "📦 Orders"],
+                    ["settings", "⚙️ Settings"],
                   ].map(
-                    ([tab,label]) => (
+                    ([tab, label]) => (
                       <button
                         key={tab}
                         className={
@@ -2491,19 +2710,18 @@ const cartTotal = cart.reduce(
                           );
 
                           if (
-                            tab ===
-                            "orders"
+                            tab === "orders"
                           ) {
                             loadOrders();
                           }
 
                           if (
-                            tab ===
-                            "settings"
+                            tab === "settings"
                           ) {
                             setSettingsMessage(
                               ""
                             );
+
                             setPasswordMessage(
                               ""
                             );
@@ -2523,11 +2741,11 @@ const cartTotal = cart.reduce(
                   <div>
                     <div
                       style={{
-                        padding:20,
-                        borderRadius:18,
+                        padding: 20,
+                        borderRadius: 18,
                         background:
                           "rgba(128,128,128,.08)",
-                        marginBottom:15
+                        marginBottom: 15,
                       }}
                     >
                       <p className="eyebrow">
@@ -2579,8 +2797,9 @@ const cartTotal = cart.reduce(
                     {ordersLoading ? (
                       <div
                         style={{
-                          padding:35,
-                          textAlign:"center"
+                          padding: 35,
+                          textAlign:
+                            "center",
                         }}
                       >
                         Loading your orders...
@@ -2603,13 +2822,14 @@ const cartTotal = cart.reduce(
                     ) : !orders.length ? (
                       <div
                         style={{
-                          textAlign:"center",
-                          padding:35
+                          textAlign:
+                            "center",
+                          padding: 35,
                         }}
                       >
                         <div
                           style={{
-                            fontSize:50
+                            fontSize: 50,
                           }}
                         >
                           📦
@@ -2620,9 +2840,8 @@ const cartTotal = cart.reduce(
                         </h3>
 
                         <p>
-                          Your completed
-                          orders will appear
-                          here.
+                          Your completed orders
+                          will appear here.
                         </p>
                       </div>
                     ) : (
@@ -2631,11 +2850,11 @@ const cartTotal = cart.reduce(
                           <div
                             key={order.id}
                             style={{
-                              padding:18,
+                              padding: 18,
                               border:
                                 "1px solid rgba(128,128,128,.2)",
-                              borderRadius:18,
-                              marginBottom:12
+                              borderRadius: 18,
+                              marginBottom: 12,
                             }}
                           >
                             <strong>
@@ -2652,8 +2871,8 @@ const cartTotal = cart.reduce(
 
                             <p
                               style={{
-                                opacity:.6,
-                                fontSize:13
+                                opacity: 0.6,
+                                fontSize: 13,
                               }}
                             >
                               {formatDate(
@@ -2663,11 +2882,11 @@ const cartTotal = cart.reduce(
 
                             <div
                               style={{
-                                display:"flex",
+                                display: "flex",
                                 justifyContent:
                                   "space-between",
                                 alignItems:
-                                  "center"
+                                  "center",
                               }}
                             >
                               <strong>
@@ -2679,7 +2898,7 @@ const cartTotal = cart.reduce(
                               <button
                                 className="modal-secondary"
                                 style={{
-                                  width:"auto"
+                                  width: "auto",
                                 }}
                                 onClick={() =>
                                   setExpandedOrder(
@@ -2710,10 +2929,10 @@ const cartTotal = cart.reduce(
                               order.id && (
                               <div
                                 style={{
-                                  marginTop:15,
-                                  paddingTop:15,
+                                  marginTop: 15,
+                                  paddingTop: 15,
                                   borderTop:
-                                    "1px solid rgba(128,128,128,.15)"
+                                    "1px solid rgba(128,128,128,.15)",
                                 }}
                               >
                                 {order.order_items?.map(
@@ -2723,11 +2942,12 @@ const cartTotal = cart.reduce(
                                         item.id
                                       }
                                       style={{
-                                        display:"flex",
+                                        display:
+                                          "flex",
                                         justifyContent:
                                           "space-between",
                                         padding:
-                                          "8px 0"
+                                          "8px 0",
                                       }}
                                     >
                                       <div>
@@ -2739,8 +2959,9 @@ const cartTotal = cart.reduce(
 
                                         <div
                                           style={{
-                                            opacity:.6,
-                                            fontSize:13
+                                            opacity:
+                                              0.6,
+                                            fontSize: 13,
                                           }}
                                         >
                                           Qty:{" "}
@@ -2849,10 +3070,10 @@ const cartTotal = cart.reduce(
 
                     <div
                       style={{
-                        marginTop:30,
-                        paddingTop:25,
+                        marginTop: 30,
+                        paddingTop: 25,
                         borderTop:
-                          "1px solid rgba(128,128,128,.15)"
+                          "1px solid rgba(128,128,128,.15)",
                       }}
                     >
                       <p className="eyebrow">
@@ -2909,7 +3130,7 @@ const cartTotal = cart.reduce(
                     <button
                       className="modal-secondary"
                       style={{
-                        marginTop:25
+                        marginTop: 25,
                       }}
                       onClick={logout}
                     >
@@ -3004,9 +3225,11 @@ const cartTotal = cart.reduce(
                         setForgotPassword(
                           true
                         );
+
                         setResetEmail(
                           email
                         );
+
                         setResetMessage(
                           ""
                         );
@@ -3076,7 +3299,7 @@ const cartTotal = cart.reduce(
                 <button
                   className="modal-secondary"
                   style={{
-                    marginTop:12
+                    marginTop: 12,
                   }}
                   onClick={() => {
                     setAuthMessage("");
@@ -3100,7 +3323,9 @@ const cartTotal = cart.reduce(
         </div>
       )}
 
-      {/* FORGOT PASSWORD */}
+      {/* =====================================================
+          FORGOT PASSWORD
+      ===================================================== */}
 
       {forgotPassword && (
         <div
@@ -3134,12 +3359,11 @@ const cartTotal = cart.reduce(
 
             <p
               style={{
-                opacity:.65
+                opacity: 0.65,
               }}
             >
-              Enter your email and
-              we'll send you a password
-              reset link.
+              Enter your email and we'll
+              send you a password reset link.
             </p>
 
             <form
@@ -3151,9 +3375,7 @@ const cartTotal = cart.reduce(
               <input
                 type="email"
                 placeholder="Email address"
-                value={
-                  resetEmail
-                }
+                value={resetEmail}
                 onChange={(e) =>
                   setResetEmail(
                     e.target.value
