@@ -6,7 +6,7 @@ const WHATSAPP = "2348118294548";
 const TIKTOK = "https://www.tiktok.com/@shindara.communication";
 
 // TEST MODE
-// Change to your live public key when you are ready for real payments.
+// Change to your live public key when you are ready for live payments.
 const PAYSTACK_PUBLIC_KEY =
   "pk_test_064c89b751af46db42ee4dc14ccb5ec906eaafe1";
 
@@ -38,7 +38,6 @@ function loadPaystackScript() {
     }
 
     const script = document.createElement("script");
-
     script.src = src;
     script.async = true;
 
@@ -58,9 +57,9 @@ function loadPaystackScript() {
 }
 
 function App() {
-  /* =====================================================
+  /* =========================================================
      USER / ACCOUNT
-  ===================================================== */
+  ========================================================= */
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -73,6 +72,7 @@ function App() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+
   const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -90,31 +90,19 @@ function App() {
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  /* =====================================================
+  /* =========================================================
      CART
-  ===================================================== */
+     IMPORTANT:
+     This is the ONLY cart system in this file.
+     Cart is stored in Supabase against user.id.
+  ========================================================= */
 
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartLoading, setCartLoading] = useState(false);
 
-  /*
-   * IMPORTANT:
-   * The cart is stored in Supabase against user.id.
-   *
-   * Logged in:
-   *     load that user's cart.
-   *
-   * Logged out:
-   *     clear the local cart display.
-   *
-   * The database cart is NOT deleted when logging out.
-   * Therefore when the same user logs back in,
-   * their previous cart comes back.
-   */
-
-  async function loadCart(currentUser = user) {
-    if (!currentUser) {
+  async function loadCart(userId) {
+    if (!userId) {
       setCart([]);
       return;
     }
@@ -126,7 +114,6 @@ function App() {
         .from("cart_items")
         .select(`
           id,
-          user_id,
           product_id,
           quantity,
           created_at,
@@ -136,11 +123,14 @@ function App() {
             price,
             image,
             category,
-            description,
-            stock
+            category_id,
+            created_at,
+            featured,
+            stock,
+            description
           )
         `)
-        .eq("user_id", currentUser.id)
+        .eq("user_id", userId)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -149,7 +139,11 @@ function App() {
         .filter((item) => item.products)
         .map((item) => ({
           ...item.products,
+
+          // Your products table uses "image".
+          // We expose image_url too so the UI can use it safely.
           image_url: item.products.image || null,
+
           cart_item_id: item.id,
           quantity: Number(item.quantity || 1),
         }));
@@ -162,17 +156,6 @@ function App() {
       setCartLoading(false);
     }
   }
-
-  /*
-   * Reload cart whenever the logged-in account changes.
-   */
-  useEffect(() => {
-    if (user) {
-      loadCart(user);
-    } else {
-      setCart([]);
-    }
-  }, [user]);
 
   async function addToCart(product) {
     if (!user) {
@@ -189,7 +172,8 @@ function App() {
       );
 
       if (existing) {
-        const newQuantity = Number(existing.quantity) + 1;
+        const newQuantity =
+          Number(existing.quantity || 0) + 1;
 
         const { error } = await supabase
           .from("cart_items")
@@ -212,7 +196,7 @@ function App() {
         if (error) throw error;
       }
 
-      await loadCart(user);
+      await loadCart(user.id);
     } catch (error) {
       console.error("Add to cart error:", error);
 
@@ -223,11 +207,12 @@ function App() {
     }
   }
 
-  async function increaseQuantity(id) {
+  async function increaseQuantity(productId) {
     if (!user) return;
 
     const item = cart.find(
-      (product) => String(product.id) === String(id)
+      (product) =>
+        String(product.id) === String(productId)
     );
 
     if (!item) return;
@@ -236,30 +221,35 @@ function App() {
       const { error } = await supabase
         .from("cart_items")
         .update({
-          quantity: Number(item.quantity) + 1,
+          quantity: Number(item.quantity || 0) + 1,
         })
         .eq("id", item.cart_item_id)
         .eq("user_id", user.id);
 
       if (error) throw error;
 
-      await loadCart(user);
+      await loadCart(user.id);
     } catch (error) {
-      console.error("Increase quantity error:", error);
+      console.error(
+        "Increase quantity error:",
+        error
+      );
     }
   }
 
-  async function decreaseQuantity(id) {
+  async function decreaseQuantity(productId) {
     if (!user) return;
 
     const item = cart.find(
-      (product) => String(product.id) === String(id)
+      (product) =>
+        String(product.id) === String(productId)
     );
 
     if (!item) return;
 
     try {
-      const newQuantity = Number(item.quantity) - 1;
+      const newQuantity =
+        Number(item.quantity || 0) - 1;
 
       if (newQuantity <= 0) {
         const { error } = await supabase
@@ -281,17 +271,21 @@ function App() {
         if (error) throw error;
       }
 
-      await loadCart(user);
+      await loadCart(user.id);
     } catch (error) {
-      console.error("Decrease quantity error:", error);
+      console.error(
+        "Decrease quantity error:",
+        error
+      );
     }
   }
 
-  async function removeFromCart(id) {
+  async function removeFromCart(productId) {
     if (!user) return;
 
     const item = cart.find(
-      (product) => String(product.id) === String(id)
+      (product) =>
+        String(product.id) === String(productId)
     );
 
     if (!item) return;
@@ -305,9 +299,12 @@ function App() {
 
       if (error) throw error;
 
-      await loadCart(user);
+      await loadCart(user.id);
     } catch (error) {
-      console.error("Remove cart item error:", error);
+      console.error(
+        "Remove cart item error:",
+        error
+      );
     }
   }
 
@@ -342,45 +339,222 @@ function App() {
     0
   );
 
-  /* =====================================================
+  /* =========================================================
      CHECKOUT
-  ===================================================== */
+  ========================================================= */
 
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [orderLoading, setOrderLoading] = useState(false);
-  const [orderMessage, setOrderMessage] = useState("");
-  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] =
+    useState(false);
 
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryState, setDeliveryState] = useState("");
-  const [deliveryCity, setDeliveryCity] = useState("");
+  const [orderLoading, setOrderLoading] =
+    useState(false);
 
-  /* =====================================================
+  const [orderMessage, setOrderMessage] =
+    useState("");
+
+  const [orderSuccess, setOrderSuccess] =
+    useState(false);
+
+  const [customerName, setCustomerName] =
+    useState("");
+
+  const [customerPhone, setCustomerPhone] =
+    useState("");
+
+  const [deliveryAddress, setDeliveryAddress] =
+    useState("");
+
+  const [deliveryState, setDeliveryState] =
+    useState("");
+
+  const [deliveryCity, setDeliveryCity] =
+    useState("");
+
+  /* =========================================================
      ORDERS
-  ===================================================== */
+  ========================================================= */
 
   const [orders, setOrders] = useState([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState("");
-  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [ordersLoading, setOrdersLoading] =
+    useState(false);
 
-  /* =====================================================
+  const [ordersError, setOrdersError] =
+    useState("");
+
+  const [expandedOrder, setExpandedOrder] =
+    useState(null);
+
+  /* =========================================================
      PRODUCTS
-  ===================================================== */
+  ========================================================= */
 
   const [products, setProducts] = useState([]);
-  const [productsLoading, setProductsLoading] = useState(true);
-  const [productsError, setProductsError] = useState("");
+  const [productsLoading, setProductsLoading] =
+    useState(true);
 
-  /* =====================================================
-     LOCATIONS
-  ===================================================== */
+  const [productsError, setProductsError] =
+    useState("");
+
+  /* =========================================================
+     NIGERIAN LOCATIONS
+  ========================================================= */
 
   const [locations, setLocations] = useState([]);
-  const [locationsLoading, setLocationsLoading] = useState(true);
-  const [locationsError, setLocationsError] = useState("");
+  const [locationsLoading, setLocationsLoading] =
+    useState(true);
+
+  const [locationsError, setLocationsError] =
+    useState("");
+
+  /* =========================================================
+     AUTH INITIALIZATION
+  ========================================================= */
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function initializeAuth() {
+      const { data, error } =
+        await supabase.auth.getUser();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error(
+          "Initial auth error:",
+          error
+        );
+        setUser(null);
+        setCart([]);
+        return;
+      }
+
+      const currentUser =
+        data?.user || null;
+
+      setUser(currentUser);
+
+      if (currentUser) {
+        await loadProfile(currentUser.id);
+        await loadCart(currentUser.id);
+      } else {
+        setCart([]);
+      }
+    }
+
+    initializeAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+
+        const currentUser =
+          session?.user || null;
+
+        /*
+         * SIGNED_OUT:
+         * Immediately empty the visible cart.
+         *
+         * We DO NOT delete cart_items from Supabase.
+         *
+         * This is what allows:
+         *
+         * Login A → cart A
+         * Logout → empty cart
+         * Login A again → cart A returns
+         */
+        if (event === "SIGNED_OUT") {
+          setUser(null);
+          setProfile(null);
+          setOrders([]);
+          setCart([]);
+          setCartOpen(false);
+          setCheckoutOpen(false);
+          setAccountOpen(false);
+          return;
+        }
+
+        setUser(currentUser);
+
+        if (currentUser) {
+          await loadProfile(currentUser.id);
+          await loadCart(currentUser.id);
+        } else {
+          setProfile(null);
+          setOrders([]);
+          setCart([]);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  /* =========================================================
+     PRODUCTS
+  ========================================================= */
+
+  useEffect(() => {
+    loadProducts();
+
+    const channel = supabase
+      .channel("store-products")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "products",
+        },
+        () => {
+          loadProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  async function loadProducts() {
+    setProductsLoading(true);
+    setProductsError("");
+
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", {
+          ascending: false,
+        });
+
+      if (error) throw error;
+
+      setProducts(data || []);
+    } catch (error) {
+      console.error(
+        "Product loading error:",
+        error
+      );
+
+      setProducts([]);
+      setProductsError(
+        "We couldn't load our products right now."
+      );
+    } finally {
+      setProductsLoading(false);
+    }
+  }
+
+  /* =========================================================
+     NIGERIAN LOCATIONS
+  ========================================================= */
 
   useEffect(() => {
     async function getLocations() {
@@ -388,15 +562,24 @@ function App() {
         setLocationsLoading(true);
         setLocationsError("");
 
-        const data = await loadNigeriaLocations();
+        const data =
+          await loadNigeriaLocations();
 
-        if (!Array.isArray(data) || !data.length) {
-          throw new Error("No Nigerian locations found.");
+        if (
+          !Array.isArray(data) ||
+          !data.length
+        ) {
+          throw new Error(
+            "No Nigerian locations found."
+          );
         }
 
         setLocations(data);
       } catch (error) {
-        console.error("Location loading error:", error);
+        console.error(
+          "Location loading error:",
+          error
+        );
 
         setLocationsError(
           "Unable to load Nigerian states and cities. Please refresh and try again."
@@ -432,121 +615,13 @@ function App() {
     setDeliveryCity("");
   }
 
-  /* =====================================================
-     AUTH SESSION
-  ===================================================== */
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadUser() {
-      const { data, error } =
-        await supabase.auth.getUser();
-
-      if (!mounted) return;
-
-      if (error) {
-        console.error("Get user error:", error);
-      }
-
-      const currentUser = data?.user || null;
-
-      setUser(currentUser);
-
-      if (currentUser) {
-        await loadProfile(currentUser.id);
-        await loadCart(currentUser);
-      } else {
-        setCart([]);
-      }
-    }
-
-    loadUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!mounted) return;
-
-        const currentUser =
-          session?.user || null;
-
-        setUser(currentUser);
-
-        if (currentUser) {
-          await loadProfile(currentUser.id);
-          await loadCart(currentUser);
-        } else {
-          setProfile(null);
-          setOrders([]);
-          setCart([]);
-          setCartOpen(false);
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  /* =====================================================
-     PRODUCTS
-  ===================================================== */
-
-  useEffect(() => {
-    loadProducts();
-
-    const channel = supabase
-      .channel("store-products")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "products",
-        },
-        loadProducts
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  async function loadProducts() {
-    setProductsLoading(true);
-    setProductsError("");
-
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (error) {
-      console.error(error);
-
-      setProducts([]);
-      setProductsError(
-        "We couldn't load our products right now."
-      );
-    } else {
-      setProducts(data || []);
-    }
-
-    setProductsLoading(false);
-  }
-
-  /* =====================================================
+  /* =========================================================
      PROFILE
-  ===================================================== */
+  ========================================================= */
 
   async function loadProfile(userId) {
+    if (!userId) return;
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -554,7 +629,10 @@ function App() {
       .maybeSingle();
 
     if (error) {
-      console.error("Profile error:", error);
+      console.error(
+        "Profile error:",
+        error
+      );
       return;
     }
 
@@ -569,9 +647,9 @@ function App() {
     }
   }
 
-  /* =====================================================
+  /* =========================================================
      ORDERS
-  ===================================================== */
+  ========================================================= */
 
   async function loadOrders() {
     if (!user) return;
@@ -624,9 +702,9 @@ function App() {
     }
   }
 
-  /* =====================================================
+  /* =========================================================
      AUTH
-  ===================================================== */
+  ========================================================= */
 
   async function handleAuth(event) {
     event.preventDefault();
@@ -636,9 +714,14 @@ function App() {
 
     try {
       if (authMode === "signup") {
-        const cleanName = fullName.trim();
-        const cleanPhone = phone.trim();
-        const cleanEmail = email.trim();
+        const cleanName =
+          fullName.trim();
+
+        const cleanPhone =
+          phone.trim();
+
+        const cleanEmail =
+          email.trim();
 
         if (!cleanName) {
           setAuthMessage(
@@ -676,19 +759,20 @@ function App() {
         if (error) throw error;
 
         if (data?.user) {
-          const { error: profileError } =
-            await supabase
-              .from("profiles")
-              .upsert({
-                id: data.user.id,
-                name: cleanName,
-                phone: cleanPhone,
-                email: cleanEmail,
-              });
+          const {
+            error: profileError,
+          } = await supabase
+            .from("profiles")
+            .upsert({
+              id: data.user.id,
+              name: cleanName,
+              phone: cleanPhone,
+              email: cleanEmail,
+            });
 
           if (profileError) {
             console.error(
-              "Profile save error:",
+              "Profile save:",
               profileError
             );
           }
@@ -724,12 +808,11 @@ function App() {
 
       if (data?.user) {
         await loadProfile(data.user.id);
-        await loadCart(data.user);
+        await loadCart(data.user.id);
       }
 
       setEmail("");
       setPassword("");
-
       setAccountOpen(false);
     } catch (error) {
       console.error(error);
@@ -752,7 +835,8 @@ function App() {
         await supabase.auth.signInWithOAuth({
           provider,
           options: {
-            redirectTo: window.location.origin,
+            redirectTo:
+              window.location.origin,
           },
         });
 
@@ -767,14 +851,17 @@ function App() {
     }
   }
 
-  async function handleForgotPassword(event) {
+  async function handleForgotPassword(
+    event
+  ) {
     event.preventDefault();
 
     setResetLoading(true);
     setResetMessage("");
 
     try {
-      const cleanEmail = resetEmail.trim();
+      const cleanEmail =
+        resetEmail.trim();
 
       if (!cleanEmail) {
         setResetMessage(
@@ -787,7 +874,8 @@ function App() {
         await supabase.auth.resetPasswordForEmail(
           cleanEmail,
           {
-            redirectTo: window.location.origin,
+            redirectTo:
+              window.location.origin,
           }
         );
 
@@ -806,11 +894,13 @@ function App() {
     }
   }
 
-  /* =====================================================
+  /* =========================================================
      PROFILE SETTINGS
-  ===================================================== */
+  ========================================================= */
 
-  async function saveProfileSettings(event) {
+  async function saveProfileSettings(
+    event
+  ) {
     event.preventDefault();
 
     if (!user) return;
@@ -819,8 +909,11 @@ function App() {
     setSettingsMessage("");
 
     try {
-      const cleanName = profileName.trim();
-      const cleanPhone = profilePhone.trim();
+      const cleanName =
+        profileName.trim();
+
+      const cleanPhone =
+        profilePhone.trim();
 
       if (!cleanName) {
         setSettingsMessage(
@@ -836,14 +929,15 @@ function App() {
         return;
       }
 
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          id: user.id,
-          name: cleanName,
-          phone: cleanPhone,
-          email: user.email || "",
-        });
+      const { error } =
+        await supabase
+          .from("profiles")
+          .upsert({
+            id: user.id,
+            name: cleanName,
+            phone: cleanPhone,
+            email: user.email || "",
+          });
 
       if (error) throw error;
 
@@ -867,9 +961,9 @@ function App() {
     }
   }
 
-  /* =====================================================
+  /* =========================================================
      PASSWORD
-  ===================================================== */
+  ========================================================= */
 
   async function changePassword(event) {
     event.preventDefault();
@@ -878,7 +972,10 @@ function App() {
     setPasswordMessage("");
 
     try {
-      if (!newPassword || newPassword.length < 6) {
+      if (
+        !newPassword ||
+        newPassword.length < 6
+      ) {
         setPasswordMessage(
           "Password must be at least 6 characters."
         );
@@ -907,46 +1004,38 @@ function App() {
     }
   }
 
-  /* =====================================================
-     LOGOUT
-  ===================================================== */
-
   async function logout() {
-    try {
-      /*
-       * Do NOT delete cart_items here.
-       *
-       * We only clear the cart displayed in memory.
-       * The database cart remains attached to user.id.
-       *
-       * When this same account logs in again,
-       * loadCart() retrieves it.
-       */
+    /*
+     * IMPORTANT:
+     * We DO NOT delete cart_items here.
+     *
+     * Supabase keeps the user's cart in the database.
+     * SIGNED_OUT then clears the visible cart.
+     */
+    const { error } =
+      await supabase.auth.signOut();
 
-      const { error } =
-        await supabase.auth.signOut({
-          scope: "local",
-        });
-
-      if (error) {
-        console.error("Logout error:", error);
-      }
-
-      setUser(null);
-      setProfile(null);
-      setOrders([]);
-      setCart([]);
-      setCartOpen(false);
-      setAccountOpen(false);
-      setCheckoutOpen(false);
-    } catch (error) {
-      console.error("Logout error:", error);
+    if (error) {
+      console.error(
+        "Logout error:",
+        error
+      );
+      return;
     }
+
+    setUser(null);
+    setProfile(null);
+    setOrders([]);
+    setCart([]);
+
+    setCartOpen(false);
+    setCheckoutOpen(false);
+    setAccountOpen(false);
   }
 
-  /* =====================================================
+  /* =========================================================
      CHECKOUT
-  ===================================================== */
+  ========================================================= */
 
   function openCheckout() {
     if (!cart.length) return;
@@ -969,22 +1058,29 @@ function App() {
   }
 
   async function saveOrder(reference) {
-    const { data: order, error: orderError } =
-      await supabase
-        .from("orders")
-        .insert({
-          user_id: user.id,
-          customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
-          delivery_address: deliveryAddress.trim(),
-          delivery_city: deliveryCity.trim(),
-          delivery_state: deliveryState.trim(),
-          total: cartTotal,
-          status: "paid",
-          payment_reference: reference,
-        })
-        .select()
-        .single();
+    const {
+      data: order,
+      error: orderError,
+    } = await supabase
+      .from("orders")
+      .insert({
+        user_id: user.id,
+        customer_name:
+          customerName.trim(),
+        customer_phone:
+          customerPhone.trim(),
+        delivery_address:
+          deliveryAddress.trim(),
+        delivery_city:
+          deliveryCity.trim(),
+        delivery_state:
+          deliveryState.trim(),
+        total: cartTotal,
+        status: "paid",
+        payment_reference: reference,
+      })
+      .select()
+      .single();
 
     if (orderError) throw orderError;
 
@@ -993,14 +1089,20 @@ function App() {
       product_id: item.id,
       product_name: item.name,
       price: Number(item.price || 0),
-      quantity: Number(item.quantity || 1),
-      image_url: item.image_url || null,
+      quantity: Number(
+        item.quantity || 1
+      ),
+      image_url:
+        item.image ||
+        item.image_url ||
+        null,
     }));
 
-    const { error: itemsError } =
-      await supabase
-        .from("order_items")
-        .insert(items);
+    const {
+      error: itemsError,
+    } = await supabase
+      .from("order_items")
+      .insert(items);
 
     if (itemsError) {
       await supabase
@@ -1060,7 +1162,9 @@ function App() {
     }
 
     if (!cart.length) {
-      setOrderMessage("Your cart is empty.");
+      setOrderMessage(
+        "Your cart is empty."
+      );
       return;
     }
 
@@ -1076,24 +1180,33 @@ function App() {
       popup.newTransaction({
         key: PAYSTACK_PUBLIC_KEY,
         email: user.email,
-        amount: Math.round(cartTotal * 100),
+        amount: Math.round(
+          cartTotal * 100
+        ),
         currency: "NGN",
 
         metadata: {
           customer_name:
             customerName.trim(),
+
           customer_phone:
             customerPhone.trim(),
+
           delivery_address:
             deliveryAddress.trim(),
+
           delivery_city:
             deliveryCity.trim(),
+
           delivery_state:
             deliveryState.trim(),
+
           user_id: user.id,
         },
 
-        onSuccess: async (transaction) => {
+        onSuccess: async (
+          transaction
+        ) => {
           try {
             setOrderMessage(
               "Payment successful. Verifying your payment..."
@@ -1109,7 +1222,10 @@ function App() {
               );
             }
 
-            const { data, error } =
+            const {
+              data,
+              error,
+            } =
               await supabase.functions.invoke(
                 "verify-paystack-payment",
                 {
@@ -1132,15 +1248,9 @@ function App() {
             }
 
             const order =
-              await saveOrder(reference);
-
-            /*
-             * Payment + order completed.
-             *
-             * Now permanently remove this user's
-             * saved cart from Supabase.
-             */
-            await clearCart();
+              await saveOrder(
+                reference
+              );
 
             setOrderSuccess(true);
 
@@ -1151,6 +1261,12 @@ function App() {
                 .slice(0, 8)
                 .toUpperCase()}.`
             );
+
+            /*
+             * Payment succeeded.
+             * Now remove this user's saved cart.
+             */
+            await clearCart();
 
             setCustomerName("");
             setCustomerPhone("");
@@ -1189,14 +1305,15 @@ function App() {
     }
   }
 
-  /* =====================================================
+  /* =========================================================
      HELPERS
-  ===================================================== */
+  ========================================================= */
 
   function whatsapp() {
-    const message = encodeURIComponent(
-      "Hello Shindara Phoneflair, I would like to make an enquiry."
-    );
+    const message =
+      encodeURIComponent(
+        "Hello Shindara Phoneflair, I would like to make an enquiry."
+      );
 
     window.open(
       `https://wa.me/${WHATSAPP}?text=${message}`,
@@ -1207,7 +1324,9 @@ function App() {
   function formatDate(date) {
     if (!date) return "";
 
-    return new Date(date).toLocaleDateString(
+    return new Date(
+      date
+    ).toLocaleDateString(
       "en-NG",
       {
         day: "numeric",
@@ -1226,24 +1345,35 @@ function App() {
     );
   }
 
-  /* =====================================================
+  /* =========================================================
      UI
-  ===================================================== */
+  ========================================================= */
 
   return (
     <div className="app">
       <style>{`
         *{box-sizing:border-box}
+
         html{scroll-behavior:smooth}
+
         body{
           margin:0;
           font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
           background:#f7f7f8;
           color:#111
         }
-        button,input,select,textarea{font:inherit}
-        button,a{-webkit-tap-highlight-color:transparent}
-        button{cursor:pointer}
+
+        button,input,select,textarea{
+          font:inherit
+        }
+
+        button,a{
+          -webkit-tap-highlight-color:transparent
+        }
+
+        button{
+          cursor:pointer
+        }
 
         .app{
           min-height:100vh;
@@ -1458,7 +1588,8 @@ function App() {
         .product-image img{
           width:100%;
           height:100%;
-          object-fit:cover
+          object-fit:cover;
+          display:block
         }
 
         .product-info{
@@ -1494,7 +1625,8 @@ function App() {
           font-weight:700
         }
 
-        .add-button:disabled,.modal-action:disabled{
+        .add-button:disabled,
+        .modal-action:disabled{
           opacity:.5
         }
 
@@ -1718,7 +1850,8 @@ function App() {
         .cart-item-image img{
           width:100%;
           height:100%;
-          object-fit:cover
+          object-fit:cover;
+          display:block
         }
 
         .cart-item-info{
@@ -1926,18 +2059,30 @@ function App() {
       ===================================================== */}
 
       <header className="header">
-        <a href="#home" className="logo">
+        <a
+          href="#home"
+          className="logo"
+        >
           Shindara
           <span>Phoneflair</span>
         </a>
 
         <nav className="nav">
-          <a href="#home">Home</a>
-          <a href="#shop">Shop</a>
+          <a href="#home">
+            Home
+          </a>
+
+          <a href="#shop">
+            Shop
+          </a>
+
           <a href="#categories">
             Categories
           </a>
-          <a href="#contact">Contact</a>
+
+          <a href="#contact">
+            Contact
+          </a>
         </nav>
 
         <div className="header-actions">
@@ -1945,12 +2090,17 @@ function App() {
             className="account-button"
             onClick={openAccount}
           >
-            👤 {user ? "Account" : "Sign in"}
+            👤{" "}
+            {user
+              ? "Account"
+              : "Sign in"}
           </button>
 
           <button
             className="cart-button"
-            onClick={() => setCartOpen(true)}
+            onClick={() =>
+              setCartOpen(true)
+            }
           >
             🛒 Cart ({cartCount})
           </button>
@@ -1962,7 +2112,10 @@ function App() {
       ===================================================== */}
 
       <main>
-        <section className="hero" id="home">
+        <section
+          className="hero"
+          id="home"
+        >
           <div className="hero-content">
             <p className="eyebrow">
               SHINDARA PHONEFLAIR
@@ -1975,9 +2128,10 @@ function App() {
             </h1>
 
             <p className="hero-text">
-              Phones, accessories, chargers, audio
-              products, power banks and everyday
-              gadgets.
+              Phones, accessories,
+              chargers, audio
+              products, power banks
+              and everyday gadgets.
             </p>
 
             <a
@@ -1989,9 +2143,9 @@ function App() {
           </div>
         </section>
 
-        {/* =====================================================
+        {/* =================================================
             CATEGORIES
-        ===================================================== */}
+        ================================================= */}
 
         <section
           className="section"
@@ -2013,22 +2167,29 @@ function App() {
               ["🎧", "Audio"],
               ["🔋", "Power Banks"],
               ["✨", "Gadgets"],
-            ].map(([icon, name]) => (
-              <a
-                href="#shop"
-                className="category-card"
-                key={name}
-              >
-                <span>{icon}</span>
-                <strong>{name}</strong>
-              </a>
-            ))}
+            ].map(
+              ([icon, name]) => (
+                <a
+                  href="#shop"
+                  className="category-card"
+                  key={name}
+                >
+                  <span>
+                    {icon}
+                  </span>
+
+                  <strong>
+                    {name}
+                  </strong>
+                </a>
+              )
+            )}
           </div>
         </section>
 
-        {/* =====================================================
+        {/* =================================================
             SHOP
-        ===================================================== */}
+        ================================================= */}
 
         <section
           className="section"
@@ -2046,7 +2207,8 @@ function App() {
             <div
               style={{
                 padding: 50,
-                textAlign: "center",
+                textAlign:
+                  "center",
               }}
             >
               Loading products...
@@ -2055,133 +2217,175 @@ function App() {
             <div
               style={{
                 padding: 50,
-                textAlign: "center",
+                textAlign:
+                  "center",
               }}
             >
-              <p>{productsError}</p>
+              <p>
+                {productsError}
+              </p>
 
               <button
                 className="add-button"
-                onClick={loadProducts}
+                onClick={
+                  loadProducts
+                }
               >
                 Try again
               </button>
             </div>
-          ) : products.length === 0 ? (
+          ) : products.length ===
+            0 ? (
             <div
               style={{
                 padding: 50,
-                textAlign: "center",
+                textAlign:
+                  "center",
               }}
             >
-              Products are coming soon.
+              Products are
+              coming soon.
             </div>
           ) : (
             <div className="product-grid">
-              {products.map((product) => (
-                <article
-                  className="product-card"
-                  key={product.id}
-                >
-                  <div className="product-image">
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                      />
-                    ) : (
-                      <span
-                        style={{
-                          fontSize: 45,
-                        }}
-                      >
-                        📦
-                      </span>
-                    )}
-                  </div>
+              {products.map(
+                (product) => (
+                  <article
+                    className="product-card"
+                    key={product.id}
+                  >
+                    <div className="product-image">
+                      {product.image ? (
+                        <img
+                          src={
+                            product.image
+                          }
+                          alt={
+                            product.name
+                          }
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            fontSize:
+                              45,
+                          }}
+                        >
+                          📦
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="product-info">
-                    <p className="product-category">
-                      {product.category ||
-                        "Electronics"}
-                    </p>
-
-                    <h3>
-                      {product.name}
-                    </h3>
-
-                    {product.description && (
-                      <p
-                        style={{
-                          opacity: 0.65,
-                          fontSize: 13,
-                        }}
-                      >
-                        {product.description}
+                    <div className="product-info">
+                      <p className="product-category">
+                        {product.category ||
+                          "Electronics"}
                       </p>
-                    )}
 
-                    <p className="price">
-                      {money(product.price)}
-                    </p>
-
-                    {Number(product.stock || 0) >
-                    0 ? (
-                      <button
-                        className="add-button"
-                        onClick={() =>
-                          addToCart(product)
+                      <h3>
+                        {
+                          product.name
                         }
-                      >
-                        Add to cart
-                      </button>
-                    ) : (
-                      <button
-                        className="add-button"
-                        disabled
-                      >
-                        Out of stock
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))}
+                      </h3>
+
+                      {product.description && (
+                        <p
+                          style={{
+                            opacity:
+                              0.65,
+                            fontSize:
+                              13,
+                          }}
+                        >
+                          {
+                            product.description
+                          }
+                        </p>
+                      )}
+
+                      <p className="price">
+                        {money(
+                          product.price
+                        )}
+                      </p>
+
+                      {Number(
+                        product.stock ||
+                          0
+                      ) > 0 ? (
+                        <button
+                          className="add-button"
+                          onClick={() =>
+                            addToCart(
+                              product
+                            )
+                          }
+                        >
+                          Add to cart
+                        </button>
+                      ) : (
+                        <button
+                          className="add-button"
+                          disabled
+                        >
+                          Out of stock
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                )
+              )}
             </div>
           )}
         </section>
 
-        {/* =====================================================
+        {/* =================================================
             TRUST
-        ===================================================== */}
+        ================================================= */}
 
         <section className="trust-section">
           <div>
-            <span>🚚</span>
+            <span>
+              🚚
+            </span>
+
             <h3>
               Reliable delivery
             </h3>
+
             <p>
-              Get your order delivered safely.
+              Get your order delivered
+              safely.
             </p>
           </div>
 
           <div>
-            <span>🔒</span>
+            <span>
+              🔒
+            </span>
+
             <h3>
               Secure shopping
             </h3>
+
             <p>
               Shop with confidence.
             </p>
           </div>
 
           <div>
-            <span>💬</span>
+            <span>
+              💬
+            </span>
+
             <h3>
               Customer support
             </h3>
+
             <p>
-              We're here whenever you need us.
+              We're here whenever
+              you need us.
             </p>
           </div>
         </section>
@@ -2198,7 +2402,8 @@ function App() {
           </strong>
 
           <p>
-            Phones • Accessories • Gadgets • Electronics
+            Phones • Accessories •
+            Gadgets • Electronics
           </p>
 
           <div className="social-links">
@@ -2221,7 +2426,8 @@ function App() {
         </div>
 
         <p>
-          © 2026 Shindara Phoneflair
+          © 2026 Shindara
+          Phoneflair
         </p>
       </footer>
 
@@ -2277,7 +2483,8 @@ function App() {
             {cartLoading ? (
               <div
                 style={{
-                  textAlign: "center",
+                  textAlign:
+                    "center",
                   padding: 60,
                 }}
               >
@@ -2286,7 +2493,8 @@ function App() {
             ) : !cart.length ? (
               <div
                 style={{
-                  textAlign: "center",
+                  textAlign:
+                    "center",
                   padding: 60,
                 }}
               >
@@ -2299,88 +2507,108 @@ function App() {
                 </div>
 
                 <h3>
-                  Your cart is empty
+                  Your cart is
+                  empty
                 </h3>
 
                 <p>
-                  Add something you love from our store.
+                  Add something
+                  you love from
+                  our store.
                 </p>
 
                 <button
                   className="modal-action"
                   onClick={() =>
-                    setCartOpen(false)
+                    setCartOpen(
+                      false
+                    )
                   }
                 >
-                  Continue shopping
+                  Continue
+                  shopping
                 </button>
               </div>
             ) : (
               <>
-                {cart.map((item) => (
-                  <div
-                    className="cart-item"
-                    key={item.cart_item_id}
-                  >
-                    <div className="cart-item-image">
-                      {item.image_url ? (
-                        <img
-                          src={item.image_url}
-                          alt={item.name}
-                        />
-                      ) : (
-                        "📦"
-                      )}
-                    </div>
-
-                    <div className="cart-item-info">
-                      <h3>
-                        {item.name}
-                      </h3>
-
-                      <p>
-                        {money(item.price)}
-                      </p>
-
-                      <div className="quantity-controls">
-                        <button
-                          onClick={() =>
-                            decreaseQuantity(
-                              item.id
-                            )
-                          }
-                        >
-                          −
-                        </button>
-
-                        <strong>
-                          {item.quantity}
-                        </strong>
-
-                        <button
-                          onClick={() =>
-                            increaseQuantity(
-                              item.id
-                            )
-                          }
-                        >
-                          +
-                        </button>
+                {cart.map(
+                  (item) => (
+                    <div
+                      className="cart-item"
+                      key={
+                        item.cart_item_id
+                      }
+                    >
+                      <div className="cart-item-image">
+                        {item.image ? (
+                          <img
+                            src={
+                              item.image
+                            }
+                            alt={
+                              item.name
+                            }
+                          />
+                        ) : (
+                          "📦"
+                        )}
                       </div>
 
-                      <button
-                        className="remove-cart-item"
-                        onClick={() =>
-                          removeFromCart(
-                            item.id
-                          )
-                        }
-                      >
-                        Remove
-                      </button>
+                      <div className="cart-item-info">
+                        <h3>
+                          {
+                            item.name
+                          }
+                        </h3>
+
+                        <p>
+                          {money(
+                            item.price
+                          )}
+                        </p>
+
+                        <div className="quantity-controls">
+                          <button
+                            onClick={() =>
+                              decreaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            −
+                          </button>
+
+                          <strong>
+                            {
+                              item.quantity
+                            }
+                          </strong>
+
+                          <button
+                            onClick={() =>
+                              increaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <button
+                          className="remove-cart-item"
+                          onClick={() =>
+                            removeFromCart(
+                              item.id
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
 
                 <div className="cart-footer">
                   <div className="cart-total">
@@ -2389,20 +2617,27 @@ function App() {
                     </span>
 
                     <strong>
-                      {money(cartTotal)}
+                      {money(
+                        cartTotal
+                      )}
                     </strong>
                   </div>
 
                   <button
                     className="checkout-button"
-                    onClick={openCheckout}
+                    onClick={
+                      openCheckout
+                    }
                   >
-                    Continue to checkout →
+                    Continue to
+                    checkout →
                   </button>
 
                   <button
                     className="clear-cart-button"
-                    onClick={clearCart}
+                    onClick={
+                      clearCart
+                    }
                   >
                     Clear cart
                   </button>
@@ -2422,7 +2657,9 @@ function App() {
           className="modal-backdrop"
           onClick={() =>
             !orderLoading &&
-            setCheckoutOpen(false)
+            setCheckoutOpen(
+              false
+            )
           }
         >
           <div
@@ -2435,7 +2672,9 @@ function App() {
               className="modal-close"
               onClick={() =>
                 !orderLoading &&
-                setCheckoutOpen(false)
+                setCheckoutOpen(
+                  false
+                )
               }
             >
               ×
@@ -2444,7 +2683,8 @@ function App() {
             {orderSuccess ? (
               <div
                 style={{
-                  textAlign: "center",
+                  textAlign:
+                    "center",
                   padding: 25,
                 }}
               >
@@ -2471,10 +2711,13 @@ function App() {
                 <button
                   className="modal-action"
                   onClick={() =>
-                    setCheckoutOpen(false)
+                    setCheckoutOpen(
+                      false
+                    )
                   }
                 >
-                  Continue shopping
+                  Continue
+                  shopping
                 </button>
               </div>
             ) : (
@@ -2489,15 +2732,20 @@ function App() {
 
                 <form
                   className="auth-form"
-                  onSubmit={placeOrder}
+                  onSubmit={
+                    placeOrder
+                  }
                 >
                   <input
                     type="text"
                     placeholder="Full name"
-                    value={customerName}
+                    value={
+                      customerName
+                    }
                     onChange={(e) =>
                       setCustomerName(
-                        e.target.value
+                        e.target
+                          .value
                       )
                     }
                     required
@@ -2506,10 +2754,13 @@ function App() {
                   <input
                     type="tel"
                     placeholder="Phone number"
-                    value={customerPhone}
+                    value={
+                      customerPhone
+                    }
                     onChange={(e) =>
                       setCustomerPhone(
-                        e.target.value
+                        e.target
+                          .value
                       )
                     }
                     required
@@ -2517,10 +2768,13 @@ function App() {
 
                   <textarea
                     placeholder="Delivery address"
-                    value={deliveryAddress}
+                    value={
+                      deliveryAddress
+                    }
                     onChange={(e) =>
                       setDeliveryAddress(
-                        e.target.value
+                        e.target
+                          .value
                       )
                     }
                     rows="3"
@@ -2533,14 +2787,19 @@ function App() {
 
                   {locationsLoading ? (
                     <div className="location-loading">
-                      Loading Nigerian states...
+                      Loading
+                      Nigerian
+                      states...
                     </div>
                   ) : (
                     <select
-                      value={deliveryState}
+                      value={
+                        deliveryState
+                      }
                       onChange={(e) =>
                         handleStateChange(
-                          e.target.value
+                          e.target
+                            .value
                         )
                       }
                       required
@@ -2549,14 +2808,24 @@ function App() {
                         Select state
                       </option>
 
-                      {states.map((state) => (
-                        <option
-                          key={state}
-                          value={state}
-                        >
-                          {state}
-                        </option>
-                      ))}
+                      {states.map(
+                        (
+                          state
+                        ) => (
+                          <option
+                            key={
+                              state
+                            }
+                            value={
+                              state
+                            }
+                          >
+                            {
+                              state
+                            }
+                          </option>
+                        )
+                      )}
                     </select>
                   )}
 
@@ -2565,10 +2834,13 @@ function App() {
                   </label>
 
                   <select
-                    value={deliveryCity}
+                    value={
+                      deliveryCity
+                    }
                     onChange={(e) =>
                       setDeliveryCity(
-                        e.target.value
+                        e.target
+                          .value
                       )
                     }
                     disabled={
@@ -2583,49 +2855,70 @@ function App() {
                         : "Select city / LGA"}
                     </option>
 
-                    {cities.map((city) => (
-                      <option
-                        key={city}
-                        value={city}
-                      >
-                        {city}
-                      </option>
-                    ))}
+                    {cities.map(
+                      (
+                        city
+                      ) => (
+                        <option
+                          key={
+                            city
+                          }
+                          value={
+                            city
+                          }
+                        >
+                          {
+                            city
+                          }
+                        </option>
+                      )
+                    )}
                   </select>
 
                   {locationsError && (
                     <p className="auth-message">
-                      {locationsError}
+                      {
+                        locationsError
+                      }
                     </p>
                   )}
 
                   <div
                     style={{
-                      display: "flex",
+                      display:
+                        "flex",
                       justifyContent:
                         "space-between",
-                      padding: "15px 0",
+                      padding:
+                        "15px 0",
                     }}
                   >
                     <strong>
-                      Order total
+                      Order
+                      total
                     </strong>
 
                     <strong>
-                      {money(cartTotal)}
+                      {money(
+                        cartTotal
+                      )}
                     </strong>
                   </div>
 
                   {orderMessage && (
                     <p className="auth-message">
-                      {orderMessage}
+                      {
+                        orderMessage
+                      }
                     </p>
                   )}
 
                   <button
                     className="modal-action"
                     type="submit"
-                    disabled={orderLoading}
+                    disabled={
+                      orderLoading
+                    }
                   >
                     {orderLoading
                       ? "Opening Paystack..."
@@ -2648,7 +2941,9 @@ function App() {
         <div
           className="modal-backdrop"
           onClick={() =>
-            setAccountOpen(false)
+            setAccountOpen(
+              false
+            )
           }
         >
           <div
@@ -2660,7 +2955,9 @@ function App() {
             <button
               className="modal-close"
               onClick={() =>
-                setAccountOpen(false)
+                setAccountOpen(
+                  false
+                )
               }
             >
               ×
@@ -2684,23 +2981,40 @@ function App() {
 
                 <div
                   style={{
-                    display: "grid",
+                    display:
+                      "grid",
                     gridTemplateColumns:
                       "repeat(3,1fr)",
                     gap: 8,
-                    margin: "25px 0",
+                    margin:
+                      "25px 0",
                   }}
                 >
                   {[
-                    ["profile", "👤 Profile"],
-                    ["orders", "📦 Orders"],
-                    ["settings", "⚙️ Settings"],
+                    [
+                      "profile",
+                      "👤 Profile",
+                    ],
+                    [
+                      "orders",
+                      "📦 Orders",
+                    ],
+                    [
+                      "settings",
+                      "⚙️ Settings",
+                    ],
                   ].map(
-                    ([tab, label]) => (
+                    ([
+                      tab,
+                      label,
+                    ]) => (
                       <button
-                        key={tab}
+                        key={
+                          tab
+                        }
                         className={
-                          accountTab === tab
+                          accountTab ===
+                          tab
                             ? "modal-action"
                             : "modal-secondary"
                         }
@@ -2710,13 +3024,15 @@ function App() {
                           );
 
                           if (
-                            tab === "orders"
+                            tab ===
+                            "orders"
                           ) {
                             loadOrders();
                           }
 
                           if (
-                            tab === "settings"
+                            tab ===
+                            "settings"
                           ) {
                             setSettingsMessage(
                               ""
@@ -2728,7 +3044,9 @@ function App() {
                           }
                         }}
                       >
-                        {label}
+                        {
+                          label
+                        }
                       </button>
                     )
                   )}
@@ -2742,14 +3060,17 @@ function App() {
                     <div
                       style={{
                         padding: 20,
-                        borderRadius: 18,
+                        borderRadius:
+                          18,
                         background:
                           "rgba(128,128,128,.08)",
-                        marginBottom: 15,
+                        marginBottom:
+                          15,
                       }}
                     >
                       <p className="eyebrow">
-                        PERSONAL INFORMATION
+                        PERSONAL
+                        INFORMATION
                       </p>
 
                       <h3>
@@ -2758,7 +3079,10 @@ function App() {
                       </h3>
 
                       <p>
-                        📧 {user.email}
+                        📧{" "}
+                        {
+                          user.email
+                        }
                       </p>
 
                       <p>
@@ -2802,12 +3126,15 @@ function App() {
                             "center",
                         }}
                       >
-                        Loading your orders...
+                        Loading your
+                        orders...
                       </div>
                     ) : ordersError ? (
                       <>
                         <p>
-                          {ordersError}
+                          {
+                            ordersError
+                          }
                         </p>
 
                         <button
@@ -2829,7 +3156,8 @@ function App() {
                       >
                         <div
                           style={{
-                            fontSize: 50,
+                            fontSize:
+                              50,
                           }}
                         >
                           📦
@@ -2840,21 +3168,29 @@ function App() {
                         </h3>
 
                         <p>
-                          Your completed orders
-                          will appear here.
+                          Your completed
+                          orders will
+                          appear here.
                         </p>
                       </div>
                     ) : (
                       orders.map(
-                        (order) => (
+                        (
+                          order
+                        ) => (
                           <div
-                            key={order.id}
+                            key={
+                              order.id
+                            }
                             style={{
-                              padding: 18,
+                              padding:
+                                18,
                               border:
                                 "1px solid rgba(128,128,128,.2)",
-                              borderRadius: 18,
-                              marginBottom: 12,
+                              borderRadius:
+                                18,
+                              marginBottom:
+                                12,
                             }}
                           >
                             <strong>
@@ -2871,8 +3207,10 @@ function App() {
 
                             <p
                               style={{
-                                opacity: 0.6,
-                                fontSize: 13,
+                                opacity:
+                                  0.6,
+                                fontSize:
+                                  13,
                               }}
                             >
                               {formatDate(
@@ -2882,7 +3220,8 @@ function App() {
 
                             <div
                               style={{
-                                display: "flex",
+                                display:
+                                  "flex",
                                 justifyContent:
                                   "space-between",
                                 alignItems:
@@ -2898,7 +3237,8 @@ function App() {
                               <button
                                 className="modal-secondary"
                                 style={{
-                                  width: "auto",
+                                  width:
+                                    "auto",
                                 }}
                                 onClick={() =>
                                   setExpandedOrder(
@@ -2929,14 +3269,18 @@ function App() {
                               order.id && (
                               <div
                                 style={{
-                                  marginTop: 15,
-                                  paddingTop: 15,
+                                  marginTop:
+                                    15,
+                                  paddingTop:
+                                    15,
                                   borderTop:
                                     "1px solid rgba(128,128,128,.15)",
                                 }}
                               >
                                 {order.order_items?.map(
-                                  (item) => (
+                                  (
+                                    item
+                                  ) => (
                                     <div
                                       key={
                                         item.id
@@ -2961,7 +3305,8 @@ function App() {
                                           style={{
                                             opacity:
                                               0.6,
-                                            fontSize: 13,
+                                            fontSize:
+                                              13,
                                           }}
                                         >
                                           Qty:{" "}
@@ -3020,7 +3365,8 @@ function App() {
                         }
                         onChange={(e) =>
                           setProfileName(
-                            e.target.value
+                            e.target
+                              .value
                           )
                         }
                         required
@@ -3034,7 +3380,8 @@ function App() {
                         }
                         onChange={(e) =>
                           setProfilePhone(
-                            e.target.value
+                            e.target
+                              .value
                           )
                         }
                         required
@@ -3064,14 +3411,18 @@ function App() {
 
                     {settingsMessage && (
                       <p className="auth-message">
-                        {settingsMessage}
+                        {
+                          settingsMessage
+                        }
                       </p>
                     )}
 
                     <div
                       style={{
-                        marginTop: 30,
-                        paddingTop: 25,
+                        marginTop:
+                          30,
+                        paddingTop:
+                          25,
                         borderTop:
                           "1px solid rgba(128,128,128,.15)",
                       }}
@@ -3098,7 +3449,8 @@ function App() {
                           }
                           onChange={(e) =>
                             setNewPassword(
-                              e.target.value
+                              e.target
+                                .value
                             )
                           }
                           minLength={6}
@@ -3130,9 +3482,12 @@ function App() {
                     <button
                       className="modal-secondary"
                       style={{
-                        marginTop: 25,
+                        marginTop:
+                          25,
                       }}
-                      onClick={logout}
+                      onClick={
+                        logout
+                      }
                     >
                       🚪 Log out
                     </button>
@@ -3154,7 +3509,9 @@ function App() {
 
                 <form
                   className="auth-form"
-                  onSubmit={handleAuth}
+                  onSubmit={
+                    handleAuth
+                  }
                 >
                   {authMode ===
                     "signup" && (
@@ -3167,7 +3524,8 @@ function App() {
                         }
                         onChange={(e) =>
                           setFullName(
-                            e.target.value
+                            e.target
+                              .value
                           )
                         }
                         required
@@ -3181,7 +3539,8 @@ function App() {
                         }
                         onChange={(e) =>
                           setPhone(
-                            e.target.value
+                            e.target
+                              .value
                           )
                         }
                         required
@@ -3195,7 +3554,8 @@ function App() {
                     value={email}
                     onChange={(e) =>
                       setEmail(
-                        e.target.value
+                        e.target
+                          .value
                       )
                     }
                     required
@@ -3209,7 +3569,8 @@ function App() {
                     }
                     onChange={(e) =>
                       setPassword(
-                        e.target.value
+                        e.target
+                          .value
                       )
                     }
                     minLength={6}
@@ -3257,7 +3618,9 @@ function App() {
 
                 {authMessage && (
                   <p className="auth-message">
-                    {authMessage}
+                    {
+                      authMessage
+                    }
                   </p>
                 )}
 
@@ -3266,7 +3629,8 @@ function App() {
                   <>
                     <div className="auth-divider">
                       <span>
-                        or continue with
+                        or continue
+                        with
                       </span>
                     </div>
 
@@ -3299,7 +3663,8 @@ function App() {
                 <button
                   className="modal-secondary"
                   style={{
-                    marginTop: 12,
+                    marginTop:
+                      12,
                   }}
                   onClick={() => {
                     setAuthMessage("");
@@ -3331,7 +3696,9 @@ function App() {
         <div
           className="modal-backdrop"
           onClick={() =>
-            setForgotPassword(false)
+            setForgotPassword(
+              false
+            )
           }
         >
           <div
@@ -3343,7 +3710,9 @@ function App() {
             <button
               className="modal-close"
               onClick={() =>
-                setForgotPassword(false)
+                setForgotPassword(
+                  false
+                )
               }
             >
               ×
@@ -3359,11 +3728,14 @@ function App() {
 
             <p
               style={{
-                opacity: 0.65,
+                opacity:
+                  0.65,
               }}
             >
-              Enter your email and we'll
-              send you a password reset link.
+              Enter your email
+              and we'll send
+              you a password
+              reset link.
             </p>
 
             <form
@@ -3375,10 +3747,13 @@ function App() {
               <input
                 type="email"
                 placeholder="Email address"
-                value={resetEmail}
+                value={
+                  resetEmail
+                }
                 onChange={(e) =>
                   setResetEmail(
-                    e.target.value
+                    e.target
+                      .value
                   )
                 }
                 required
@@ -3399,7 +3774,9 @@ function App() {
 
             {resetMessage && (
               <p className="auth-message">
-                {resetMessage}
+                {
+                  resetMessage
+                }
               </p>
             )}
 
