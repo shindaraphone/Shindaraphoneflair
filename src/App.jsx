@@ -50,31 +50,178 @@ function App() {
      CART
   ========================= */
 
-  const [cart, setCart] = useState(() => {
-    try {
-      const savedCart = localStorage.getItem("shindara_cart");
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch {
-      return [];
-    }
-  });
-  useEffect(() => {
-  try {
-    localStorage.setItem("shindara_cart", JSON.stringify(cart));
-  } catch (error) {
-    console.error("Unable to save cart:", error);
+  /* CART */
+async function loadCart() {
+  if (!user) {
+    setCart([]);
+    return;
   }
-}, [cart]);
-
-  const [cartOpen, setCartOpen] = useState(false);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("shindara_cart", JSON.stringify(cart));
-    } catch (error) {
-      console.error("Unable to save cart:", error);
+  try {
+    const { data, error } = await supabase
+      .from("cart_items")
+      .select(`
+        id,
+        product_id,
+        quantity,
+        products (
+          id,
+          name,
+          price,
+          image_url,
+          category,
+          description,
+          stock
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const savedCart = (data || [])
+      .filter((item) => item.products)
+      .map((item) => ({
+        ...item.products,
+        cart_item_id: item.id,
+        quantity: Number(item.quantity || 1),
+      }));
+    setCart(savedCart);
+  } catch (error) {
+    console.error("Cart loading error:", error);
+    setCart([]);
+  }
+}
+useEffect(() => {
+  if (user) {
+    loadCart();
+  } else {
+    setCart([]);
+  }
+}, [user]);
+async function addToCart(product) {
+  if (!user) {
+    setAccountOpen(true);
+    setAuthMessage(
+      "Please sign in or create an account before adding items to your cart."
+    );
+    return;
+  }
+  try {
+    const existing = cart.find(
+      (item) => item.id === product.id
+    );
+    if (existing) {
+      const newQuantity = Number(existing.quantity) + 1;
+      const { error } = await supabase
+        .from("cart_items")
+        .update({
+          quantity: newQuantity,
+        })
+        .eq("id", existing.cart_item_id)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("cart_items")
+        .insert({
+          user_id: user.id,
+          product_id: product.id,
+          quantity: 1,
+        });
+      if (error) throw error;
     }
-  }, [cart]);
+    await loadCart();
+  } catch (error) {
+    console.error("Add to cart error:", error);
+    setAuthMessage(
+      error?.message || "Unable to add this product to your cart."
+    );
+  }
+}
+async function increaseQuantity(id) {
+  if (!user) return;
+  const item = cart.find((product) => product.id === id);
+  if (!item) return;
+  try {
+    const { error } = await supabase
+      .from("cart_items")
+      .update({
+        quantity: Number(item.quantity) + 1,
+      })
+      .eq("id", item.cart_item_id)
+      .eq("user_id", user.id);
+    if (error) throw error;
+    await loadCart();
+  } catch (error) {
+    console.error("Increase quantity error:", error);
+  }
+}
+async function decreaseQuantity(id) {
+  if (!user) return;
+  const item = cart.find((product) => product.id === id);
+  if (!item) return;
+  try {
+    const newQuantity = Number(item.quantity) - 1;
+    if (newQuantity <= 0) {
+      const { error } = await supabase
+        .from("cart_items")
+        .delete()
+        .eq("id", item.cart_item_id)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("cart_items")
+        .update({
+          quantity: newQuantity,
+        })
+        .eq("id", item.cart_item_id)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    }
+    await loadCart();
+  } catch (error) {
+    console.error("Decrease quantity error:", error);
+  }
+}
+async function removeFromCart(id) {
+  if (!user) return;
+  const item = cart.find((product) => product.id === id);
+  if (!item) return;
+  try {
+    const { error } = await supabase
+      .from("cart_items")
+      .delete()
+      .eq("id", item.cart_item_id)
+      .eq("user_id", user.id);
+    if (error) throw error;
+    await loadCart();
+  } catch (error) {
+    console.error("Remove cart item error:", error);
+  }
+}
+async function clearCart() {
+  if (!user) return;
+  try {
+    const { error } = await supabase
+      .from("cart_items")
+      .delete()
+      .eq("user_id", user.id);
+    if (error) throw error;
+    setCart([]);
+  } catch (error) {
+    console.error("Clear cart error:", error);
+  }
+}
+const cartCount = cart.reduce(
+  (total, item) => total + Number(item.quantity || 0),
+  0
+);
+const cartTotal = cart.reduce(
+  (total, item) =>
+    total +
+    Number(item.price || 0) *
+      Number(item.quantity || 0),
+  0
+);
 
   /* =========================
      CHECKOUT
