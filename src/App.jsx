@@ -5,7 +5,7 @@ import { loadNigeriaLocations } from "./nigeriaLocations";
 const WHATSAPP = "2348118294548";
 const TIKTOK = "https://www.tiktok.com/@shindara.communication";
 const PAYSTACK_PUBLIC_KEY =
-  "pk_test_064c89b751af46db42ee4dc14ccb5ec906eaafe1";
+  "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
