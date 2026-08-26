@@ -25,25 +25,30 @@ function AdminLogin({ onLogin }) {
         );
       }
 
+      /*
+       * SIGN IN
+       */
+
       const { data, error } =
         await supabase.auth.signInWithPassword({
           email: cleanEmail,
-          password,
+          password: password,
         });
 
       if (error) {
         throw new Error(error.message);
       }
 
-      if (!data?.user) {
+      if (!data || !data.user) {
         throw new Error(
-          "Login failed. No user session was created."
+          "Login failed. No user was returned."
         );
       }
 
       /*
-       * Verify the profile belongs to an admin.
+       * CHECK ADMIN PROFILE
        */
+
       const { data: profile, error: profileError } =
         await supabase
           .from("profiles")
@@ -52,10 +57,15 @@ function AdminLogin({ onLogin }) {
           .maybeSingle();
 
       if (profileError) {
+        console.error(
+          "PROFILE ERROR:",
+          profileError
+        );
+
         await supabase.auth.signOut();
 
         throw new Error(
-          `Could not verify admin account: ${profileError.message}`
+          "Could not verify your admin account."
         );
       }
 
@@ -63,11 +73,11 @@ function AdminLogin({ onLogin }) {
         await supabase.auth.signOut();
 
         throw new Error(
-          "This account does not have a profile."
+          "No profile was found for this account."
         );
       }
 
-      if (!profile.is_admin) {
+      if (profile.is_admin !== true) {
         await supabase.auth.signOut();
 
         throw new Error(
@@ -76,11 +86,20 @@ function AdminLogin({ onLogin }) {
       }
 
       /*
-       * Everything is correct.
+       * LOGIN SUCCESSFUL
        */
-      onLogin?.(data.user);
+
+      if (typeof onLogin === "function") {
+        onLogin(data.user);
+      } else {
+        window.location.href = "/admin";
+      }
+
     } catch (error) {
-      console.error("ADMIN LOGIN ERROR:", error);
+      console.error(
+        "ADMIN LOGIN ERROR:",
+        error
+      );
 
       setMessage(
         error?.message ||
@@ -115,6 +134,7 @@ function AdminLogin({ onLogin }) {
           align-items: center;
           justify-content: center;
           padding: 20px;
+
           background:
             radial-gradient(
               circle at 20% 10%,
@@ -132,11 +152,16 @@ function AdminLogin({ onLogin }) {
         .admin-login-card {
           width: min(430px, 100%);
           padding: 34px;
+
           background: rgba(255,255,255,.9);
+
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
+
           border: 1px solid rgba(0,0,0,.07);
+
           border-radius: 28px;
+
           box-shadow:
             0 30px 80px rgba(0,0,0,.12);
         }
@@ -144,47 +169,64 @@ function AdminLogin({ onLogin }) {
         .admin-logo {
           width: 58px;
           height: 58px;
+
           border-radius: 18px;
+
           display: flex;
           align-items: center;
           justify-content: center;
+
           background: #111;
           color: white;
+
           font-size: 25px;
           font-weight: 900;
+
           margin-bottom: 25px;
         }
 
         .admin-login-eyebrow {
           margin: 0 0 8px;
+
           font-size: 11px;
           font-weight: 900;
+
           letter-spacing: 2px;
+
           opacity: .45;
         }
 
         .admin-login-card h1 {
           margin: 0;
+
           font-size: 36px;
+
           letter-spacing: -2px;
         }
 
         .admin-login-subtitle {
           margin: 10px 0 28px;
+
           line-height: 1.5;
+
           opacity: .55;
+
           font-size: 14px;
         }
 
         .admin-login-form {
           display: grid;
+
           gap: 12px;
         }
 
         .admin-login-form label {
           font-size: 12px;
+
           font-weight: 800;
+
           opacity: .6;
+
           margin-top: 4px;
         }
 
@@ -195,18 +237,27 @@ function AdminLogin({ onLogin }) {
         .admin-login-form input {
           width: 100%;
           height: 52px;
+
           border: 1px solid rgba(0,0,0,.12);
+
           border-radius: 14px;
+
           background: #fafafa;
+
           padding: 0 15px;
+
           outline: none;
+
           font-size: 15px;
+
           transition: .2s ease;
         }
 
         .admin-login-form input:focus {
           background: white;
+
           border-color: #111;
+
           box-shadow:
             0 0 0 4px rgba(0,0,0,.05);
         }
@@ -217,55 +268,82 @@ function AdminLogin({ onLogin }) {
 
         .show-password {
           position: absolute;
+
           right: 8px;
           top: 7px;
+
           height: 38px;
+
           border: 0;
+
           border-radius: 10px;
+
           padding: 0 10px;
+
           background: #eee;
+
           font-size: 11px;
+
           font-weight: 800;
         }
 
         .admin-login-error {
           padding: 13px 14px;
+
           border-radius: 13px;
+
           background: rgba(220,38,38,.08);
+
           color: #b91c1c;
+
           font-size: 13px;
+
           line-height: 1.45;
         }
 
         .admin-login-button {
           width: 100%;
           height: 54px;
+
           margin-top: 8px;
+
           border: 0;
+
           border-radius: 15px;
+
           background: #111;
+
           color: white;
+
           font-weight: 800;
+
           font-size: 15px;
+
           transition: .2s ease;
         }
 
         .admin-login-button:hover {
           transform: translateY(-1px);
+
           box-shadow:
             0 10px 25px rgba(0,0,0,.15);
         }
 
         .admin-login-button:disabled {
           opacity: .55;
+
           cursor: not-allowed;
+
           transform: none;
         }
 
         .admin-login-footer {
           text-align: center;
+
           margin-top: 22px;
+
           font-size: 11px;
+
           opacity: .4;
         }
 
@@ -276,6 +354,7 @@ function AdminLogin({ onLogin }) {
 
           .admin-login-card {
             padding: 27px 20px;
+
             border-radius: 24px;
           }
 
