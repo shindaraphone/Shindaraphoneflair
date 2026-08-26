@@ -507,44 +507,108 @@ function Admin() {
 
   if (!confirmed) return;
 
-  setMessage("Deleting product...");
+  setMessage("Checking admin authentication...");
 
   try {
-    // 1. Delete the product from Supabase
-    const { data, error } = await supabase
-      .from("products")
-      .delete()
-      .eq("id", product.id)
-      .select("id");
+    // Check whether the website is actually logged into Supabase
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (error) {
-      console.error("DELETE ERROR:", error);
+    console.log("CURRENT SUPABASE USER:", user);
+
+    if (authError) {
       throw new Error(
-        `Product could not be deleted: ${error.message}`
+        `Authentication error: ${authError.message}`
       );
     }
 
-    // Supabase returns the deleted rows here.
-    if (!data || data.length === 0) {
+    if (!user) {
       throw new Error(
-        "Product was not deleted. Supabase returned no deleted row."
+        "Your Admin page is NOT logged into Supabase. Please log in to your admin account first."
       );
     }
 
-    // 2. Immediately remove it from the screen
+    // Check the admin profile
+    const { data: profile, error: profileError } =
+      await supabase
+        .from("profiles")
+        .select("id, email, is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    console.log("CURRENT PROFILE:", profile);
+
+    if (profileError) {
+      throw new Error(
+        `Could not check admin profile: ${profileError.message}`
+      );
+    }
+
+    if (!profile) {
+      throw new Error(
+        "Your Supabase user does not have a profile record."
+      );
+    }
+
+    if (!profile.is_admin) {
+      throw new Error(
+        "This account is not marked as an admin in the profiles table."
+      );
+    }
+
+    setMessage("Deleting product...");
+
+    // Delete the product
+    const { data: deletedProduct, error: deleteError } =
+      await supabase
+        .from("products")
+        .delete()
+        .eq("id", Number(product.id))
+        .select("id, name");
+
+    if (deleteError) {
+      console.error("DELETE ERROR:", deleteError);
+
+      throw new Error(
+        `Supabase DELETE error: ${deleteError.message}`
+      );
+    }
+
+    console.log(
+      "DELETED PRODUCT:",
+      deletedProduct
+    );
+
+    if (
+      !deletedProduct ||
+      deletedProduct.length === 0
+    ) {
+      throw new Error(
+        "Supabase did not delete the product. The logged-in account does not have permission to DELETE this row."
+      );
+    }
+
+    // Remove it immediately from the screen
     setProducts((currentProducts) =>
       currentProducts.filter(
-        (item) => item.id !== product.id
+        (item) => Number(item.id) !== Number(product.id)
       )
     );
 
-    setMessage("Product deleted successfully.");
+    setMessage(
+      `Product "${product.name}" deleted successfully.`
+    );
 
-    // 3. Verify the database again
+    // Refresh from database
     await loadProducts();
 
   } catch (error) {
-    console.error("PRODUCT DELETE ERROR:", error);
+    console.error(
+      "PRODUCT DELETE ERROR:",
+      error
+    );
 
     setMessage(
       error?.message ||
