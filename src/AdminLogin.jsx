@@ -78,7 +78,7 @@ function AdminLogin({ onLogin }) {
       /*
        * Everything is correct.
        */
-      onLogin(data.user);
+      onLogin?.(data.user);
     } catch (error) {
       console.error("ADMIN LOGIN ERROR:", error);
 
