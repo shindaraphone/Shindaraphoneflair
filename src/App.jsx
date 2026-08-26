@@ -1,106 +1,149 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
-
-const TIKTOK =
-  "https://www.tiktok.com/@shindara.communication";
-
+const TIKTOK = "https://www.tiktok.com/@shindara.communication";
 const PAYSTACK_PUBLIC_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
-const NIGERIAN_STATES = [
-  "Abia",
-  "Adamawa",
-  "Akwa Ibom",
-  "Anambra",
-  "Bauchi",
-  "Bayelsa",
-  "Benue",
-  "Borno",
-  "Cross River",
-  "Delta",
-  "Ebonyi",
-  "Edo",
-  "Ekiti",
-  "Enugu",
-  "Gombe",
-  "Imo",
-  "Jigawa",
-  "Kaduna",
-  "Kano",
-  "Katsina",
-  "Kebbi",
-  "Kogi",
-  "Kwara",
-  "Lagos",
-  "Nasarawa",
-  "Niger",
-  "Ogun",
-  "Ondo",
-  "Osun",
-  "Oyo",
-  "Plateau",
-  "Rivers",
-  "Sokoto",
-  "Taraba",
-  "Yobe",
-  "Zamfara",
-  "Federal Capital Territory"
-];
+const NIGERIA = {
+  Abia: ["Aba", "Umuahia"],
+  Adamawa: ["Yola", "Mubi", "Jimeta"],
+  Anambra: ["Awka", "Onitsha", "Nnewi"],
+  Bauchi: ["Bauchi", "Azare"],
+  Bayelsa: ["Yenagoa"],
+  Benue: ["Makurdi", "Gboko", "Otukpo"],
+  Borno: ["Maiduguri", "Biu"],
+  CrossRiver: ["Calabar", "Ikom", "Ogoja"],
+  Delta: ["Asaba", "Warri", "Sapele"],
+  Ebonyi: ["Abakaliki"],
+  Edo: ["Benin City", "Auchi", "Ekpoma"],
+  Ekiti: ["Ado-Ekiti", "Ikere"],
+  Enugu: ["Enugu", "Nsukka"],
+  FCT: ["Abuja", "Gwagwalada", "Kuje", "Bwari"],
+  Gombe: ["Gombe", "Kaltungo"],
+  Imo: ["Owerri", "Orlu", "Okigwe"],
+  Jigawa: ["Dutse", "Hadejia"],
+  Kaduna: ["Kaduna", "Zaria", "Kafanchan"],
+  Kano: ["Kano", "Wudil"],
+  Katsina: ["Katsina", "Funtua", "Daura"],
+  Kebbi: ["Birnin Kebbi", "Argungu"],
+  Kogi: ["Lokoja", "Okene", "Idah"],
+  Kwara: ["Ilorin", "Offa", "Omu-Aran"],
+  Lagos: [
+    "Ikeja",
+    "Lagos Island",
+    "Lekki",
+    "Victoria Island",
+    "Surulere",
+    "Yaba",
+    "Agege",
+    "Alimosho",
+    "Ikorodu",
+    "Badagry",
+  ],
+  Nasarawa: ["Lafia", "Keffi", "Akwanga"],
+  Niger: ["Minna", "Suleja", "Bida"],
+  Ogun: ["Abeokuta", "Ijebu-Ode", "Sagamu", "Ota"],
+  Ondo: ["Akure", "Ondo", "Owo"],
+  Osun: ["Osogbo", "Ile-Ife", "Ilesa"],
+  Oyo: ["Ibadan", "Ogbomosho", "Oyo", "Iseyin"],
+  Plateau: ["Jos", "Bukuru", "Pankshin"],
+  Rivers: ["Port Harcourt", "Bonny", "Obio-Akpor"],
+  Sokoto: ["Sokoto", "Tambuwal"],
+  Taraba: ["Jalingo", "Wukari"],
+  Yobe: ["Damaturu", "Potiskum"],
+  Zamfara: ["Gusau", "Kaura Namoda"],
+};
+
+const STATES = Object.keys(NIGERIA).map((s) =>
+  s === "FCT" ? "Federal Capital Territory" : s
+);
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
 }
 
+function citiesForState(state) {
+  if (!state) return [];
+  const key =
+    state === "Federal Capital Territory" ? "FCT" : state;
+  return NIGERIA[key] || [];
+}
+
 function loadPaystackScript() {
   return new Promise((resolve, reject) => {
-    if (window.PaystackPop) {
-      resolve(window.PaystackPop);
-      return;
-    }
+    if (window.PaystackPop) return resolve(window.PaystackPop);
 
-    const existingScript = document.querySelector(
+    const existing = document.querySelector(
       'script[src="https://js.paystack.co/v2/inline.js"]'
     );
 
-    if (existingScript) {
-      existingScript.addEventListener("load", () => {
-        if (window.PaystackPop) {
-          resolve(window.PaystackPop);
-        } else {
-          reject(new Error("Paystack could not be loaded."));
-        }
-      });
-
-      existingScript.addEventListener("error", reject);
+    if (existing) {
+      existing.addEventListener("load", () =>
+        window.PaystackPop
+          ? resolve(window.PaystackPop)
+          : reject(new Error("Paystack could not be loaded."))
+      );
+      existing.addEventListener("error", reject);
       return;
     }
 
     const script = document.createElement("script");
-
     script.src = "https://js.paystack.co/v2/inline.js";
     script.async = true;
 
-    script.onload = () => {
-      if (window.PaystackPop) {
-        resolve(window.PaystackPop);
-      } else {
-        reject(new Error("Paystack could not be loaded."));
-      }
-    };
+    script.onload = () =>
+      window.PaystackPop
+        ? resolve(window.PaystackPop)
+        : reject(new Error("Paystack could not be loaded."));
 
-    script.onerror = () => {
+    script.onerror = () =>
       reject(new Error("Unable to load Paystack."));
-    };
 
     document.body.appendChild(script);
   });
 }
 
 function App() {
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState("");
+
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountTab, setAccountTab] = useState("profile");
+
+  const [authMode, setAuthMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const [profileName, setProfileName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileCity, setProfileCity] = useState("");
+  const [profileState, setProfileState] = useState("");
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [settingsLoading, setSettingsLoading] = useState(false);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+  const [expandedOrder, setExpandedOrder] = useState(null);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
@@ -113,90 +156,25 @@ function App() {
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryState, setDeliveryState] = useState("");
 
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [accountTab, setAccountTab] = useState("profile");
+  const cartCount = useMemo(
+    () => cart.reduce((a, x) => a + Number(x.quantity || 0), 0),
+    [cart]
+  );
 
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
+  const cartTotal = useMemo(
+    () =>
+      cart.reduce(
+        (a, x) =>
+          a +
+          Number(x.price || 0) *
+            Number(x.quantity || 0),
+        0
+      ),
+    [cart]
+  );
 
-  const [authMode, setAuthMode] = useState("login");
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-
-  const [authMessage, setAuthMessage] = useState("");
-  const [authLoading, setAuthLoading] = useState(false);
-
-  const [forgotPassword, setForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetMessage, setResetMessage] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
-
-  const [profileName, setProfileName] = useState("");
-  const [profilePhone, setProfilePhone] = useState("");
-
-  const [settingsMessage, setSettingsMessage] = useState("");
-  const [settingsLoading, setSettingsLoading] = useState(false);
-
-  const [newPassword, setNewPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
-  const [passwordLoading, setPasswordLoading] = useState(false);
-
-  const [orders, setOrders] = useState([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState("");
-  const [expandedOrder, setExpandedOrder] = useState(null);
-
-  const [products, setProducts] = useState([]);
-  const [productsLoading, setProductsLoading] = useState(true);
-  const [productsError, setProductsError] = useState("");
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadUser() {
-      const { data } = await supabase.auth.getUser();
-
-      if (!mounted) return;
-
-      const currentUser = data?.user ?? null;
-
-      setUser(currentUser);
-
-      if (currentUser) {
-        await loadProfile(currentUser.id);
-      }
-    }
-
-    loadUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!mounted) return;
-
-        const currentUser = session?.user ?? null;
-
-        setUser(currentUser);
-
-        if (currentUser) {
-          await loadProfile(currentUser.id);
-        } else {
-          setProfile(null);
-          setOrders([]);
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  const checkoutCities = citiesForState(deliveryState);
+  const profileCities = citiesForState(profileState);
 
   useEffect(() => {
     loadProducts();
@@ -210,14 +188,47 @@ function App() {
           schema: "public",
           table: "products",
         },
-        () => {
-          loadProducts();
-        }
+        loadProducts
       )
       .subscribe();
 
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function init() {
+      const { data } = await supabase.auth.getUser();
+      if (!mounted) return;
+
+      const current = data?.user || null;
+      setUser(current);
+
+      if (current) await loadProfile(current.id);
+    }
+
+    init();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_, session) => {
+      if (!mounted) return;
+
+      const current = session?.user || null;
+      setUser(current);
+
+      if (current) {
+        await loadProfile(current.id);
+      } else {
+        setProfile(null);
+        setOrders([]);
+      }
+    });
+
     return () => {
-      supabase.removeChannel(channel);
+      mounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -228,15 +239,11 @@ function App() {
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .order("created_at", {
-        ascending: false,
-      });
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error(error);
-      setProductsError(
-        "We couldn't load our products right now."
-      );
+      setProductsError("We couldn't load our products right now.");
       setProducts([]);
     } else {
       setProducts(data || []);
@@ -246,8 +253,6 @@ function App() {
   }
 
   async function loadProfile(userId) {
-    if (!userId) return;
-
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -255,33 +260,21 @@ function App() {
       .maybeSingle();
 
     if (error) {
-      console.error("Profile loading error:", error);
+      console.error("Profile error:", error);
       return;
     }
 
     setProfile(data || null);
 
-    const name =
-      data?.name ||
-      user_metadata_name(userId) ||
-      "";
+    if (data) {
+      setProfileName(data.name || "");
+      setProfilePhone(data.phone || "");
+      setProfileCity(data.city || "");
+      setProfileState(data.state || "");
 
-    const savedPhone = data?.phone || "";
-
-    setProfileName(name);
-    setProfilePhone(savedPhone);
-
-    if (data?.name) {
-      setCustomerName(data.name);
+      setCustomerName(data.name || "");
+      setCustomerPhone(data.phone || "");
     }
-
-    if (data?.phone) {
-      setCustomerPhone(data.phone);
-    }
-  }
-
-  function user_metadata_name() {
-    return "";
   }
 
   async function loadOrders() {
@@ -304,17 +297,11 @@ function App() {
         )
       `)
       .eq("user_id", user.id)
-      .order("created_at", {
-        ascending: false,
-      });
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Orders loading error:", error);
-
-      setOrdersError(
-        "We couldn't load your orders right now."
-      );
-
+      console.error(error);
+      setOrdersError("We couldn't load your orders right now.");
       setOrders([]);
     } else {
       setOrders(data || []);
@@ -326,8 +313,6 @@ function App() {
   async function openAccount() {
     setAuthMessage("");
     setSettingsMessage("");
-    setPasswordMessage("");
-
     setAccountOpen(true);
 
     if (user) {
@@ -336,95 +321,63 @@ function App() {
     }
   }
 
-  async function handleAuth(event) {
-    event.preventDefault();
-
+  async function handleAuth(e) {
+    e.preventDefault();
     setAuthLoading(true);
     setAuthMessage("");
 
     try {
       if (authMode === "signup") {
-        const cleanEmail = email.trim();
         const cleanName = fullName.trim();
         const cleanPhone = phone.trim();
+        const cleanEmail = email.trim();
 
-        if (!cleanName) {
-          setAuthMessage("Please enter your full name.");
+        if (!cleanName || !cleanPhone || !cleanEmail) {
+          setAuthMessage("Please complete all fields.");
           return;
         }
 
-        if (!cleanPhone) {
-          setAuthMessage("Please enter your phone number.");
-          return;
-        }
-
-        if (!cleanEmail) {
-          setAuthMessage("Please enter your email address.");
-          return;
-        }
-
-        const { data, error } =
-          await supabase.auth.signUp({
-            email: cleanEmail,
-            password,
-            options: {
-              data: {
-                full_name: cleanName,
-                phone: cleanPhone,
-              },
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: {
+              full_name: cleanName,
+              phone: cleanPhone,
             },
-          });
+          },
+        });
 
-        if (error) {
-          setAuthMessage(error.message);
-          return;
-        }
+        if (error) throw error;
 
         if (data?.user) {
-          const { error: profileError } =
-            await supabase
-              .from("profiles")
-              .upsert(
-                {
-                  id: data.user.id,
-                  name: cleanName,
-                  phone: cleanPhone,
-                  email: cleanEmail,
-                },
-                {
-                  onConflict: "id",
-                }
-              );
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .upsert({
+              id: data.user.id,
+              name: cleanName,
+              phone: cleanPhone,
+              city: "",
+              state: "",
+              email: cleanEmail,
+            });
 
-          if (profileError) {
-            console.error(
-              "Profile save error:",
-              profileError
-            );
-          }
+          if (profileError) console.error(profileError);
         }
 
-        if (data?.user && !data.session) {
-          setAuthMessage(
-            "Account created successfully! Please check your email to confirm your account."
-          );
-        } else {
-          setAuthMessage(
-            "Account created successfully!"
-          );
-        }
+        setAuthMessage(
+          data?.session
+            ? "Account created successfully!"
+            : "Account created! Please check your email to confirm your account."
+        );
 
         setPassword("");
 
         if (data?.session) {
-          setCustomerName(cleanName);
-          setCustomerPhone(cleanPhone);
-
+          setAccountOpen(false);
           setFullName("");
           setEmail("");
           setPhone("");
-
-          setAccountOpen(false);
         }
 
         return;
@@ -436,26 +389,15 @@ function App() {
           password,
         });
 
-      if (error) {
-        setAuthMessage(error.message);
-        return;
-      }
+      if (error) throw error;
 
-      if (data?.user) {
-        await loadProfile(data.user.id);
-      }
+      if (data?.user) await loadProfile(data.user.id);
 
       setEmail("");
       setPassword("");
-      setAuthMessage("");
       setAccountOpen(false);
     } catch (error) {
-      console.error("Authentication error:", error);
-
-      setAuthMessage(
-        error?.message ||
-          "Something went wrong. Please try again."
-      );
+      setAuthMessage(error?.message || "Something went wrong.");
     } finally {
       setAuthLoading(false);
     }
@@ -465,82 +407,21 @@ function App() {
     setAuthLoading(true);
     setAuthMessage("");
 
-    try {
-      const { error } =
-        await supabase.auth.signInWithOAuth({
-          provider,
-          options: {
-            redirectTo: window.location.origin,
-          },
-        });
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin },
+    });
 
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error(error);
-
-      setAuthMessage(
-        error?.message ||
-          `Unable to continue with ${provider}.`
-      );
-
+    if (error) {
+      setAuthMessage(error.message);
       setAuthLoading(false);
     }
   }
 
-  async function handleForgotPassword(event) {
-    event.preventDefault();
+  async function saveProfileSettings(e) {
+    e.preventDefault();
 
-    setResetLoading(true);
-    setResetMessage("");
-
-    try {
-      const cleanEmail = resetEmail.trim();
-
-      if (!cleanEmail) {
-        setResetMessage(
-          "Please enter your email address."
-        );
-        return;
-      }
-
-      const { error } =
-        await supabase.auth.resetPasswordForEmail(
-          cleanEmail,
-          {
-            redirectTo: window.location.origin,
-          }
-        );
-
-      if (error) {
-        throw error;
-      }
-
-      setResetMessage(
-        "Password reset link sent. Please check your email."
-      );
-    } catch (error) {
-      console.error(error);
-
-      setResetMessage(
-        error?.message ||
-          "Unable to send password reset email."
-      );
-    } finally {
-      setResetLoading(false);
-    }
-  }
-
-  async function saveProfileSettings(event) {
-    event.preventDefault();
-
-    if (!user) {
-      setSettingsMessage(
-        "You must be signed in to update your profile."
-      );
-      return;
-    }
+    if (!user) return;
 
     setSettingsLoading(true);
     setSettingsMessage("");
@@ -548,153 +429,125 @@ function App() {
     try {
       const cleanName = profileName.trim();
       const cleanPhone = profilePhone.trim();
+      const cleanCity = profileCity.trim();
+      const cleanState = profileState.trim();
 
       if (!cleanName) {
-        setSettingsMessage(
-          "Please enter your full name."
-        );
-        setSettingsLoading(false);
+        setSettingsMessage("Please enter your name.");
         return;
       }
 
       if (!cleanPhone) {
-        setSettingsMessage(
-          "Please enter your phone number."
-        );
-        setSettingsLoading(false);
+        setSettingsMessage("Please enter your phone number.");
         return;
       }
 
-      const profileData = {
-        id: user.id,
-        name: cleanName,
-        phone: cleanPhone,
-        email: user.email || "",
-      };
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .upsert(profileData, {
-          onConflict: "id",
-        })
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
+      if (!cleanState) {
+        setSettingsMessage("Please select your state.");
+        return;
       }
 
-      setProfile(data);
-      setProfileName(data.name || "");
-      setProfilePhone(data.phone || "");
+      if (!cleanCity) {
+        setSettingsMessage("Please select or enter your city.");
+        return;
+      }
 
-      setCustomerName(data.name || "");
-      setCustomerPhone(data.phone || "");
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({
+          id: user.id,
+          name: cleanName,
+          phone: cleanPhone,
+          city: cleanCity,
+          state: cleanState,
+          email: user.email || "",
+        });
 
-      setSettingsMessage(
-        "Your profile has been updated successfully."
-      );
+      if (error) throw error;
+
+      await loadProfile(user.id);
+
+      setSettingsMessage("Your profile has been updated successfully.");
     } catch (error) {
-      console.error("Settings error:", error);
-
+      console.error(error);
       setSettingsMessage(
-        error?.message ||
-          "Unable to update your profile."
+        error?.message || "Unable to update your profile."
       );
     } finally {
       setSettingsLoading(false);
     }
   }
 
-  async function changePassword(event) {
-    event.preventDefault();
+  async function changePassword(e) {
+    e.preventDefault();
 
-    setPasswordLoading(true);
-    setPasswordMessage("");
-
-    try {
-      if (!newPassword || newPassword.length < 6) {
-        setPasswordMessage(
-          "Password must be at least 6 characters."
-        );
-        setPasswordLoading(false);
-        return;
-      }
-
-      const { error } =
-        await supabase.auth.updateUser({
-          password: newPassword,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      setNewPassword("");
-
-      setPasswordMessage(
-        "Your password has been changed successfully."
-      );
-    } catch (error) {
-      console.error(
-        "Password change error:",
-        error
-      );
-
-      setPasswordMessage(
-        error?.message ||
-          "Unable to change your password."
-      );
-    } finally {
-      setPasswordLoading(false);
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordMessage("Password must be at least 6 characters.");
+      return;
     }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      setPasswordMessage(error.message);
+      return;
+    }
+
+    setNewPassword("");
+    setPasswordMessage("Password changed successfully.");
   }
 
   async function logout() {
     await supabase.auth.signOut();
-
     setUser(null);
     setProfile(null);
     setOrders([]);
     setAccountOpen(false);
   }
 
-  function addToCart(product) {
-    setCart((items) => {
-      const existing = items.find(
-        (item) => item.id === product.id
+  async function resetPassword(e) {
+    e.preventDefault();
+
+    if (!resetEmail.trim()) {
+      setResetMessage("Enter your email address.");
+      return;
+    }
+
+    const { error } =
+      await supabase.auth.resetPasswordForEmail(
+        resetEmail.trim(),
+        { redirectTo: window.location.origin }
       );
 
+    setResetMessage(
+      error
+        ? error.message
+        : "Password reset link sent. Check your email."
+    );
+  }
+
+  function addToCart(product) {
+    setCart((items) => {
+      const existing = items.find((x) => x.id === product.id);
+
       if (existing) {
-        return items.map((item) =>
-          item.id === product.id
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
-            : item
+        return items.map((x) =>
+          x.id === product.id
+            ? { ...x, quantity: x.quantity + 1 }
+            : x
         );
       }
 
-      return [
-        ...items,
-        {
-          ...product,
-          quantity: 1,
-        },
-      ];
+      return [...items, { ...product, quantity: 1 }];
     });
   }
 
   function increaseQuantity(id) {
     setCart((items) =>
-      items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item
+      items.map((x) =>
+        x.id === id ? { ...x, quantity: x.quantity + 1 } : x
       )
     );
   }
@@ -702,45 +555,16 @@ function App() {
   function decreaseQuantity(id) {
     setCart((items) =>
       items
-        .map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                quantity: item.quantity - 1,
-              }
-            : item
+        .map((x) =>
+          x.id === id ? { ...x, quantity: x.quantity - 1 } : x
         )
-        .filter(
-          (item) => item.quantity > 0
-        )
+        .filter((x) => x.quantity > 0)
     );
   }
 
   function removeFromCart(id) {
-    setCart((items) =>
-      items.filter(
-        (item) => item.id !== id
-      )
-    );
+    setCart((items) => items.filter((x) => x.id !== id));
   }
-
-  function clearCart() {
-    setCart([]);
-  }
-
-  const cartCount = cart.reduce(
-    (total, item) =>
-      total + Number(item.quantity || 0),
-    0
-  );
-
-  const cartTotal = cart.reduce(
-    (total, item) =>
-      total +
-      Number(item.price || 0) *
-        Number(item.quantity || 0),
-    0
-  );
 
   function openCheckout() {
     if (!cart.length) return;
@@ -751,57 +575,33 @@ function App() {
 
     if (!user) {
       setAccountOpen(true);
-
       setAuthMessage(
         "Please sign in or create an account before checkout."
       );
-
       return;
     }
-
-    setCustomerName(
-      profile?.name ||
-        customerName ||
-        user.user_metadata?.full_name ||
-        ""
-    );
-
-    setCustomerPhone(
-      profile?.phone ||
-        customerPhone ||
-        user.user_metadata?.phone ||
-        ""
-    );
 
     setCheckoutOpen(true);
   }
 
   async function saveOrder(reference) {
-    const { data: order, error: orderError } =
-      await supabase
-        .from("orders")
-        .insert({
-          user_id: user.id,
-          customer_name:
-            customerName.trim(),
-          customer_phone:
-            customerPhone.trim(),
-          delivery_address:
-            deliveryAddress.trim(),
-          delivery_city:
-            deliveryCity.trim(),
-          delivery_state:
-            deliveryState.trim(),
-          total: cartTotal,
-          status: "paid",
-          payment_reference: reference,
-        })
-        .select()
-        .single();
+    const { data: order, error } = await supabase
+      .from("orders")
+      .insert({
+        user_id: user.id,
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim(),
+        delivery_address: deliveryAddress.trim(),
+        delivery_city: deliveryCity.trim(),
+        delivery_state: deliveryState.trim(),
+        total: cartTotal,
+        status: "paid",
+        payment_reference: reference,
+      })
+      .select()
+      .single();
 
-    if (orderError) {
-      throw orderError;
-    }
+    if (error) throw error;
 
     const items = cart.map((item) => ({
       order_id: order.id,
@@ -812,30 +612,22 @@ function App() {
       image_url: item.image_url || null,
     }));
 
-    const { error: itemsError } =
-      await supabase
-        .from("order_items")
-        .insert(items);
+    const { error: itemError } =
+      await supabase.from("order_items").insert(items);
 
-    if (itemsError) {
-      await supabase
-        .from("orders")
-        .delete()
-        .eq("id", order.id);
-
-      throw itemsError;
+    if (itemError) {
+      await supabase.from("orders").delete().eq("id", order.id);
+      throw itemError;
     }
 
     return order;
   }
 
-  async function placeOrder(event) {
-    event.preventDefault();
+  async function placeOrder(e) {
+    e.preventDefault();
 
     if (!user) {
-      setOrderMessage(
-        "Please sign in before placing your order."
-      );
+      setOrderMessage("Please sign in before ordering.");
       return;
     }
 
@@ -844,121 +636,75 @@ function App() {
       return;
     }
 
-    if (!deliveryState) {
-      setOrderMessage("Please select your state.");
-      return;
-    }
-
     setOrderLoading(true);
     setOrderMessage("");
 
     try {
-      const PaystackPop =
-        await loadPaystackScript();
-
-      const amountInKobo =
-        Math.round(cartTotal * 100);
+      const PaystackPop = await loadPaystackScript();
 
       const popup = new PaystackPop();
 
       popup.newTransaction({
         key: PAYSTACK_PUBLIC_KEY,
         email: user.email,
-        amount: amountInKobo,
+        amount: Math.round(cartTotal * 100),
         currency: "NGN",
 
         metadata: {
-          customer_name:
-            customerName.trim(),
-
-          customer_phone:
-            customerPhone.trim(),
-
-          delivery_address:
-            deliveryAddress.trim(),
-
-          delivery_city:
-            deliveryCity.trim(),
-
-          delivery_state:
-            deliveryState.trim(),
-
           user_id: user.id,
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
+          delivery_address: deliveryAddress.trim(),
+          delivery_city: deliveryCity.trim(),
+          delivery_state: deliveryState.trim(),
         },
 
         onSuccess: async (transaction) => {
           try {
-            setOrderMessage(
-              "Payment successful. Verifying your payment..."
-            );
+            setOrderMessage("Payment successful. Verifying...");
 
-            const reference =
-              transaction.reference;
-
-            if (!reference) {
-              throw new Error(
-                "Paystack did not return a payment reference."
-              );
-            }
-
-            const {
-              data: verificationData,
-              error: verificationError,
-            } =
+            const { data, error } =
               await supabase.functions.invoke(
                 "verify-paystack-payment",
                 {
                   body: {
-                    reference,
+                    reference: transaction.reference,
                   },
                 }
               );
 
-            if (verificationError) {
+            if (error) throw error;
+
+            if (!data?.success) {
               throw new Error(
-                verificationError.message ||
-                  "Failed to verify Paystack payment."
+                data?.error || "Payment verification failed."
               );
             }
 
-            if (!verificationData?.success) {
-              throw new Error(
-                verificationData?.error ||
-                  "Payment could not be verified."
-              );
-            }
-
-            const order =
-              await saveOrder(reference);
+            const order = await saveOrder(
+              transaction.reference
+            );
 
             setOrderSuccess(true);
-
             setOrderMessage(
-              `Order placed successfully! Your order number is ${String(
+              `Order placed successfully! Order #${String(
                 order.id
               )
                 .slice(0, 8)
-                .toUpperCase()}.`
+                .toUpperCase()}`
             );
 
             setCart([]);
-
             setCustomerName("");
             setCustomerPhone("");
             setDeliveryAddress("");
             setDeliveryCity("");
             setDeliveryState("");
-
-            await loadOrders();
           } catch (error) {
-            console.error(
-              "Payment/order error:",
-              error
-            );
-
+            console.error(error);
             setOrderMessage(
               error?.message ||
-                "Payment was received, but we couldn't complete the order. Please contact Shindara Phoneflair."
+                "Payment was received, but the order could not be completed."
             );
           } finally {
             setOrderLoading(false);
@@ -967,23 +713,11 @@ function App() {
 
         onCancel: () => {
           setOrderLoading(false);
-
-          setOrderMessage(
-            "Payment was cancelled. Your order has not been placed."
-          );
+          setOrderMessage("Payment cancelled.");
         },
       });
     } catch (error) {
-      console.error(
-        "Paystack error:",
-        error
-      );
-
-      setOrderMessage(
-        error?.message ||
-          "Unable to open Paystack. Please try again."
-      );
-
+      setOrderMessage(error.message);
       setOrderLoading(false);
     }
   }
@@ -1000,940 +734,138 @@ function App() {
   }
 
   function formatDate(date) {
-    if (!date) return "";
-
-    return new Date(date).toLocaleDateString(
-      "en-NG",
-      {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }
-    );
+    return date
+      ? new Date(date).toLocaleDateString("en-NG", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      : "";
   }
 
-  function statusLabel(status) {
-    if (!status) return "Pending";
-
-    return (
-      status.charAt(0).toUpperCase() +
-      status.slice(1)
-    );
-  }
+  const css = `
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;background:#f7f7f8;color:#111}
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    .app{min-height:100vh;background:radial-gradient(circle at 15% 10%,rgba(124,58,237,.08),transparent 28%),radial-gradient(circle at 85% 20%,rgba(59,130,246,.08),transparent 25%),#f7f7f8}
+    .announcement{overflow:hidden;background:#111;color:white;padding:10px 0;white-space:nowrap}
+    .track{width:max-content;display:flex;animation:marquee 22s linear infinite}
+    .track span{margin-right:70px;font-size:12px;font-weight:700}
+    @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    header{position:sticky;top:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;padding:15px 6%;background:rgba(255,255,255,.84);backdrop-filter:blur(20px);border-bottom:1px solid #eee}
+    .logo{font-weight:800;font-size:20px;text-decoration:none;color:#111;line-height:1}
+    .logo small{display:block;font-size:10px;letter-spacing:2px;margin-top:5px;opacity:.5}
+    nav{display:flex;gap:25px}nav a{text-decoration:none;color:#111;font-size:14px;font-weight:600}
+    .actions{display:flex;gap:7px}.pill{border:1px solid #ddd;background:white;padding:10px 13px;border-radius:999px;font-weight:700;font-size:12px}.dark{background:#111;color:white}
+    .hero{min-height:610px;display:flex;align-items:center;padding:80px 7%;background:radial-gradient(circle at 75% 45%,rgba(124,58,237,.16),transparent 35%)}
+    .hero-content{max-width:720px}.eyebrow{font-size:11px;letter-spacing:2px;font-weight:800;opacity:.5}
+    h1{font-size:clamp(48px,7vw,88px);line-height:.94;letter-spacing:-5px;margin:15px 0 28px}
+    .hero p{max-width:550px;font-size:18px;line-height:1.6;opacity:.65}
+    .shop{display:inline-block;margin-top:18px;background:#111;color:white;text-decoration:none;padding:15px 22px;border-radius:999px;font-weight:700}
+    .section{padding:75px 7%}.section h2{font-size:44px;letter-spacing:-2px;margin:8px 0 30px}
+    .categories{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+    .category{padding:20px;min-height:140px;border-radius:20px;background:white;border:1px solid #eee;text-decoration:none;color:#111;display:flex;flex-direction:column;justify-content:space-between}
+    .category span{font-size:30px}.category strong{font-size:13px}
+    .products{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+    .card{background:white;border-radius:22px;overflow:hidden;border:1px solid #eee}
+    .image{height:260px;background:#f0f0f2;display:flex;align-items:center;justify-content:center}
+    .image img{width:100%;height:100%;object-fit:cover}
+    .info{padding:17px}.info h3{font-size:16px;margin:7px 0}.category-name{font-size:10px;text-transform:uppercase;letter-spacing:1px;opacity:.45;font-weight:800}
+    .price{font-size:20px;font-weight:800;margin:15px 0}
+    .add{width:100%;border:0;background:#111;color:white;border-radius:12px;padding:13px;font-weight:700}
+    .trust{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;padding:45px 7%;background:#111;color:white}.trust div{padding:22px;background:#181818;border-radius:18px}
+    footer{background:#090909;color:white;padding:55px 7%;display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px}
+    .social{display:flex;gap:8px;margin-top:20px}.social a,.social button{padding:10px 14px;border:1px solid #333;background:#151515;color:white;border-radius:999px;text-decoration:none}
+    .floating{position:fixed;right:18px;bottom:18px;width:55px;height:55px;border:0;border-radius:50%;background:#111;color:white;font-size:22px;z-index:1200}
+    .backdrop{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.58);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:15px}
+    .modal{position:relative;width:min(620px,100%);max-height:92vh;overflow:auto;background:white;border-radius:26px;padding:28px}
+    .close{position:absolute;right:15px;top:15px;border:0;border-radius:50%;width:36px;height:36px;background:#eee;font-size:22px}
+    .form{display:grid;gap:11px}.form input,.form select{width:100%;padding:14px;border:1px solid #ddd;border-radius:12px;background:#fafafa;outline:none}.form input:focus,.form select:focus{border-color:#111;background:white}
+    .primary,.secondary{width:100%;padding:14px;border-radius:12px;font-weight:700}.primary{border:0;background:#111;color:white}.secondary{border:1px solid #ddd;background:white;color:#111}
+    .message{padding:12px;border-radius:12px;background:#f1ecff;font-size:13px;line-height:1.5;margin:12px 0}
+    .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:20px 0}.tabs button{padding:11px;border-radius:10px;border:1px solid #ddd;background:white;font-weight:700}.tabs .active{background:#111;color:white}
+    .cart-overlay{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.55);display:flex;justify-content:flex-end}.cart{width:min(470px,100%);height:100%;background:white;padding:25px;overflow:auto}
+    .cart-item{display:flex;gap:12px;padding:15px 0;border-bottom:1px solid #eee}.cart-img{width:75px;height:75px;background:#f1f1f1;border-radius:12px;overflow:hidden;flex-shrink:0}.cart-img img{width:100%;height:100%;object-fit:cover}
+    .quantity{display:flex;gap:10px;align-items:center;margin-top:8px}.quantity button{width:30px;height:30px;border:1px solid #ddd;background:white;border-radius:8px}
+    .total{display:flex;justify-content:space-between;font-size:20px;font-weight:800;padding:20px 0}
+    .order{border:1px solid #ddd;border-radius:16px;padding:16px;margin:10px 0}
+    @media(max-width:768px){
+      header{padding:12px}.logo{font-size:17px}nav{display:none}.pill{padding:9px 10px;font-size:10px}
+      .hero{min-height:530px;padding:55px 20px}h1{font-size:clamp(42px,13vw,62px);letter-spacing:-3px}.hero p{font-size:15px}
+      .section{padding:55px 16px}.section h2{font-size:32px}.categories{grid-template-columns:repeat(2,1fr)}.products{grid-template-columns:repeat(2,1fr);gap:10px}
+      .image{height:175px}.info{padding:12px}.info h3{font-size:14px}.price{font-size:16px}.add{font-size:12px;padding:10px}
+      .trust{grid-template-columns:1fr;padding:35px 16px}.modal{padding:22px 16px;border-radius:22px}.tabs{grid-template-columns:1fr}
+    }
+    @media(max-width:390px){.products{grid-template-columns:1fr}.image{height:220px}}
+  `;
 
   return (
     <div className="app">
-
-      <style>{`
-
-        * {
-          box-sizing: border-box;
-        }
-
-        html {
-          scroll-behavior: smooth;
-        }
-
-        body {
-          margin: 0;
-          font-family: Inter, -apple-system, BlinkMacSystemFont,
-            "SF Pro Display", "Segoe UI", sans-serif;
-          background: #f7f7f8;
-          color: #111;
-          overflow-x: hidden;
-        }
-
-        button,
-        input,
-        select,
-        textarea {
-          font: inherit;
-        }
-
-        button,
-        a {
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        button:disabled {
-          opacity: .55;
-          cursor: not-allowed;
-        }
-
-        .app {
-          min-height: 100vh;
-          background:
-            radial-gradient(
-              circle at 15% 10%,
-              rgba(124, 58, 237, 0.08),
-              transparent 28%
-            ),
-            radial-gradient(
-              circle at 85% 20%,
-              rgba(59, 130, 246, 0.08),
-              transparent 25%
-            ),
-            #f7f7f8;
-        }
-
-        .announcement-bar {
-          width: 100%;
-          overflow: hidden;
-          background: #111;
-          color: white;
-          padding: 11px 0;
-          white-space: nowrap;
-          position: relative;
-          z-index: 1000;
-        }
-
-        .announcement-track {
-          display: flex;
-          width: max-content;
-          animation: marquee 22s linear infinite;
-        }
-
-        .announcement-group {
-          display: flex;
-          align-items: center;
-          flex-shrink: 0;
-        }
-
-        .announcement-group span {
-          display: inline-block;
-          margin-right: 80px;
-          font-size: 13px;
-          font-weight: 700;
-          letter-spacing: .4px;
-        }
-
-        @keyframes marquee {
-          from {
-            transform: translateX(0);
-          }
-
-          to {
-            transform: translateX(-50%);
-          }
-        }
-
-        .header {
-          position: sticky;
-          top: 0;
-          z-index: 900;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 16px 5%;
-          background: rgba(255,255,255,.82);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(0,0,0,.06);
-        }
-
-        .logo {
-          text-decoration: none;
-          color: #111;
-          font-weight: 800;
-          font-size: 21px;
-          letter-spacing: -1px;
-          white-space: nowrap;
-        }
-
-        .logo span {
-          display: block;
-          font-weight: 500;
-          font-size: 11px;
-          letter-spacing: 1.8px;
-          text-transform: uppercase;
-          opacity: .55;
-        }
-
-        .nav {
-          display: flex;
-          align-items: center;
-          gap: 28px;
-        }
-
-        .nav a {
-          color: #222;
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 600;
-          opacity: .75;
-        }
-
-        .nav a:hover {
-          opacity: 1;
-        }
-
-        .header-actions {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .account-button,
-        .cart-button {
-          border: 1px solid rgba(0,0,0,.08);
-          background: white;
-          color: #111;
-          border-radius: 999px;
-          padding: 10px 14px;
-          cursor: pointer;
-          font-weight: 700;
-          font-size: 13px;
-        }
-
-        .cart-button {
-          background: #111;
-          color: white;
-        }
-
-        .hero {
-          min-height: 650px;
-          display: flex;
-          align-items: center;
-          padding: 80px 7%;
-          background:
-            radial-gradient(
-              circle at 70% 40%,
-              rgba(124,58,237,.16),
-              transparent 35%
-            ),
-            radial-gradient(
-              circle at 90% 80%,
-              rgba(37,99,235,.13),
-              transparent 30%
-            );
-        }
-
-        .hero-content {
-          max-width: 720px;
-        }
-
-        .eyebrow {
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 2px;
-          opacity: .55;
-          margin: 0 0 14px;
-        }
-
-        .hero h1 {
-          font-size: clamp(48px, 7vw, 88px);
-          line-height: .94;
-          letter-spacing: -5px;
-          margin: 0 0 28px;
-        }
-
-        .hero-text {
-          max-width: 550px;
-          font-size: 18px;
-          line-height: 1.65;
-          opacity: .68;
-          margin-bottom: 32px;
-        }
-
-        .shop-button {
-          display: inline-block;
-          background: #111;
-          color: white;
-          text-decoration: none;
-          padding: 15px 22px;
-          border-radius: 999px;
-          font-weight: 700;
-        }
-
-        .section {
-          padding: 90px 7%;
-        }
-
-        .section h2 {
-          margin: 0 0 35px;
-          font-size: 46px;
-          letter-spacing: -2.5px;
-        }
-
-        .category-grid {
-          display: grid;
-          grid-template-columns: repeat(6, 1fr);
-          gap: 12px;
-        }
-
-        .category-card {
-          min-height: 150px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 20px;
-          text-decoration: none;
-          color: inherit;
-          background: rgba(255,255,255,.8);
-          border: 1px solid rgba(0,0,0,.06);
-          border-radius: 22px;
-          transition: transform .2s ease;
-        }
-
-        .category-card:hover {
-          transform: translateY(-4px);
-        }
-
-        .category-card span {
-          font-size: 30px;
-        }
-
-        .category-card strong {
-          font-size: 14px;
-        }
-
-        .product-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 18px;
-        }
-
-        .product-card {
-          background: white;
-          border: 1px solid rgba(0,0,0,.06);
-          border-radius: 24px;
-          overflow: hidden;
-          box-shadow: 0 10px 35px rgba(0,0,0,.04);
-        }
-
-        .product-image {
-          height: 270px;
-          background: #f0f0f2;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-        }
-
-        .product-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .product-info {
-          padding: 18px;
-        }
-
-        .product-category {
-          font-size: 10px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          opacity: .45;
-          margin: 0 0 7px;
-        }
-
-        .product-info h3 {
-          margin: 0 0 10px;
-          font-size: 17px;
-        }
-
-        .price {
-          font-size: 20px;
-          font-weight: 800;
-          margin: 14px 0;
-        }
-
-        .add-button {
-          width: 100%;
-          border: 0;
-          border-radius: 12px;
-          background: #111;
-          color: white;
-          padding: 13px;
-          cursor: pointer;
-          font-weight: 700;
-        }
-
-        .trust-section {
-          display: grid;
-          grid-template-columns: repeat(3,1fr);
-          gap: 20px;
-          padding: 50px 7%;
-          background: #111;
-          color: white;
-        }
-
-        .trust-section > div {
-          padding: 25px;
-          border-radius: 20px;
-          background: rgba(255,255,255,.05);
-        }
-
-        .trust-section span {
-          font-size: 28px;
-        }
-
-        .trust-section h3 {
-          margin-bottom: 5px;
-        }
-
-        .trust-section p {
-          opacity: .6;
-        }
-
-        footer {
-          padding: 60px 7%;
-          background: #090909;
-          color: white;
-          display: flex;
-          justify-content: space-between;
-          gap: 30px;
-          flex-wrap: wrap;
-        }
-
-        .footer-logo {
-          font-size: 20px;
-        }
-
-        .social-links {
-          display: flex;
-          gap: 10px;
-          margin-top: 20px;
-        }
-
-        .social-button {
-          display: inline-block;
-          border: 1px solid rgba(255,255,255,.15);
-          background: rgba(255,255,255,.06);
-          color: white;
-          padding: 10px 13px;
-          border-radius: 999px;
-          text-decoration: none;
-          cursor: pointer;
-        }
-
-        .whatsapp-floating {
-          position: fixed;
-          right: 22px;
-          bottom: 22px;
-          z-index: 950;
-          width: 58px;
-          height: 58px;
-          border: 0;
-          border-radius: 50%;
-          background: #111;
-          color: white;
-          box-shadow: 0 12px 30px rgba(0,0,0,.2);
-          cursor: pointer;
-          font-size: 22px;
-        }
-
-        .modal-backdrop,
-        .cart-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 2000;
-          background: rgba(0,0,0,.55);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 18px;
-        }
-
-        .account-modal {
-          position: relative;
-          width: min(620px, 100%);
-          max-height: 90vh;
-          overflow-y: auto;
-          background: white;
-          color: #111;
-          border-radius: 28px;
-          padding: 30px;
-          box-shadow: 0 30px 100px rgba(0,0,0,.3);
-        }
-
-        .modal-close {
-          position: absolute;
-          right: 18px;
-          top: 18px;
-          width: 36px;
-          height: 36px;
-          border: 0;
-          border-radius: 50%;
-          background: rgba(0,0,0,.06);
-          font-size: 24px;
-          cursor: pointer;
-        }
-
-        .auth-form {
-          display: grid;
-          gap: 12px;
-        }
-
-        .auth-form input,
-        .auth-form select {
-          width: 100%;
-          padding: 14px 15px;
-          border: 1px solid rgba(0,0,0,.12);
-          border-radius: 13px;
-          outline: none;
-          background: #fafafa;
-          color: #111;
-        }
-
-        .auth-form input:focus,
-        .auth-form select:focus {
-          border-color: #111;
-          background: white;
-        }
-
-        .modal-action {
-          width: 100%;
-          border: 0;
-          background: #111;
-          color: white;
-          padding: 14px;
-          border-radius: 13px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .modal-secondary {
-          width: 100%;
-          border: 1px solid rgba(0,0,0,.1);
-          background: white;
-          color: #111;
-          padding: 13px;
-          border-radius: 13px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .auth-message {
-          padding: 12px;
-          border-radius: 12px;
-          background: rgba(124,58,237,.08);
-          font-size: 13px;
-          line-height: 1.5;
-        }
-
-        .auth-divider {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin: 18px 0;
-          font-size: 12px;
-          opacity: .5;
-        }
-
-        .auth-divider::before,
-        .auth-divider::after {
-          content: "";
-          height: 1px;
-          flex: 1;
-          background: currentColor;
-        }
-
-        .social-auth-buttons {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
-
-        .social-auth-button {
-          border: 1px solid rgba(0,0,0,.1);
-          background: white;
-          border-radius: 13px;
-          padding: 13px;
-          cursor: pointer;
-          font-weight: 700;
-        }
-
-        .forgot-password {
-          border: 0;
-          background: none;
-          padding: 0;
-          text-align: right;
-          cursor: pointer;
-          font-size: 12px;
-          opacity: .65;
-        }
-
-        .cart-overlay {
-          align-items: stretch;
-          justify-content: flex-end;
-          padding: 0;
-        }
-
-        .cart-drawer {
-          width: min(470px, 100%);
-          height: 100%;
-          background: white;
-          color: #111;
-          padding: 25px;
-          overflow-y: auto;
-          box-shadow: -20px 0 60px rgba(0,0,0,.2);
-        }
-
-        .cart-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-        }
-
-        .cart-header h2 {
-          margin-top: 0;
-        }
-
-        .cart-item {
-          display: flex;
-          gap: 14px;
-          padding: 16px 0;
-          border-bottom: 1px solid rgba(0,0,0,.07);
-        }
-
-        .cart-item-image {
-          width: 80px;
-          height: 80px;
-          flex-shrink: 0;
-          border-radius: 14px;
-          overflow: hidden;
-          background: #f1f1f1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .cart-item-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .cart-item-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .cart-item-info h3 {
-          margin: 0 0 5px;
-          font-size: 14px;
-        }
-
-        .quantity-controls {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-top: 10px;
-        }
-
-        .quantity-controls button {
-          width: 30px;
-          height: 30px;
-          border: 1px solid rgba(0,0,0,.1);
-          background: white;
-          border-radius: 8px;
-          cursor: pointer;
-        }
-
-        .remove-cart-item,
-        .clear-cart-button {
-          border: 0;
-          background: none;
-          cursor: pointer;
-          opacity: .55;
-          font-size: 12px;
-          margin-top: 8px;
-        }
-
-        .cart-footer {
-          padding-top: 20px;
-        }
-
-        .cart-total {
-          display: flex;
-          justify-content: space-between;
-          font-size: 20px;
-          margin-bottom: 15px;
-        }
-
-        .checkout-button {
-          width: 100%;
-          border: 0;
-          background: #111;
-          color: white;
-          padding: 15px;
-          border-radius: 13px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .clear-cart-button {
-          display: block;
-          margin: 15px auto 0;
-        }
-
-        @media (max-width: 768px) {
-
-          .header {
-            padding: 12px;
-            gap: 8px;
-          }
-
-          .logo {
-            font-size: 17px;
-          }
-
-          .nav {
-            display: none;
-          }
-
-          .header-actions {
-            margin-left: auto;
-            gap: 5px;
-          }
-
-          .account-button,
-          .cart-button {
-            padding: 9px 10px;
-            font-size: 11px;
-          }
-
-          .hero {
-            min-height: 550px;
-            padding: 65px 20px;
-          }
-
-          .hero h1 {
-            font-size: clamp(42px, 13vw, 62px);
-            letter-spacing: -3px;
-          }
-
-          .hero-text {
-            font-size: 15px;
-          }
-
-          .section {
-            padding: 55px 16px;
-          }
-
-          .section h2 {
-            font-size: 32px;
-            letter-spacing: -1.5px;
-          }
-
-          .category-grid {
-            grid-template-columns: repeat(2,1fr);
-          }
-
-          .product-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
-            gap: 10px;
-          }
-
-          .product-image {
-            height: 170px;
-          }
-
-          .product-info {
-            padding: 13px;
-          }
-
-          .product-info h3 {
-            font-size: 14px;
-          }
-
-          .price {
-            font-size: 16px;
-          }
-
-          .add-button {
-            font-size: 12px;
-            padding: 10px 7px;
-          }
-
-          .trust-section {
-            grid-template-columns: 1fr;
-            padding: 35px 16px;
-          }
-
-          footer {
-            padding: 40px 16px;
-          }
-
-          .account-modal {
-            width: calc(100% - 16px);
-            padding: 23px 17px;
-            border-radius: 22px;
-          }
-
-          .social-auth-buttons {
-            grid-template-columns: 1fr;
-          }
-
-          .cart-drawer {
-            width: 100%;
-            border-radius: 22px 22px 0 0;
-          }
-
-          .cart-overlay {
-            align-items: flex-end;
-          }
-
-          .announcement-track {
-            animation-duration: 17s;
-          }
-
-          .announcement-group span {
-            font-size: 11px;
-            margin-right: 45px;
-          }
-
-          .whatsapp-floating {
-            width: 52px;
-            height: 52px;
-            right: 14px;
-            bottom: 14px;
-          }
-        }
-
-        @media (max-width: 380px) {
-
-          .product-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .product-image {
-            height: 220px;
-          }
-
-          .header-actions {
-            gap: 3px;
-          }
-
-          .account-button,
-          .cart-button {
-            padding: 8px;
-            font-size: 10px;
-          }
-        }
-
-      `}</style>
-
-      <div className="announcement-bar">
-        <div className="announcement-track">
-
-          <div className="announcement-group">
-            <span>
-              ✨ Premium phone accessories are screaming here!!! ✨
-            </span>
-
-            <span>
-              📱 Premium phone accessories are screaming here!!! 📱
-            </span>
-
-            <span>
-              ⚡ Premium phone accessories are screaming here!!! ⚡
-            </span>
-
-            <span>
-              ✨ Premium phone accessories are screaming here!!! ✨
-            </span>
-          </div>
-
-          <div className="announcement-group">
-            <span>
-              ✨ Premium phone accessories are screaming here!!! ✨
-            </span>
-
-            <span>
-              📱 Premium phone accessories are screaming here!!! 📱
-            </span>
-
-            <span>
-              ⚡ Premium phone accessories are screaming here!!! ⚡
-            </span>
-
-            <span>
-              ✨ Premium phone accessories are screaming here!!! ✨
-            </span>
-          </div>
-
+      <style>{css}</style>
+
+      <div className="announcement">
+        <div className="track">
+          <span>✨ Premium phone accessories, are screaming here!!! ✨</span>
+          <span>📱 Premium gadgets • Phones • Accessories 📱</span>
+          <span>⚡ Shop Shindara Phoneflair ⚡</span>
+          <span>✨ Premium phone accessories, are screaming here!!! ✨</span>
+          <span>📱 Premium gadgets • Phones • Accessories 📱</span>
+          <span>⚡ Shop Shindara Phoneflair ⚡</span>
         </div>
       </div>
 
-      <header className="header">
-
-        <a href="#home" className="logo">
-          Shindara
-          <span>Phoneflair</span>
+      <header>
+        <a className="logo" href="#home">
+          Shindara<small>PHONEFLAIR</small>
         </a>
 
-        <nav className="nav">
+        <nav>
           <a href="#home">Home</a>
           <a href="#shop">Shop</a>
           <a href="#categories">Categories</a>
           <a href="#contact">Contact</a>
         </nav>
 
-        <div className="header-actions">
-
-          <button
-            className="account-button"
-            onClick={openAccount}
-          >
+        <div className="actions">
+          <button className="pill" onClick={openAccount}>
             👤 {user ? "Account" : "Sign in"}
           </button>
 
           <button
-            className="cart-button"
+            className="pill dark"
             onClick={() => setCartOpen(true)}
           >
             🛒 Cart ({cartCount})
           </button>
-
         </div>
-
       </header>
 
       <main>
-
         <section className="hero" id="home">
-
           <div className="hero-content">
-
-            <p className="eyebrow">
-              SHINDARA PHONEFLAIR
-            </p>
-
+            <p className="eyebrow">SHINDARA PHONEFLAIR</p>
             <h1>
               Technology,
               <br />
               beautifully selected.
             </h1>
-
-            <p className="hero-text">
-              Phones, accessories, chargers,
-              audio products, power banks and
-              everyday gadgets.
+            <p>
+              Phones, accessories, chargers, audio products,
+              power banks and everyday gadgets.
             </p>
-
-            <a href="#shop" className="shop-button">
+            <a className="shop" href="#shop">
               Shop now →
             </a>
-
           </div>
-
         </section>
 
         <section className="section" id="categories">
-
           <p className="eyebrow">EXPLORE</p>
-
           <h2>Shop by category</h2>
 
-          <div className="category-grid">
-
+          <div className="categories">
             {[
               ["📱", "Smartphones"],
               ["🛡️", "Phone Cases"],
@@ -1942,1112 +874,273 @@ function App() {
               ["🔋", "Power Banks"],
               ["✨", "Gadgets"],
             ].map(([icon, name]) => (
-
-              <a
-                href="#shop"
-                className="category-card"
-                key={name}
-              >
-
+              <a className="category" href="#shop" key={name}>
                 <span>{icon}</span>
-
                 <strong>{name}</strong>
-
               </a>
-
             ))}
-
           </div>
-
         </section>
 
         <section className="section" id="shop">
-
-          <p className="eyebrow">
-            SHINDARA STORE
-          </p>
-
+          <p className="eyebrow">SHINDARA STORE</p>
           <h2>Popular picks</h2>
 
           {productsLoading ? (
-
-            <div
-              style={{
-                padding: "50px",
-                textAlign: "center",
-              }}
-            >
-              Loading products...
-            </div>
-
+            <p>Loading products...</p>
           ) : productsError ? (
-
-            <div
-              style={{
-                padding: "50px",
-                textAlign: "center",
-              }}
-            >
-
+            <>
               <p>{productsError}</p>
-
-              <button
-                className="add-button"
-                onClick={loadProducts}
-              >
+              <button className="add" onClick={loadProducts}>
                 Try again
               </button>
-
-            </div>
-
+            </>
           ) : products.length === 0 ? (
-
-            <div
-              style={{
-                padding: "50px",
-                textAlign: "center",
-              }}
-            >
-              <p>Products are coming soon.</p>
-            </div>
-
+            <p>Products are coming soon.</p>
           ) : (
-
-            <div className="product-grid">
-
+            <div className="products">
               {products.map((product) => (
-
-                <article
-                  className="product-card"
-                  key={product.id}
-                >
-
-                  <div className="product-image">
-
+                <article className="card" key={product.id}>
+                  <div className="image">
                     {product.image_url ? (
-
                       <img
                         src={product.image_url}
                         alt={product.name}
                       />
-
                     ) : (
-
-                      <span style={{ fontSize: 45 }}>
-                        📦
-                      </span>
-
+                      <span style={{ fontSize: 45 }}>📦</span>
                     )}
-
                   </div>
 
-                  <div className="product-info">
-
-                    <p className="product-category">
-                      {product.category ||
-                        "Electronics"}
-                    </p>
+                  <div className="info">
+                    <div className="category-name">
+                      {product.category || "Electronics"}
+                    </div>
 
                     <h3>{product.name}</h3>
 
                     {product.description && (
-                      <p
-                        style={{
-                          opacity: .65,
-                          fontSize: 13,
-                          lineHeight: 1.5,
-                        }}
-                      >
+                      <p style={{ opacity: 0.6, fontSize: 12 }}>
                         {product.description}
                       </p>
                     )}
 
-                    <p className="price">
+                    <div className="price">
                       {money(product.price)}
-                    </p>
+                    </div>
 
-                    {Number(product.stock || 0) > 0 ? (
-
-                      <button
-                        className="add-button"
-                        onClick={() =>
-                          addToCart(product)
-                        }
-                      >
-                        Add to cart
-                      </button>
-
-                    ) : (
-
-                      <button
-                        className="add-button"
-                        disabled
-                      >
-                        Out of stock
-                      </button>
-
-                    )}
-
+                    <button
+                      className="add"
+                      disabled={Number(product.stock || 0) <= 0}
+                      onClick={() => addToCart(product)}
+                    >
+                      {Number(product.stock || 0) > 0
+                        ? "Add to cart"
+                        : "Out of stock"}
+                    </button>
                   </div>
-
                 </article>
-
               ))}
-
             </div>
-
           )}
-
         </section>
 
-        <section className="trust-section">
-
-          <div>
-            <span>🚚</span>
-            <h3>Reliable delivery</h3>
-            <p>
-              Get your order delivered safely.
-            </p>
-          </div>
-
-          <div>
-            <span>🔒</span>
-            <h3>Secure shopping</h3>
-            <p>
-              Shop with confidence.
-            </p>
-          </div>
-
-          <div>
-            <span>💬</span>
-            <h3>Customer support</h3>
-            <p>
-              We're here whenever you need us.
-            </p>
-          </div>
-
+        <section className="trust">
+          <div>🚚<h3>Reliable delivery</h3><p>Safe delivery of your order.</p></div>
+          <div>🔒<h3>Secure shopping</h3><p>Shop with confidence.</p></div>
+          <div>💬<h3>Customer support</h3><p>We're here when you need us.</p></div>
         </section>
-
       </main>
 
       <footer id="contact">
-
         <div>
+          <strong>Shindara Phoneflair</strong>
+          <p>Phones • Accessories • Gadgets • Electronics</p>
 
-          <strong className="footer-logo">
-            Shindara Phoneflair
-          </strong>
-
-          <p>
-            Phones • Accessories • Gadgets •
-            Electronics
-          </p>
-
-          <div className="social-links">
-
-            <button
-              className="social-button"
-              onClick={whatsapp}
-            >
-              📲 WhatsApp
-            </button>
-
-            <a
-              className="social-button"
-              href={TIKTOK}
-              target="_blank"
-              rel="noreferrer"
-            >
+          <div className="social">
+            <button onClick={whatsapp}>📲 WhatsApp</button>
+            <a href={TIKTOK} target="_blank" rel="noreferrer">
               🎵 TikTok
             </a>
-
           </div>
-
         </div>
 
-        <p>
-          © 2026 Shindara Phoneflair
-        </p>
-
+        <p>© 2026 Shindara Phoneflair</p>
       </footer>
 
-      <button
-        className="whatsapp-floating"
-        onClick={whatsapp}
-      >
-        💬
-      </button>
+      <button className="floating" onClick={whatsapp}>💬</button>
 
+      {/* CART */}
       {cartOpen && (
+        <div className="cart-overlay" onClick={() => setCartOpen(false)}>
+          <aside className="cart" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="close"
+              onClick={() => setCartOpen(false)}
+            >
+              ×
+            </button>
 
-        <div
-          className="cart-overlay"
-          onClick={() => setCartOpen(false)}
-        >
+            <p className="eyebrow">SHINDARA</p>
+            <h2>Your Cart</h2>
 
-          <aside
-            className="cart-drawer"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
-            <div className="cart-header">
-
-              <div>
-
-                <p className="eyebrow">
-                  SHINDARA
-                </p>
-
-                <h2>Your Cart</h2>
-
-              </div>
-
-              <button
-                className="modal-close"
-                onClick={() =>
-                  setCartOpen(false)
-                }
-              >
-                ×
-              </button>
-
-            </div>
-
-            {cart.length === 0 ? (
-
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "60px 20px",
-                }}
-              >
-
-                <div style={{ fontSize: 55 }}>
-                  🛒
-                </div>
-
+            {!cart.length ? (
+              <div style={{ textAlign: "center", padding: 50 }}>
+                <div style={{ fontSize: 50 }}>🛒</div>
                 <h3>Your cart is empty</h3>
-
-                <p>
-                  Add something you love from
-                  our store.
-                </p>
-
                 <button
-                  className="modal-action"
-                  onClick={() =>
-                    setCartOpen(false)
-                  }
+                  className="primary"
+                  onClick={() => setCartOpen(false)}
                 >
                   Continue shopping
                 </button>
-
               </div>
-
             ) : (
-
               <>
-
-                <div className="cart-items">
-
-                  {cart.map((item) => (
-
-                    <div
-                      className="cart-item"
-                      key={item.id}
-                    >
-
-                      <div className="cart-item-image">
-
-                        {item.image_url ? (
-
-                          <img
-                            src={item.image_url}
-                            alt={item.name}
-                          />
-
-                        ) : (
-
-                          <span>📦</span>
-
-                        )}
-
-                      </div>
-
-                      <div className="cart-item-info">
-
-                        <h3>{item.name}</h3>
-
-                        <p>
-                          {money(item.price)}
-                        </p>
-
-                        <div className="quantity-controls">
-
-                          <button
-                            onClick={() =>
-                              decreaseQuantity(
-                                item.id
-                              )
-                            }
-                          >
-                            −
-                          </button>
-
-                          <strong>
-                            {item.quantity}
-                          </strong>
-
-                          <button
-                            onClick={() =>
-                              increaseQuantity(
-                                item.id
-                              )
-                            }
-                          >
-                            +
-                          </button>
-
-                        </div>
-
-                        <button
-                          className="remove-cart-item"
-                          onClick={() =>
-                            removeFromCart(
-                              item.id
-                            )
-                          }
-                        >
-                          Remove
-                        </button>
-
-                      </div>
-
+                {cart.map((item) => (
+                  <div className="cart-item" key={item.id}>
+                    <div className="cart-img">
+                      {item.image_url && (
+                        <img src={item.image_url} alt={item.name} />
+                      )}
                     </div>
 
-                  ))}
+                    <div style={{ flex: 1 }}>
+                      <strong>{item.name}</strong>
+                      <p>{money(item.price)}</p>
 
-                </div>
+                      <div className="quantity">
+                        <button onClick={() => decreaseQuantity(item.id)}>
+                          −
+                        </button>
+                        <strong>{item.quantity}</strong>
+                        <button onClick={() => increaseQuantity(item.id)}>
+                          +
+                        </button>
+                      </div>
 
-                <div className="cart-footer">
-
-                  <div className="cart-total">
-
-                    <span>Total</span>
-
-                    <strong>
-                      {money(cartTotal)}
-                    </strong>
-
+                      <button
+                        style={{
+                          border: 0,
+                          background: "none",
+                          padding: "8px 0",
+                          opacity: 0.5,
+                        }}
+                        onClick={() => removeFromCart(item.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
+                ))}
 
-                  <button
-                    className="checkout-button"
-                    onClick={openCheckout}
-                  >
-                    Continue to checkout →
-                  </button>
-
-                  <button
-                    className="clear-cart-button"
-                    onClick={clearCart}
-                  >
-                    Clear cart
-                  </button>
-
+                <div className="total">
+                  <span>Total</span>
+                  <span>{money(cartTotal)}</span>
                 </div>
 
-              </>
-
-            )}
-
-          </aside>
-
-        </div>
-
-      )}
-
-      {checkoutOpen && (
-
-        <div
-          className="modal-backdrop"
-          onClick={() =>
-            !orderLoading &&
-            setCheckoutOpen(false)
-          }
-        >
-
-          <div
-            className="account-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
-            <button
-              className="modal-close"
-              onClick={() =>
-                !orderLoading &&
-                setCheckoutOpen(false)
-              }
-            >
-              ×
-            </button>
-
-            {orderSuccess ? (
-
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "25px 5px",
-                }}
-              >
-
-                <div
-                  style={{
-                    fontSize: 60,
-                    marginBottom: 15,
-                  }}
-                >
-                  ✅
-                </div>
-
-                <p className="eyebrow">
-                  ORDER RECEIVED
-                </p>
-
-                <h2>Thank you!</h2>
-
-                <p className="auth-message">
-                  {orderMessage}
-                </p>
-
-                <button
-                  className="modal-action"
-                  onClick={() =>
-                    setCheckoutOpen(false)
-                  }
-                >
-                  Continue shopping
+                <button className="primary" onClick={openCheckout}>
+                  Continue to checkout →
                 </button>
-
-              </div>
-
-            ) : (
-
-              <>
-
-                <p className="eyebrow">
-                  SHINDARA CHECKOUT
-                </p>
-
-                <h2>Delivery details</h2>
-
-                <p style={{ opacity: .65 }}>
-                  Tell us where to deliver your
-                  order.
-                </p>
-
-                <form
-                  className="auth-form"
-                  onSubmit={placeOrder}
-                >
-
-                  <input
-                    type="text"
-                    placeholder="Full name"
-                    value={customerName}
-                    onChange={(event) =>
-                      setCustomerName(
-                        event.target.value
-                      )
-                    }
-                    required
-                  />
-
-                  <input
-                    type="tel"
-                    placeholder="Phone number"
-                    value={customerPhone}
-                    onChange={(event) =>
-                      setCustomerPhone(
-                        event.target.value
-                      )
-                    }
-                    required
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="Delivery address"
-                    value={deliveryAddress}
-                    onChange={(event) =>
-                      setDeliveryAddress(
-                        event.target.value
-                      )
-                    }
-                    required
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="City"
-                    value={deliveryCity}
-                    onChange={(event) =>
-                      setDeliveryCity(
-                        event.target.value
-                      )
-                    }
-                    required
-                  />
-
-                  <select
-                    value={deliveryState}
-                    onChange={(event) =>
-                      setDeliveryState(
-                        event.target.value
-                      )
-                    }
-                    required
-                  >
-
-                    <option value="">
-                      Select your state
-                    </option>
-
-                    {NIGERIAN_STATES.map(
-                      (state) => (
-                        <option
-                          key={state}
-                          value={state}
-                        >
-                          {state}
-                        </option>
-                      )
-                    )}
-
-                  </select>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent:
-                        "space-between",
-                      padding: "15px 0",
-                    }}
-                  >
-
-                    <strong>
-                      Order total
-                    </strong>
-
-                    <strong>
-                      {money(cartTotal)}
-                    </strong>
-
-                  </div>
-
-                  {orderMessage && (
-                    <p className="auth-message">
-                      {orderMessage}
-                    </p>
-                  )}
-
-                  <button
-                    className="modal-action"
-                    type="submit"
-                    disabled={orderLoading}
-                  >
-                    {orderLoading
-                      ? "Opening Paystack..."
-                      : `Pay ${money(
-                          cartTotal
-                        )}`}
-                  </button>
-
-                </form>
-
               </>
-
             )}
-
-          </div>
-
+          </aside>
         </div>
-
       )}
 
+      {/* ACCOUNT */}
       {accountOpen && (
-
         <div
-          className="modal-backdrop"
-          onClick={() =>
-            setAccountOpen(false)
-          }
+          className="backdrop"
+          onClick={() => setAccountOpen(false)}
         >
-
-          <div
-            className="account-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button
-              className="modal-close"
-              onClick={() =>
-                setAccountOpen(false)
-              }
+              className="close"
+              onClick={() => setAccountOpen(false)}
             >
               ×
             </button>
+
+            <p className="eyebrow">SHINDARA ACCOUNT</p>
 
             {user ? (
-
               <>
-
-                <p className="eyebrow">
-                  SHINDARA ACCOUNT
-                </p>
-
                 <h2>
                   {profile?.name
-                    ? `Hello, ${
-                        profile.name.split(" ")[0]
-                      } 👋`
+                    ? `Hello, ${profile.name.split(" ")[0]} 👋`
                     : "My Account"}
                 </h2>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(3,1fr)",
-                    gap: 8,
-                    margin: "25px 0",
-                  }}
-                >
-
-                  <button
-                    className={
-                      accountTab === "profile"
-                        ? "modal-action"
-                        : "modal-secondary"
-                    }
-                    onClick={() =>
-                      setAccountTab("profile")
-                    }
-                  >
-                    👤 Profile
-                  </button>
-
-                  <button
-                    className={
-                      accountTab === "orders"
-                        ? "modal-action"
-                        : "modal-secondary"
-                    }
-                    onClick={() => {
-                      setAccountTab("orders");
-                      loadOrders();
-                    }}
-                  >
-                    📦 Orders
-                  </button>
-
-                  <button
-                    className={
-                      accountTab === "settings"
-                        ? "modal-action"
-                        : "modal-secondary"
-                    }
-                    onClick={() => {
-                      setAccountTab("settings");
-                      setSettingsMessage("");
-                      setPasswordMessage("");
-
-                      setProfileName(
-                        profile?.name || ""
-                      );
-
-                      setProfilePhone(
-                        profile?.phone || ""
-                      );
-                    }}
-                  >
-                    ⚙️ Settings
-                  </button>
-
+                <div className="tabs">
+                  {[
+                    ["profile", "👤 Profile"],
+                    ["orders", "📦 Orders"],
+                    ["settings", "⚙️ Settings"],
+                  ].map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      className={accountTab === tab ? "active" : ""}
+                      onClick={() => {
+                        setAccountTab(tab);
+                        if (tab === "orders") loadOrders();
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
 
                 {accountTab === "profile" && (
-
-                  <div>
-
+                  <>
                     <div
                       style={{
                         padding: 20,
+                        background: "#f5f5f5",
                         borderRadius: 18,
-                        background:
-                          "rgba(128,128,128,.08)",
-                        marginBottom: 15,
                       }}
                     >
-
-                      <p className="eyebrow">
-                        PERSONAL INFORMATION
-                      </p>
-
-                      <h3>
-                        {profile?.name ||
-                          "Customer"}
-                      </h3>
-
-                      <p>
-                        📧 {user.email}
-                      </p>
-
-                      <p>
-                        📱{" "}
-                        {profile?.phone ||
-                          "Phone number not added"}
-                      </p>
-
+                      <p className="eyebrow">PERSONAL INFORMATION</p>
+                      <h3>{profile?.name || "Customer"}</h3>
+                      <p>📧 {user.email}</p>
+                      <p>📱 {profile?.phone || "No phone added"}</p>
+                      <p>📍 {profile?.city || "No city added"}</p>
+                      <p>🗺️ {profile?.state || "No state added"}</p>
                     </div>
 
                     <button
-                      className="modal-action"
-                      onClick={() => {
-                        setProfileName(
-                          profile?.name || ""
-                        );
-
-                        setProfilePhone(
-                          profile?.phone || ""
-                        );
-
-                        setSettingsMessage("");
-                        setAccountTab("settings");
-                      }}
+                      className="primary"
+                      style={{ marginTop: 12 }}
+                      onClick={() => setAccountTab("settings")}
                     >
                       Edit profile
                     </button>
-
-                    <button
-                      className="modal-secondary"
-                      style={{ marginTop: 10 }}
-                      onClick={() => {
-                        setAccountTab("orders");
-                        loadOrders();
-                      }}
-                    >
-                      View my orders
-                    </button>
-
-                  </div>
-
-                )}
-
-                {accountTab === "orders" && (
-
-                  <div>
-
-                    <p className="eyebrow">
-                      ORDER HISTORY
-                    </p>
-
-                    <h3>My Orders</h3>
-
-                    {ordersLoading ? (
-
-                      <div
-                        style={{
-                          padding: 35,
-                          textAlign: "center",
-                        }}
-                      >
-                        Loading your orders...
-                      </div>
-
-                    ) : ordersError ? (
-
-                      <div
-                        style={{
-                          padding: 20,
-                          textAlign: "center",
-                        }}
-                      >
-
-                        <p>{ordersError}</p>
-
-                        <button
-                          className="modal-action"
-                          onClick={loadOrders}
-                        >
-                          Try again
-                        </button>
-
-                      </div>
-
-                    ) : orders.length === 0 ? (
-
-                      <div
-                        style={{
-                          textAlign: "center",
-                          padding: 35,
-                        }}
-                      >
-
-                        <div style={{ fontSize: 50 }}>
-                          📦
-                        </div>
-
-                        <h3>No orders yet</h3>
-
-                        <p>
-                          Your completed orders
-                          will appear here.
-                        </p>
-
-                        <button
-                          className="modal-action"
-                          onClick={() => {
-                            setAccountOpen(false);
-                            window.location.hash =
-                              "shop";
-                          }}
-                        >
-                          Start shopping
-                        </button>
-
-                      </div>
-
-                    ) : (
-
-                      <div>
-
-                        {orders.map((order) => (
-
-                          <div
-                            key={order.id}
-                            style={{
-                              padding: 18,
-                              border:
-                                "1px solid rgba(128,128,128,.2)",
-                              borderRadius: 18,
-                              marginBottom: 12,
-                            }}
-                          >
-
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent:
-                                  "space-between",
-                                gap: 12,
-                              }}
-                            >
-
-                              <div>
-
-                                <strong>
-                                  Order #
-                                  {String(order.id)
-                                    .slice(0, 8)
-                                    .toUpperCase()}
-                                </strong>
-
-                                <p
-                                  style={{
-                                    opacity: .6,
-                                    fontSize: 13,
-                                  }}
-                                >
-                                  {formatDate(
-                                    order.created_at
-                                  )}
-                                </p>
-
-                              </div>
-
-                              <span
-                                style={{
-                                  padding:
-                                    "6px 10px",
-                                  borderRadius: 999,
-                                  background:
-                                    "rgba(128,128,128,.12)",
-                                  fontSize: 12,
-                                  height: "fit-content",
-                                }}
-                              >
-                                {statusLabel(
-                                  order.status
-                                )}
-                              </span>
-
-                            </div>
-
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent:
-                                  "space-between",
-                                alignItems:
-                                  "center",
-                                marginTop: 12,
-                              }}
-                            >
-
-                              <strong>
-                                {money(order.total)}
-                              </strong>
-
-                              <button
-                                className="modal-secondary"
-                                style={{
-                                  width: "auto",
-                                }}
-                                onClick={() =>
-                                  setExpandedOrder(
-                                    expandedOrder ===
-                                      order.id
-                                      ? null
-                                      : order.id
-                                  )
-                                }
-                              >
-                                {expandedOrder ===
-                                order.id
-                                  ? "Hide items"
-                                  : "View items"}
-                              </button>
-
-                            </div>
-
-                            {expandedOrder ===
-                              order.id && (
-
-                              <div
-                                style={{
-                                  marginTop: 15,
-                                  paddingTop: 15,
-                                  borderTop:
-                                    "1px solid rgba(128,128,128,.15)",
-                                }}
-                              >
-
-                                {order.order_items?.map(
-                                  (item) => (
-
-                                    <div
-                                      key={item.id}
-                                      style={{
-                                        display:
-                                          "flex",
-                                        justifyContent:
-                                          "space-between",
-                                        padding:
-                                          "8px 0",
-                                        gap: 10,
-                                      }}
-                                    >
-
-                                      <div>
-
-                                        <strong>
-                                          {
-                                            item.product_name
-                                          }
-                                        </strong>
-
-                                        <div
-                                          style={{
-                                            opacity: .6,
-                                            fontSize: 13,
-                                          }}
-                                        >
-                                          Qty:{" "}
-                                          {
-                                            item.quantity
-                                          }
-                                        </div>
-
-                                      </div>
-
-                                      <strong>
-                                        {money(
-                                          Number(
-                                            item.price
-                                          ) *
-                                            Number(
-                                              item.quantity
-                                            )
-                                        )}
-                                      </strong>
-
-                                    </div>
-
-                                  )
-                                )}
-
-                              </div>
-
-                            )}
-
-                          </div>
-
-                        ))}
-
-                      </div>
-
-                    )}
-
-                  </div>
-
+                  </>
                 )}
 
                 {accountTab === "settings" && (
-
-                  <div>
-
-                    <p className="eyebrow">
-                      ACCOUNT SETTINGS
-                    </p>
-
-                    <h3>Edit your details</h3>
+                  <>
+                    <h3>Personal details</h3>
 
                     <form
-                      className="auth-form"
-                      onSubmit={
-                        saveProfileSettings
-                      }
+                      className="form"
+                      onSubmit={saveProfileSettings}
                     >
-
                       <input
-                        type="text"
                         placeholder="Full name"
                         value={profileName}
-                        onChange={(event) =>
-                          setProfileName(
-                            event.target.value
-                          )
+                        onChange={(e) =>
+                          setProfileName(e.target.value)
                         }
-                        required
                       />
 
                       <input
                         type="tel"
                         placeholder="Phone number"
                         value={profilePhone}
-                        onChange={(event) =>
-                          setProfilePhone(
-                            event.target.value
-                          )
+                        onChange={(e) =>
+                          setProfilePhone(e.target.value)
                         }
-                        required
                       />
 
                       <input
@@ -3056,123 +1149,182 @@ function App() {
                         disabled
                       />
 
+                      <select
+                        value={profileState}
+                        onChange={(e) => {
+                          setProfileState(e.target.value);
+                          setProfileCity("");
+                        }}
+                      >
+                        <option value="">Select your state</option>
+                        {STATES.map((state) => (
+                          <option key={state}>{state}</option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={profileCity}
+                        onChange={(e) =>
+                          setProfileCity(e.target.value)
+                        }
+                        disabled={!profileState}
+                      >
+                        <option value="">
+                          {profileState
+                            ? "Select your city"
+                            : "Select state first"}
+                        </option>
+
+                        {profileCities.map((city) => (
+                          <option key={city}>{city}</option>
+                        ))}
+                      </select>
+
                       <button
-                        className="modal-action"
-                        type="submit"
+                        className="primary"
                         disabled={settingsLoading}
                       >
                         {settingsLoading
                           ? "Saving..."
                           : "Save changes"}
                       </button>
-
                     </form>
 
                     {settingsMessage && (
-                      <p className="auth-message">
+                      <div className="message">
                         {settingsMessage}
-                      </p>
+                      </div>
                     )}
 
-                    <div
-                      style={{
-                        marginTop: 30,
-                        paddingTop: 25,
-                        borderTop:
-                          "1px solid rgba(128,128,128,.15)",
-                      }}
+                    <hr style={{ margin: "28px 0" }} />
+
+                    <h3>Change password</h3>
+
+                    <form
+                      className="form"
+                      onSubmit={changePassword}
                     >
+                      <input
+                        type="password"
+                        placeholder="New password"
+                        minLength={6}
+                        value={newPassword}
+                        onChange={(e) =>
+                          setNewPassword(e.target.value)
+                        }
+                        required
+                      />
 
-                      <p className="eyebrow">
-                        SECURITY
-                      </p>
-
-                      <h3>
+                      <button className="primary">
                         Change password
-                      </h3>
+                      </button>
+                    </form>
 
-                      <form
-                        className="auth-form"
-                        onSubmit={changePassword}
-                      >
-
-                        <input
-                          type="password"
-                          placeholder="New password"
-                          value={newPassword}
-                          onChange={(event) =>
-                            setNewPassword(
-                              event.target.value
-                            )
-                          }
-                          minLength={6}
-                          required
-                        />
-
-                        <button
-                          className="modal-action"
-                          type="submit"
-                          disabled={passwordLoading}
-                        >
-                          {passwordLoading
-                            ? "Changing..."
-                            : "Change password"}
-                        </button>
-
-                      </form>
-
-                      {passwordMessage && (
-                        <p className="auth-message">
-                          {passwordMessage}
-                        </p>
-                      )}
-
-                    </div>
+                    {passwordMessage && (
+                      <div className="message">
+                        {passwordMessage}
+                      </div>
+                    )}
 
                     <button
-                      className="modal-secondary"
-                      style={{ marginTop: 25 }}
+                      className="secondary"
+                      style={{ marginTop: 20 }}
                       onClick={logout}
                     >
                       🚪 Log out
                     </button>
-
-                  </div>
-
+                  </>
                 )}
 
+                {accountTab === "orders" && (
+                  <>
+                    <p className="eyebrow">ORDER HISTORY</p>
+                    <h3>My Orders</h3>
+
+                    {ordersLoading ? (
+                      <p>Loading your orders...</p>
+                    ) : ordersError ? (
+                      <div className="message">{ordersError}</div>
+                    ) : !orders.length ? (
+                      <div style={{ textAlign: "center", padding: 30 }}>
+                        <div style={{ fontSize: 45 }}>📦</div>
+                        <h3>No orders yet</h3>
+                      </div>
+                    ) : (
+                      orders.map((order) => (
+                        <div className="order" key={order.id}>
+                          <strong>
+                            Order #
+                            {String(order.id)
+                              .slice(0, 8)
+                              .toUpperCase()}
+                          </strong>
+
+                          <p style={{ opacity: 0.55 }}>
+                            {formatDate(order.created_at)}
+                          </p>
+
+                          <strong>{money(order.total)}</strong>
+
+                          <button
+                            className="secondary"
+                            style={{ marginTop: 10 }}
+                            onClick={() =>
+                              setExpandedOrder(
+                                expandedOrder === order.id
+                                  ? null
+                                  : order.id
+                              )
+                            }
+                          >
+                            {expandedOrder === order.id
+                              ? "Hide items"
+                              : "View items"}
+                          </button>
+
+                          {expandedOrder === order.id &&
+                            order.order_items?.map((item) => (
+                              <div
+                                key={item.id}
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  padding: "8px 0",
+                                }}
+                              >
+                                <span>
+                                  {item.product_name} × {item.quantity}
+                                </span>
+                                <strong>
+                                  {money(
+                                    Number(item.price) *
+                                      Number(item.quantity)
+                                  )}
+                                </strong>
+                              </div>
+                            ))}
+                        </div>
+                      ))
+                    )}
+                  </>
+                )}
               </>
-
             ) : (
-
               <>
-
-                <p className="eyebrow">
-                  SHINDARA ACCOUNT
-                </p>
-
                 <h2>
                   {authMode === "signup"
                     ? "Create your account"
                     : "Welcome back"}
                 </h2>
 
-                <form
-                  className="auth-form"
-                  onSubmit={handleAuth}
-                >
-
+                <form className="form" onSubmit={handleAuth}>
                   {authMode === "signup" && (
                     <>
-
                       <input
-                        type="text"
                         placeholder="Full name"
                         value={fullName}
-                        onChange={(event) =>
-                          setFullName(
-                            event.target.value
-                          )
+                        onChange={(e) =>
+                          setFullName(e.target.value)
                         }
                         required
                       />
@@ -3181,14 +1333,11 @@ function App() {
                         type="tel"
                         placeholder="Phone number"
                         value={phone}
-                        onChange={(event) =>
-                          setPhone(
-                            event.target.value
-                          )
+                        onChange={(e) =>
+                          setPhone(e.target.value)
                         }
                         required
                       />
-
                     </>
                   )}
 
@@ -3196,115 +1345,76 @@ function App() {
                     type="email"
                     placeholder="Email address"
                     value={email}
-                    onChange={(event) =>
-                      setEmail(
-                        event.target.value
-                      )
-                    }
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
 
                   <input
                     type="password"
                     placeholder="Password"
-                    value={password}
-                    onChange={(event) =>
-                      setPassword(
-                        event.target.value
-                      )
-                    }
                     minLength={6}
+                    value={password}
+                    onChange={(e) =>
+                      setPassword(e.target.value)
+                    }
                     required
                   />
 
-                  {authMode === "login" && (
-
-                    <button
-                      type="button"
-                      className="forgot-password"
-                      onClick={() => {
-                        setForgotPassword(true);
-                        setResetEmail(email);
-                        setResetMessage("");
-                      }}
-                    >
-                      Forgot password?
-                    </button>
-
-                  )}
-
-                  <button
-                    className="modal-action"
-                    type="submit"
-                    disabled={authLoading}
-                  >
+                  <button className="primary" disabled={authLoading}>
                     {authLoading
                       ? "Please wait..."
                       : authMode === "signup"
                       ? "Create account"
                       : "Sign in"}
                   </button>
-
                 </form>
 
                 {authMessage && (
-                  <p className="auth-message">
-                    {authMessage}
-                  </p>
+                  <div className="message">{authMessage}</div>
                 )}
 
                 {authMode === "login" && (
-
                   <>
-                    <div className="auth-divider">
-                      <span>
-                        or continue with
-                      </span>
-                    </div>
+                    <button
+                      className="secondary"
+                      style={{ marginTop: 10 }}
+                      onClick={() => {
+                        setForgotPassword(true);
+                        setResetEmail(email);
+                      }}
+                    >
+                      Forgot password?
+                    </button>
 
-                    <div className="social-auth-buttons">
+                    <p style={{ textAlign: "center", opacity: 0.5 }}>
+                      or
+                    </p>
 
+                    <div style={{ display: "flex", gap: 8 }}>
                       <button
-                        type="button"
-                        className="social-auth-button"
-                        onClick={() =>
-                          signInWithProvider(
-                            "google"
-                          )
-                        }
-                        disabled={authLoading}
+                        className="secondary"
+                        onClick={() => signInWithProvider("google")}
                       >
                         Google
                       </button>
 
                       <button
-                        type="button"
-                        className="social-auth-button"
-                        onClick={() =>
-                          signInWithProvider(
-                            "apple"
-                          )
-                        }
-                        disabled={authLoading}
+                        className="secondary"
+                        onClick={() => signInWithProvider("apple")}
                       >
                         Apple
                       </button>
-
                     </div>
                   </>
-
                 )}
 
                 <button
-                  className="modal-secondary"
+                  className="secondary"
                   style={{ marginTop: 12 }}
                   onClick={() => {
                     setAuthMessage("");
-
                     setAuthMode(
-                      authMode === "login"
-                        ? "signup"
-                        : "login"
+                      authMode === "login" ? "signup" : "login"
                     );
                   }}
                 >
@@ -3312,105 +1422,174 @@ function App() {
                     ? "Create a new account"
                     : "Already have an account? Sign in"}
                 </button>
-
               </>
-
             )}
-
           </div>
-
         </div>
-
       )}
 
+      {/* FORGOT PASSWORD */}
       {forgotPassword && (
-
         <div
-          className="modal-backdrop"
+          className="backdrop"
+          onClick={() => setForgotPassword(false)}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="close"
+              onClick={() => setForgotPassword(false)}
+            >
+              ×
+            </button>
+
+            <p className="eyebrow">SHINDARA ACCOUNT</p>
+            <h2>Reset your password</h2>
+
+            <form className="form" onSubmit={resetPassword}>
+              <input
+                type="email"
+                placeholder="Email address"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+              />
+
+              <button className="primary">
+                Send reset link
+              </button>
+            </form>
+
+            {resetMessage && (
+              <div className="message">{resetMessage}</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* CHECKOUT */}
+      {checkoutOpen && (
+        <div
+          className="backdrop"
           onClick={() =>
-            setForgotPassword(false)
+            !orderLoading && setCheckoutOpen(false)
           }
         >
-
-          <div
-            className="account-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button
-              className="modal-close"
+              className="close"
               onClick={() =>
-                setForgotPassword(false)
+                !orderLoading && setCheckoutOpen(false)
               }
             >
               ×
             </button>
 
-            <p className="eyebrow">
-              SHINDARA ACCOUNT
-            </p>
+            {orderSuccess ? (
+              <div style={{ textAlign: "center", padding: 30 }}>
+                <div style={{ fontSize: 60 }}>✅</div>
+                <p className="eyebrow">ORDER RECEIVED</p>
+                <h2>Thank you!</h2>
+                <div className="message">{orderMessage}</div>
+                <button
+                  className="primary"
+                  onClick={() => setCheckoutOpen(false)}
+                >
+                  Continue shopping
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="eyebrow">SHINDARA CHECKOUT</p>
+                <h2>Delivery details</h2>
 
-            <h2>
-              Reset your password
-            </h2>
+                <form className="form" onSubmit={placeOrder}>
+                  <input
+                    placeholder="Full name"
+                    value={customerName}
+                    onChange={(e) =>
+                      setCustomerName(e.target.value)
+                    }
+                    required
+                  />
 
-            <p style={{ opacity: .65 }}>
-              Enter your email and we'll send
-              you a password reset link.
-            </p>
+                  <input
+                    type="tel"
+                    placeholder="Phone number"
+                    value={customerPhone}
+                    onChange={(e) =>
+                      setCustomerPhone(e.target.value)
+                    }
+                    required
+                  />
 
-            <form
-              className="auth-form"
-              onSubmit={handleForgotPassword}
-            >
+                  <input
+                    placeholder="Delivery address"
+                    value={deliveryAddress}
+                    onChange={(e) =>
+                      setDeliveryAddress(e.target.value)
+                    }
+                    required
+                  />
 
-              <input
-                type="email"
-                placeholder="Email address"
-                value={resetEmail}
-                onChange={(event) =>
-                  setResetEmail(
-                    event.target.value
-                  )
-                }
-                required
-              />
+                  <select
+                    value={deliveryState}
+                    onChange={(e) => {
+                      setDeliveryState(e.target.value);
+                      setDeliveryCity("");
+                    }}
+                    required
+                  >
+                    <option value="">Select delivery state</option>
 
-              <button
-                className="modal-action"
-                type="submit"
-                disabled={resetLoading}
-              >
-                {resetLoading
-                  ? "Sending..."
-                  : "Send reset link"}
-              </button>
+                    {STATES.map((state) => (
+                      <option key={state}>{state}</option>
+                    ))}
+                  </select>
 
-            </form>
+                  <select
+                    value={deliveryCity}
+                    onChange={(e) =>
+                      setDeliveryCity(e.target.value)
+                    }
+                    disabled={!deliveryState}
+                    required
+                  >
+                    <option value="">
+                      {deliveryState
+                        ? "Select delivery city"
+                        : "Select state first"}
+                    </option>
 
-            {resetMessage && (
-              <p className="auth-message">
-                {resetMessage}
-              </p>
+                    {checkoutCities.map((city) => (
+                      <option key={city}>{city}</option>
+                    ))}
+                  </select>
+
+                  <div className="total">
+                    <span>Total</span>
+                    <span>{money(cartTotal)}</span>
+                  </div>
+
+                  {orderMessage && (
+                    <div className="message">
+                      {orderMessage}
+                    </div>
+                  )}
+
+                  <button
+                    className="primary"
+                    disabled={orderLoading}
+                  >
+                    {orderLoading
+                      ? "Processing..."
+                      : `Pay ${money(cartTotal)}`}
+                  </button>
+                </form>
+              </>
             )}
-
-            <button
-              className="modal-secondary"
-              onClick={() =>
-                setForgotPassword(false)
-              }
-            >
-              Back to sign in
-            </button>
-
           </div>
-
         </div>
-
       )}
-
     </div>
   );
 }
