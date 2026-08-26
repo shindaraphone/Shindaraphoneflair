@@ -199,14 +199,21 @@ function ProtectedAdmin() {
   }
 
   if (!user) {
-    return (
-      <AdminLogin
-        onLogin={(loggedInUser) => {
-          setUser(loggedInUser);
-        }}
-      />
-    );
-  }
+  return (
+    <AdminLogin
+      onLogin={(loggedInUser) => {
+        setUser(loggedInUser);
+
+        // Move to the admin dashboard
+        window.history.pushState(
+          {},
+          "",
+          "/admin"
+        );
+      }}
+    />
+  );
+}
 
   return <Admin />;
 }
