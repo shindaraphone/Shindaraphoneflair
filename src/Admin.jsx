@@ -1,27 +1,46 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
+
+const BUCKET = "product-images";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
 }
 
-function Admin() {
-  const [activeSection, setActiveSection] = useState("dashboard");
+function formatDate(value) {
+  if (!value) return "—";
 
+  return new Date(value).toLocaleString("en-NG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function Admin() {
+  const [section, setSection] = useState("dashboard");
+
+  const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [customersLoading, setCustomersLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [customersLoading, setCustomersLoading] = useState(true);
 
   const [message, setMessage] = useState("");
 
   const [productModal, setProductModal] = useState(false);
+  const [orderModal, setOrderModal] = useState(null);
+
   const [editingProduct, setEditingProduct] = useState(null);
-  const [savingProduct, setSavingProduct] = useState(false);
-  const [processingProduct, setProcessingProduct] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const [logo, setLogo] = useState(
+    localStorage.getItem("shindara_admin_logo") || ""
+  );
+
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -33,17 +52,59 @@ function Admin() {
     featured: false,
   });
 
-  const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
 
+  const categories = [
+    "Phones",
+    "Phone Cases",
+    "Chargers",
+    "Cables",
+    "Power Banks",
+    "Earphones",
+    "Headphones",
+    "Smart Watches",
+    "Speakers",
+    "Screen Protectors",
+    "Adapters",
+    "Other Electronics",
+  ];
+
   useEffect(() => {
-    loadOrders();
-    loadProducts();
-    loadCustomers();
+    loadEverything();
   }, []);
 
+  async function loadEverything() {
+    await Promise.all([
+      loadProducts(),
+      loadOrders(),
+      loadCustomers(),
+    ]);
+  }
+
   /* =========================
-     LOAD ORDERS
+     PRODUCTS
+  ========================= */
+
+  async function loadProducts() {
+    setProductsLoading(true);
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      setMessage(error.message);
+    } else {
+      setProducts(data || []);
+    }
+
+    setProductsLoading(false);
+  }
+
+  /* =========================
+     ORDERS
   ========================= */
 
   async function loadOrders() {
@@ -64,7 +125,7 @@ function Admin() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Orders error:", error);
+      console.error(error);
       setMessage(error.message);
       setOrders([]);
     } else {
@@ -75,30 +136,7 @@ function Admin() {
   }
 
   /* =========================
-     LOAD PRODUCTS
-  ========================= */
-
-  async function loadProducts() {
-    setProductsLoading(true);
-
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Products error:", error);
-      setMessage(`Products could not be loaded: ${error.message}`);
-      setProducts([]);
-    } else {
-      setProducts(data || []);
-    }
-
-    setProductsLoading(false);
-  }
-
-  /* =========================
-     LOAD CUSTOMERS
+     CUSTOMERS
   ========================= */
 
   async function loadCustomers() {
@@ -107,55 +145,32 @@ function Admin() {
     const { data, error } = await supabase
       .from("orders")
       .select(
-        "user_id, customer_name, customer_phone, delivery_city, delivery_state, created_at"
+        "user_id, customer_name, customer_phone, delivery_address, delivery_city, delivery_state, created_at"
       )
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Customers error:", error);
+      console.error(error);
       setMessage(error.message);
       setCustomers([]);
       setCustomersLoading(false);
       return;
     }
 
-    const uniqueCustomers = [];
+    const unique = [];
 
     for (const customer of data || []) {
-      const exists = uniqueCustomers.some(
-        (item) => item.user_id === customer.user_id
-      );
-
-      if (!exists) {
-        uniqueCustomers.push(customer);
+      if (
+        !unique.some(
+          (item) => item.user_id === customer.user_id
+        )
+      ) {
+        unique.push(customer);
       }
     }
 
-    setCustomers(uniqueCustomers);
+    setCustomers(unique);
     setCustomersLoading(false);
-  }
-
-  /* =========================
-     NAVIGATION
-  ========================= */
-
-  function openDashboard() {
-    setActiveSection("dashboard");
-  }
-
-  function openProducts() {
-    setActiveSection("products");
-    loadProducts();
-  }
-
-  function openOrders() {
-    setActiveSection("orders");
-    loadOrders();
-  }
-
-  function openCustomers() {
-    setActiveSection("customers");
-    loadCustomers();
   }
 
   /* =========================
@@ -173,7 +188,6 @@ function Admin() {
       featured: false,
     });
 
-    setImageFile(null);
     setImagePreview("");
   }
 
@@ -197,14 +211,13 @@ function Admin() {
       featured: Boolean(product.featured),
     });
 
-    setImageFile(null);
     setImagePreview(product.image_url || "");
     setMessage("");
     setProductModal(true);
   }
 
   function closeProductModal() {
-    if (savingProduct || processingProduct) return;
+    if (saving || uploading) return;
 
     setProductModal(false);
     setEditingProduct(null);
@@ -212,82 +225,61 @@ function Admin() {
   }
 
   /* =========================
-     IMAGE PROCESSING
-     NO SUPABASE STORAGE
+     SUPABASE STORAGE IMAGE
   ========================= */
 
-  function compressImage(file) {
-    return new Promise((resolve, reject) => {
-      if (!file) {
-        resolve(null);
-        return;
+  async function uploadImage(file) {
+    if (!file) return null;
+
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Please choose an image file.");
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error("Image must be smaller than 10MB.");
+    }
+
+    setUploading(true);
+
+    try {
+      const extension =
+        file.name.split(".").pop()?.toLowerCase() || "jpg";
+
+      const fileName =
+        `${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 9)}.${extension}`;
+
+      const filePath = `products/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type,
+        });
+
+      if (error) {
+        throw new Error(
+          `Image upload failed: ${error.message}`
+        );
       }
 
-      const reader = new FileReader();
+      const { data } = supabase.storage
+        .from(BUCKET)
+        .getPublicUrl(filePath);
 
-      reader.onload = () => {
-        const img = new Image();
-
-        img.onload = () => {
-          const maxSize = 1000;
-
-          let width = img.width;
-          let height = img.height;
-
-          if (width > maxSize || height > maxSize) {
-            if (width > height) {
-              height = Math.round(
-                (height * maxSize) / width
-              );
-              width = maxSize;
-            } else {
-              width = Math.round(
-                (width * maxSize) / height
-              );
-              height = maxSize;
-            }
-          }
-
-          const canvas = document.createElement("canvas");
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const context = canvas.getContext("2d");
-
-          context.drawImage(
-            img,
-            0,
-            0,
-            width,
-            height
-          );
-
-          const compressed = canvas.toDataURL(
-            "image/jpeg",
-            0.78
-          );
-
-          resolve(compressed);
-        };
-
-        img.onerror = () => {
-          reject(
-            new Error("Unable to process this image.")
-          );
-        };
-
-        img.src = reader.result;
-      };
-
-      reader.onerror = () => {
-        reject(
-          new Error("Unable to read this image.")
+      if (!data?.publicUrl) {
+        throw new Error(
+          "Image uploaded but public URL could not be created."
         );
-      };
+      }
 
-      reader.readAsDataURL(file);
-    });
+      return data.publicUrl;
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleImageChange(event) {
@@ -295,46 +287,31 @@ function Admin() {
 
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setMessage("Please select an image file.");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setMessage(
-        "Image is too large. Please choose an image below 10MB."
-      );
-      return;
-    }
-
-    setMessage("");
-    setProcessingProduct(true);
-
     try {
-      const compressedImage =
-        await compressImage(file);
+      setMessage("");
 
-      if (!compressedImage) {
-        throw new Error(
-          "Image could not be processed."
-        );
-      }
+      const localPreview =
+        URL.createObjectURL(file);
 
-      setImageFile(file);
-      setImagePreview(compressedImage);
+      setImagePreview(localPreview);
+
+      const url = await uploadImage(file);
 
       setProductForm((current) => ({
         ...current,
-        image_url: compressedImage,
+        image_url: url,
       }));
+
+      setImagePreview(url);
+
+      setMessage("Product image uploaded successfully.");
     } catch (error) {
-      console.error("Image error:", error);
+      console.error(error);
+
       setMessage(
         error?.message ||
-          "Unable to process product image."
+          "Unable to upload product image."
       );
-    } finally {
-      setProcessingProduct(false);
     }
   }
 
@@ -345,15 +322,16 @@ function Admin() {
   async function saveProduct(event) {
     event.preventDefault();
 
-    if (savingProduct || processingProduct) return;
+    if (saving || uploading) return;
 
-    setSavingProduct(true);
+    setSaving(true);
     setMessage("");
 
     try {
       const name = productForm.name.trim();
       const description =
         productForm.description.trim();
+
       const category =
         productForm.category.trim();
 
@@ -361,111 +339,74 @@ function Admin() {
       const stock = Number(productForm.stock);
 
       if (!name) {
-        throw new Error(
-          "Please enter a product name."
-        );
+        throw new Error("Enter a product name.");
       }
 
       if (!category) {
-        throw new Error(
-          "Please enter a category."
-        );
+        throw new Error("Choose a product category.");
       }
 
       if (!Number.isFinite(price) || price < 0) {
-        throw new Error(
-          "Please enter a valid price."
-        );
+        throw new Error("Enter a valid price.");
       }
 
-      if (
-        !Number.isInteger(stock) ||
-        stock < 0
-      ) {
-        throw new Error(
-          "Please enter a valid stock quantity."
-        );
+      if (!Number.isInteger(stock) || stock < 0) {
+        throw new Error("Enter a valid stock quantity.");
       }
 
       const productData = {
         name,
         description,
-        price,
         category,
+        price,
         stock,
         image_url:
           productForm.image_url || null,
-        featured: Boolean(
-          productForm.featured
-        ),
+        featured: Boolean(productForm.featured),
       };
 
-      /* =========================
-         UPDATE EXISTING PRODUCT
-      ========================= */
-
       if (editingProduct) {
-        const { data, error } =
-          await supabase
-            .from("products")
-            .update(productData)
-            .eq("id", editingProduct.id)
-            .select("*");
+        const { data, error } = await supabase
+          .from("products")
+          .update(productData)
+          .eq("id", editingProduct.id)
+          .select("*");
 
-        if (error) {
+        if (error) throw error;
+
+        if (!data?.length) {
           throw new Error(
-            `Product could not be updated: ${error.message}`
+            "Product was not updated."
           );
         }
-
-        if (!data || data.length === 0) {
-          throw new Error(
-            "Product was not updated. Supabase did not return the updated product."
-          );
-        }
-
-        const updatedProduct = data[0];
 
         setProducts((current) =>
-          current.map((product) =>
-            product.id === editingProduct.id
-              ? updatedProduct
-              : product
+          current.map((item) =>
+            item.id === editingProduct.id
+              ? data[0]
+              : item
           )
         );
 
         setMessage(
           "Product updated successfully."
         );
-      }
+      } else {
+        const { data, error } = await supabase
+          .from("products")
+          .insert(productData)
+          .select("*");
 
-      /* =========================
-         ADD NEW PRODUCT
-      ========================= */
+        if (error) throw error;
 
-      else {
-        const { data, error } =
-          await supabase
-            .from("products")
-            .insert(productData)
-            .select("*");
-
-        if (error) {
+        if (!data?.length) {
           throw new Error(
-            `Product could not be added: ${error.message}`
+            "Product was not added."
           );
         }
-
-        if (!data || data.length === 0) {
-          throw new Error(
-            "Product was not added. Supabase did not return the new product."
-          );
-        }
-
-        const newProduct = data[0];
 
         setProducts((current) => [
-          newProduct,
+          data[0],
           ...current,
         ]);
 
@@ -477,22 +418,17 @@ function Admin() {
       setProductModal(false);
       setEditingProduct(null);
       resetProductForm();
-      setActiveSection("products");
 
-      /*
-       * Final database refresh.
-       * This makes sure the screen matches Supabase.
-       */
       await loadProducts();
     } catch (error) {
-      console.error("Save product error:", error);
+      console.error(error);
 
       setMessage(
         error?.message ||
           "Unable to save product."
       );
     } finally {
-      setSavingProduct(false);
+      setSaving(false);
     }
   }
 
@@ -501,127 +437,83 @@ function Admin() {
   ========================= */
 
   async function deleteProduct(product) {
-  const confirmed = window.confirm(
-    `Delete "${product.name}"?\n\nThis cannot be undone.`
-  );
+    const confirmed = window.confirm(
+      `Delete "${product.name}"?\n\nThis cannot be undone.`
+    );
 
-  if (!confirmed) return;
+    if (!confirmed) return;
 
-  setMessage("Checking admin authentication...");
+    try {
+      setMessage("Checking admin access...");
 
-  try {
-    // Check whether the website is actually logged into Supabase
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    console.log("CURRENT SUPABASE USER:", user);
+      if (authError) throw authError;
 
-    if (authError) {
-      throw new Error(
-        `Authentication error: ${authError.message}`
-      );
-    }
+      if (!user) {
+        throw new Error(
+          "You are not logged into your admin account."
+        );
+      }
 
-    if (!user) {
-      throw new Error(
-        "Your Admin page is NOT logged into Supabase. Please log in to your admin account first."
-      );
-    }
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("id, email, is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
 
-    // Check the admin profile
-    const { data: profile, error: profileError } =
-      await supabase
-        .from("profiles")
-        .select("id, email, is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (profileError) throw profileError;
 
-    console.log("CURRENT PROFILE:", profile);
+      if (!profile?.is_admin) {
+        throw new Error(
+          "This account is not an administrator."
+        );
+      }
 
-    if (profileError) {
-      throw new Error(
-        `Could not check admin profile: ${profileError.message}`
-      );
-    }
+      setMessage("Deleting product...");
 
-    if (!profile) {
-      throw new Error(
-        "Your Supabase user does not have a profile record."
-      );
-    }
-
-    if (!profile.is_admin) {
-      throw new Error(
-        "This account is not marked as an admin in the profiles table."
-      );
-    }
-
-    setMessage("Deleting product...");
-
-    // Delete the product
-    const { data: deletedProduct, error: deleteError } =
-      await supabase
+      const { data, error } = await supabase
         .from("products")
         .delete()
-        .eq("id", Number(product.id))
-        .select("id, name");
+        .eq("id", product.id)
+        .select("id");
 
-    if (deleteError) {
-      console.error("DELETE ERROR:", deleteError);
+      if (error) throw error;
 
-      throw new Error(
-        `Supabase DELETE error: ${deleteError.message}`
+      if (!data?.length) {
+        throw new Error(
+          "Product was not deleted. Check your database DELETE policy."
+        );
+      }
+
+      setProducts((current) =>
+        current.filter(
+          (item) => item.id !== product.id
+        )
+      );
+
+      setMessage(
+        `"${product.name}" deleted successfully.`
+      );
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        error?.message ||
+          "Unable to delete product."
       );
     }
-
-    console.log(
-      "DELETED PRODUCT:",
-      deletedProduct
-    );
-
-    if (
-      !deletedProduct ||
-      deletedProduct.length === 0
-    ) {
-      throw new Error(
-        "Supabase did not delete the product. The logged-in account does not have permission to DELETE this row."
-      );
-    }
-
-    // Remove it immediately from the screen
-    setProducts((currentProducts) =>
-      currentProducts.filter(
-        (item) => Number(item.id) !== Number(product.id)
-      )
-    );
-
-    setMessage(
-      `Product "${product.name}" deleted successfully.`
-    );
-
-    // Refresh from database
-    await loadProducts();
-
-  } catch (error) {
-    console.error(
-      "PRODUCT DELETE ERROR:",
-      error
-    );
-
-    setMessage(
-      error?.message ||
-        "Product could not be deleted."
-    );
   }
-}
 
   /* =========================
-     UPDATE ORDER STATUS
+     ORDER STATUS
   ========================= */
 
-  async function updateStatus(
+  async function updateOrderStatus(
     orderId,
     status
   ) {
@@ -631,7 +523,7 @@ function Admin() {
       .eq("id", orderId);
 
     if (error) {
-      alert(error.message);
+      setMessage(error.message);
       return;
     }
 
@@ -642,34 +534,69 @@ function Admin() {
           : order
       )
     );
-  }
 
-  function formatDate(date) {
-    if (!date) return "";
-
-    return new Date(date).toLocaleString(
-      "en-NG",
-      {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }
-    );
+    setMessage("Order status updated.");
   }
 
   /* =========================
-     DASHBOARD DATA
+     LOGO
   ========================= */
 
-  const totalRevenue = orders
-    .filter(
-      (order) =>
-        order.status !== "cancelled"
-    )
-    .reduce(
-      (sum, order) =>
-        sum + Number(order.total || 0),
-      0
-    );
+  async function handleLogoChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    try {
+      setLogoUploading(true);
+      setMessage("Uploading logo...");
+
+      const url = await uploadImage(file);
+
+      if (!url) {
+        throw new Error("Logo upload failed.");
+      }
+
+      localStorage.setItem(
+        "shindara_admin_logo",
+        url
+      );
+
+      setLogo(url);
+
+      setMessage(
+        "Logo uploaded successfully."
+      );
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        error?.message ||
+          "Unable to upload logo."
+      );
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  /* =========================
+     DASHBOARD STATS
+  ========================= */
+
+  const totalRevenue = useMemo(
+    () =>
+      orders
+        .filter(
+          (order) =>
+            order.status !== "cancelled"
+        )
+        .reduce(
+          (sum, order) =>
+            sum + Number(order.total || 0),
+          0
+        ),
+    [orders]
+  );
 
   const pendingOrders = orders.filter(
     (order) =>
@@ -681,22 +608,36 @@ function Admin() {
       order.status === "delivered"
   ).length;
 
-  const lowStockProducts =
-    products.filter((product) => {
-      const stock = Number(
-        product.stock || 0
-      );
+  const lowStock = products.filter(
+    (product) =>
+      Number(product.stock || 0) > 0 &&
+      Number(product.stock || 0) <= 5
+  ).length;
 
-      return stock > 0 && stock <= 5;
-    }).length;
+  const outOfStock = products.filter(
+    (product) =>
+      Number(product.stock || 0) <= 0
+  ).length;
 
-  const featuredProducts =
-    products.filter(
-      (product) => product.featured
-    ).length;
+  /* =========================
+     NAVIGATION
+  ========================= */
+
+  function goTo(name) {
+    setSection(name);
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  /* =========================
+     RENDER
+  ========================= */
 
   return (
-    <div className="admin-page">
+    <div className="admin">
+
       <style>{`
 
         * {
@@ -705,6 +646,8 @@ function Admin() {
 
         body {
           margin: 0;
+          background: #f6f7fb;
+          color: #111827;
           font-family:
             Inter,
             -apple-system,
@@ -712,8 +655,6 @@ function Admin() {
             "SF Pro Display",
             "Segoe UI",
             sans-serif;
-          background: #f5f5f7;
-          color: #111;
         }
 
         button,
@@ -727,124 +668,272 @@ function Admin() {
           cursor: pointer;
         }
 
-        button:disabled {
-          opacity: .55;
-          cursor: not-allowed;
-        }
-
-        .admin-page {
+        .admin {
           min-height: 100vh;
-          padding: 30px 18px 70px;
           background:
             radial-gradient(
               circle at 10% 0%,
-              rgba(124,58,237,.10),
-              transparent 30%
+              rgba(99,102,241,.13),
+              transparent 28%
             ),
-            #f5f5f7;
+            radial-gradient(
+              circle at 90% 10%,
+              rgba(168,85,247,.10),
+              transparent 25%
+            ),
+            #f6f7fb;
+          padding: 22px;
         }
 
         .admin-container {
-          max-width: 1250px;
+          max-width: 1400px;
           margin: auto;
         }
 
-        .admin-header {
+        /* HEADER */
+
+        .topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 13px;
+        }
+
+        .brand-logo {
+          width: 48px;
+          height: 48px;
+          border-radius: 15px;
+          overflow: hidden;
+          background: #111827;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: 900;
+          flex-shrink: 0;
+        }
+
+        .brand-logo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .brand-name {
+          font-size: 18px;
+          font-weight: 900;
+          letter-spacing: -.5px;
+        }
+
+        .brand-subtitle {
+          font-size: 12px;
+          color: #6b7280;
+          margin-top: 3px;
+        }
+
+        .refresh {
+          border: 1px solid #e5e7eb;
+          background: white;
+          padding: 11px 15px;
+          border-radius: 13px;
+          font-weight: 800;
+        }
+
+        /* NAV */
+
+        .nav {
+          display: flex;
+          gap: 7px;
+          overflow-x: auto;
+          padding: 7px;
+          background: rgba(255,255,255,.8);
+          backdrop-filter: blur(20px);
+          border: 1px solid #e5e7eb;
+          border-radius: 18px;
+          margin-bottom: 22px;
+          scrollbar-width: none;
+        }
+
+        .nav::-webkit-scrollbar {
+          display: none;
+        }
+
+        .nav button {
+          border: 0;
+          background: transparent;
+          padding: 11px 15px;
+          border-radius: 12px;
+          font-weight: 800;
+          white-space: nowrap;
+          color: #6b7280;
+        }
+
+        .nav button.active {
+          background: #111827;
+          color: white;
+          box-shadow: 0 6px 18px rgba(17,24,39,.18);
+        }
+
+        /* MESSAGE */
+
+        .message {
+          background: #eef2ff;
+          border: 1px solid #c7d2fe;
+          color: #3730a3;
+          border-radius: 14px;
+          padding: 13px 15px;
+          margin-bottom: 20px;
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+        /* HERO */
+
+        .hero {
           display: flex;
           justify-content: space-between;
-          align-items: center;
+          align-items: flex-end;
           gap: 20px;
-          margin-bottom: 25px;
+          margin-bottom: 24px;
         }
 
-        .admin-eyebrow {
+        .eyebrow {
           margin: 0 0 7px;
+          color: #6366f1;
           font-size: 11px;
-          font-weight: 800;
+          font-weight: 900;
           letter-spacing: 2px;
-          opacity: .5;
         }
 
-        .admin-header h1 {
+        .hero h1 {
           margin: 0;
           font-size: clamp(34px,6vw,58px);
           letter-spacing: -3px;
+          line-height: .95;
         }
 
-        .admin-header p {
-          opacity: .6;
+        .hero p {
+          color: #6b7280;
+          margin: 12px 0 0;
         }
 
-        .admin-refresh,
-        .secondary-button {
-          border: 1px solid rgba(0,0,0,.1);
-          background: white;
-          color: #111;
-          border-radius: 13px;
-          padding: 12px 16px;
-          font-weight: 700;
-        }
+        /* BUTTONS */
 
-        .admin-nav {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          padding: 7px;
-          background: rgba(255,255,255,.8);
-          border: 1px solid rgba(0,0,0,.06);
-          border-radius: 18px;
-          margin-bottom: 20px;
-        }
-
-        .admin-nav button {
+        .primary {
           border: 0;
-          background: transparent;
-          padding: 12px 16px;
-          border-radius: 12px;
-          font-weight: 700;
-        }
-
-        .admin-nav-active {
-          background: #111 !important;
           color: white;
+          background: linear-gradient(
+            135deg,
+            #111827,
+            #312e81
+          );
+          padding: 13px 18px;
+          border-radius: 13px;
+          font-weight: 900;
+          box-shadow: 0 10px 25px rgba(49,46,129,.18);
         }
 
-        .admin-message {
-          padding: 14px 16px;
-          background: rgba(124,58,237,.09);
-          border-radius: 14px;
-          margin-bottom: 20px;
-          font-size: 14px;
-          word-break: break-word;
-        }
-
-        .admin-stats {
-          display: grid;
-          grid-template-columns: repeat(4,1fr);
-          gap: 14px;
-          margin-bottom: 25px;
-        }
-
-        .admin-stat {
+        .secondary {
+          border: 1px solid #e5e7eb;
+          color: #111827;
           background: white;
-          border: 1px solid rgba(0,0,0,.06);
+          padding: 12px 15px;
+          border-radius: 12px;
+          font-weight: 800;
+        }
+
+        .danger {
+          border: 1px solid #fecaca;
+          color: #b91c1c;
+          background: #fff1f2;
+          padding: 10px 13px;
+          border-radius: 11px;
+          font-weight: 800;
+        }
+
+        /* STATS */
+
+        .stats {
+          display: grid;
+          grid-template-columns:
+            repeat(4, minmax(0,1fr));
+          gap: 14px;
+          margin-bottom: 24px;
+        }
+
+        .stat {
+          background: rgba(255,255,255,.9);
+          border: 1px solid #e5e7eb;
           border-radius: 20px;
-          padding: 22px;
-          box-shadow: 0 10px 30px rgba(0,0,0,.04);
+          padding: 20px;
+          box-shadow:
+            0 15px 40px rgba(15,23,42,.05);
         }
 
-        .admin-stat span {
-          display: block;
+        .stat-label {
+          color: #6b7280;
           font-size: 12px;
-          opacity: .55;
-          margin-bottom: 8px;
+          font-weight: 800;
         }
 
-        .admin-stat strong {
+        .stat-value {
+          display: block;
+          margin-top: 8px;
+          font-size: 27px;
+          letter-spacing: -.8px;
+        }
+
+        /* QUICK ACTIONS */
+
+        .quick-actions {
+          display: grid;
+          grid-template-columns:
+            repeat(4, minmax(0,1fr));
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .quick {
+          text-align: left;
+          border: 1px solid #e5e7eb;
+          background: white;
+          border-radius: 18px;
+          padding: 18px;
+          transition: .2s;
+        }
+
+        .quick:hover {
+          transform: translateY(-2px);
+          box-shadow:
+            0 14px 30px rgba(15,23,42,.08);
+        }
+
+        .quick-icon {
           font-size: 25px;
+          margin-bottom: 12px;
         }
 
-        .section-heading {
+        .quick strong {
+          display: block;
+        }
+
+        .quick span {
+          display: block;
+          color: #6b7280;
+          font-size: 12px;
+          margin-top: 5px;
+        }
+
+        /* SECTION */
+
+        .section-title {
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -852,91 +941,100 @@ function Admin() {
           margin-bottom: 18px;
         }
 
-        .section-heading h2 {
+        .section-title h2 {
           margin: 0;
           font-size: 28px;
+          letter-spacing: -1px;
         }
 
-        .primary-button {
-          border: 0;
-          background: #111;
-          color: white;
-          padding: 13px 17px;
-          border-radius: 13px;
-          font-weight: 700;
+        .section-title p {
+          margin: 4px 0 0;
+          color: #6b7280;
+          font-size: 13px;
         }
 
-        .danger-button {
-          border: 1px solid rgba(220,38,38,.15);
-          background: rgba(220,38,38,.06);
-          color: #b91c1c;
-          padding: 10px 13px;
-          border-radius: 11px;
-          font-weight: 700;
-        }
+        /* PRODUCTS */
 
-        .products-grid {
+        .products {
           display: grid;
-          grid-template-columns: repeat(4,minmax(0,1fr));
+          grid-template-columns:
+            repeat(4, minmax(0,1fr));
           gap: 16px;
         }
 
-        .admin-product-card {
-          background: white;
-          border: 1px solid rgba(0,0,0,.06);
-          border-radius: 20px;
+        .product {
           overflow: hidden;
-          box-shadow: 0 10px 30px rgba(0,0,0,.04);
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 20px;
+          box-shadow:
+            0 12px 30px rgba(15,23,42,.04);
         }
 
-        .admin-product-image {
+        .product-image {
           height: 220px;
-          background: #f0f0f2;
+          background: #f1f5f9;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
         }
 
-        .admin-product-image img {
+        .product-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
 
-        .admin-product-content {
+        .product-content {
           padding: 17px;
         }
 
-        .admin-product-category {
+        .category {
+          color: #6366f1;
           font-size: 10px;
           text-transform: uppercase;
-          letter-spacing: 1px;
-          font-weight: 800;
-          opacity: .45;
+          letter-spacing: 1.2px;
+          font-weight: 900;
         }
 
-        .admin-product-content h3 {
-          margin: 6px 0;
+        .product h3 {
+          margin: 7px 0;
           font-size: 17px;
         }
 
-        .admin-product-price {
+        .price {
           font-size: 19px;
-          font-weight: 800;
+          font-weight: 900;
           margin: 12px 0 5px;
         }
 
-        .stock-good {
+        .stock {
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .good {
           color: #15803d;
         }
 
-        .stock-low {
-          color: #ca8a04;
+        .low {
+          color: #b45309;
         }
 
-        .stock-out {
+        .out {
           color: #dc2626;
+        }
+
+        .badge {
+          display: inline-block;
+          margin-top: 9px;
+          padding: 5px 9px;
+          border-radius: 999px;
+          background: #eef2ff;
+          color: #4338ca;
+          font-size: 10px;
+          font-weight: 900;
         }
 
         .product-actions {
@@ -946,362 +1044,405 @@ function Admin() {
           margin-top: 15px;
         }
 
-        .featured-badge {
-          display: inline-block;
-          margin-top: 8px;
-          padding: 5px 8px;
-          border-radius: 999px;
-          background: rgba(124,58,237,.1);
-          color: #6d28d9;
-          font-size: 10px;
-          font-weight: 800;
-        }
+        /* ORDERS */
 
-        .orders-grid {
+        .orders {
           display: grid;
-          grid-template-columns: repeat(2,minmax(0,1fr));
-          gap: 16px;
+          grid-template-columns:
+            repeat(2,minmax(0,1fr));
+          gap: 15px;
         }
 
-        .order-card {
+        .order {
           background: white;
-          border: 1px solid rgba(0,0,0,.06);
-          border-radius: 22px;
+          border: 1px solid #e5e7eb;
+          border-radius: 20px;
           padding: 20px;
         }
 
-        .order-top {
+        .order-head {
           display: flex;
           justify-content: space-between;
           gap: 15px;
           align-items: flex-start;
+          border-bottom: 1px solid #f1f5f9;
           padding-bottom: 15px;
-          border-bottom: 1px solid rgba(0,0,0,.07);
         }
 
-        .order-number {
+        .order-id {
           font-weight: 900;
         }
 
         .order-date {
-          font-size: 12px;
-          opacity: .5;
+          color: #94a3b8;
+          font-size: 11px;
+          margin-top: 5px;
         }
 
-        .order-status {
-          border: 1px solid rgba(0,0,0,.1);
-          border-radius: 999px;
-          padding: 8px 10px;
+        .status {
+          border: 1px solid #e5e7eb;
           background: white;
-          font-weight: 700;
+          padding: 8px;
+          border-radius: 10px;
           font-size: 12px;
+          font-weight: 800;
         }
 
-        .order-customer,
-        .order-products {
-          padding: 16px 0;
-          border-bottom: 1px solid rgba(0,0,0,.07);
+        .order-body {
+          padding: 15px 0;
         }
 
-        .order-customer h3,
-        .order-products h3 {
-          margin: 0 0 10px;
-          font-size: 13px;
+        .order-body h4 {
+          margin: 0 0 9px;
+          font-size: 11px;
           text-transform: uppercase;
+          color: #94a3b8;
           letter-spacing: 1px;
-          opacity: .5;
         }
 
-        .order-customer p {
+        .order-body p {
           margin: 6px 0;
-          font-size: 14px;
+          font-size: 13px;
         }
 
-        .order-product {
+        .order-item {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           padding: 8px 0;
         }
 
-        .order-product-image {
-          width: 55px;
-          height: 55px;
+        .order-item-image {
+          width: 50px;
+          height: 50px;
           border-radius: 10px;
           overflow: hidden;
-          background: #f1f1f1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          background: #f1f5f9;
           flex-shrink: 0;
         }
 
-        .order-product-image img {
+        .order-item-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
 
-        .order-product p {
-          margin: 4px 0 0;
-          font-size: 12px;
-          opacity: .55;
-        }
-
         .order-total {
+          border-top: 1px solid #f1f5f9;
+          padding-top: 15px;
           display: flex;
           justify-content: space-between;
-          padding-top: 16px;
           font-size: 18px;
         }
 
-        .customers-grid {
+        /* CUSTOMERS */
+
+        .customers {
           display: grid;
-          grid-template-columns: repeat(3,minmax(0,1fr));
+          grid-template-columns:
+            repeat(3,minmax(0,1fr));
           gap: 15px;
         }
 
-        .customer-card {
-          display: flex;
-          gap: 14px;
+        .customer {
           background: white;
-          border: 1px solid rgba(0,0,0,.06);
+          border: 1px solid #e5e7eb;
           border-radius: 20px;
           padding: 18px;
+          display: flex;
+          gap: 13px;
         }
 
-        .customer-avatar {
+        .avatar {
           width: 48px;
           height: 48px;
           border-radius: 50%;
-          background: #f0f0f2;
+          background: #eef2ff;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
         }
 
-        .customer-card h3 {
-          margin: 0 0 8px;
+        .customer h3 {
+          margin: 0 0 7px;
+          font-size: 15px;
         }
 
-        .customer-card p {
+        .customer p {
           margin: 5px 0;
-          font-size: 13px;
-          opacity: .7;
+          color: #64748b;
+          font-size: 12px;
         }
 
-        .customer-card small {
-          display: block;
-          margin-top: 10px;
-          opacity: .45;
-        }
+        /* SETTINGS */
 
-        .admin-empty {
-          text-align: center;
-          padding: 70px 20px;
+        .settings-card {
+          max-width: 700px;
           background: white;
+          border: 1px solid #e5e7eb;
           border-radius: 22px;
-          border: 1px solid rgba(0,0,0,.06);
+          padding: 22px;
         }
 
-        .admin-empty > div {
-          font-size: 55px;
-        }
-
-        .admin-modal-backdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
+        .logo-preview {
+          width: 130px;
+          height: 130px;
+          border-radius: 25px;
+          overflow: hidden;
+          background: #111827;
+          color: white;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 18px;
-          background: rgba(0,0,0,.6);
-          backdrop-filter: blur(8px);
+          font-size: 45px;
+          font-weight: 900;
+          margin: 15px 0;
         }
 
-        .admin-modal {
+        .logo-preview img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .upload-label {
+          display: inline-block;
+          background: #111827;
+          color: white;
+          padding: 12px 16px;
+          border-radius: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .hidden {
+          display: none;
+        }
+
+        /* EMPTY */
+
+        .empty {
+          text-align: center;
+          padding: 65px 20px;
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 20px;
+        }
+
+        .empty-icon {
+          font-size: 50px;
+        }
+
+        .empty p {
+          color: #64748b;
+        }
+
+        /* MODAL */
+
+        .backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background: rgba(2,6,23,.65);
+          backdrop-filter: blur(10px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 15px;
+        }
+
+        .modal {
           width: min(620px,100%);
           max-height: 92vh;
           overflow-y: auto;
           background: white;
           border-radius: 25px;
-          padding: 27px;
+          padding: 25px;
           position: relative;
-          box-shadow: 0 30px 100px rgba(0,0,0,.3);
+          box-shadow:
+            0 35px 100px rgba(0,0,0,.3);
         }
 
-        .admin-modal-close {
+        .close {
           position: absolute;
-          top: 17px;
-          right: 17px;
+          top: 15px;
+          right: 15px;
+          border: 0;
           width: 38px;
           height: 38px;
-          border: 0;
           border-radius: 50%;
-          background: #f1f1f1;
+          background: #f1f5f9;
           font-size: 22px;
         }
 
-        .admin-form {
+        .form {
           display: grid;
-          gap: 13px;
+          gap: 11px;
         }
 
-        .admin-form label {
+        .form label {
           font-size: 12px;
-          font-weight: 800;
-          opacity: .6;
-          margin-bottom: -7px;
+          font-weight: 900;
+          color: #475569;
+          margin-top: 5px;
         }
 
-        .admin-form input,
-        .admin-form textarea {
+        .form input,
+        .form textarea,
+        .form select {
           width: 100%;
-          border: 1px solid rgba(0,0,0,.12);
-          background: #fafafa;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
           border-radius: 12px;
-          padding: 13px 14px;
+          padding: 13px;
           outline: none;
         }
 
-        .admin-form textarea {
+        .form input:focus,
+        .form textarea:focus,
+        .form select:focus {
+          border-color: #6366f1;
+          background: white;
+        }
+
+        .form textarea {
           min-height: 100px;
           resize: vertical;
         }
 
-        .admin-form input:focus,
-        .admin-form textarea:focus {
-          border-color: #111;
-          background: white;
-        }
-
-        .image-upload-box {
-          border: 2px dashed rgba(0,0,0,.15);
-          border-radius: 16px;
-          padding: 18px;
-          background: #fafafa;
-        }
-
-        .image-preview {
+        .preview {
           width: 100%;
           height: 220px;
-          border-radius: 14px;
+          border-radius: 15px;
+          background: #f1f5f9;
           overflow: hidden;
-          background: #eee;
-          margin-bottom: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
+          margin-bottom: 10px;
         }
 
-        .image-preview img {
+        .preview img {
           width: 100%;
           height: 100%;
           object-fit: contain;
         }
 
-        .image-upload-label {
+        .file-label {
           display: block;
           text-align: center;
           padding: 13px;
-          background: #111;
+          background: #111827;
           color: white;
           border-radius: 12px;
-          font-weight: 700;
+          font-weight: 900;
           cursor: pointer;
-        }
-
-        .image-upload-input {
-          display: none;
-        }
-
-        .featured-toggle {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 12px;
-          background: #f7f7f8;
-          border-radius: 12px;
-        }
-
-        .featured-toggle input {
-          width: auto;
         }
 
         .modal-actions {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          margin-top: 8px;
+          gap: 9px;
+          margin-top: 10px;
         }
 
-        .uploading-text {
-          text-align: center;
-          font-size: 13px;
-          opacity: .6;
-          margin-top: 8px;
+        .featured {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          background: #f8fafc;
+          padding: 12px;
+          border-radius: 12px;
         }
 
-        @media (max-width:1000px) {
-          .products-grid {
-            grid-template-columns: repeat(3,minmax(0,1fr));
+        .featured input {
+          width: auto;
+        }
+
+        /* RESPONSIVE */
+
+        @media(max-width:1050px) {
+          .products {
+            grid-template-columns:
+              repeat(3,minmax(0,1fr));
           }
 
-          .customers-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
+          .customers {
+            grid-template-columns:
+              repeat(2,minmax(0,1fr));
           }
         }
 
-        @media (max-width:760px) {
-          .admin-page {
-            padding: 20px 12px 50px;
+        @media(max-width:800px) {
+          .admin {
+            padding: 14px;
           }
 
-          .admin-header {
-            align-items: flex-start;
+          .stats {
+            grid-template-columns:
+              repeat(2,minmax(0,1fr));
           }
 
-          .admin-stats {
-            grid-template-columns: repeat(2,1fr);
+          .quick-actions {
+            grid-template-columns:
+              repeat(2,minmax(0,1fr));
           }
 
-          .products-grid,
-          .orders-grid,
-          .customers-grid {
+          .products,
+          .orders,
+          .customers {
             grid-template-columns: 1fr;
           }
 
-          .admin-nav {
-            overflow-x: auto;
-            flex-wrap: nowrap;
-          }
-
-          .admin-nav button {
-            white-space: nowrap;
-          }
-
-          .section-heading {
+          .hero {
             align-items: flex-start;
-          }
-
-          .admin-product-image {
-            height: 250px;
+            flex-direction: column;
           }
         }
 
-        @media (max-width:450px) {
-          .admin-header {
-            flex-direction: column;
+        @media(max-width:500px) {
+          .topbar {
+            align-items: flex-start;
           }
 
-          .admin-refresh {
-            width: 100%;
+          .brand-name {
+            font-size: 15px;
           }
 
-          .admin-modal {
-            padding: 22px 16px;
+          .stats {
+            grid-template-columns: 1fr 1fr;
+            gap: 9px;
+          }
+
+          .stat {
+            padding: 15px;
+            border-radius: 16px;
+          }
+
+          .stat-value {
+            font-size: 21px;
+          }
+
+          .quick-actions {
+            gap: 9px;
+          }
+
+          .quick {
+            padding: 14px;
+          }
+
+          .product-image {
+            height: 270px;
+          }
+
+          .section-title {
+            align-items: flex-start;
+          }
+
+          .modal {
+            padding: 20px 15px;
+            border-radius: 20px;
           }
         }
 
@@ -1309,87 +1450,72 @@ function Admin() {
 
       <div className="admin-container">
 
-        {/* HEADER */}
+        {/* TOP BAR */}
 
-        <header className="admin-header">
-          <div>
-            <p className="admin-eyebrow">
-              SHINDARA PHONEFLAIR
-            </p>
+        <div className="topbar">
 
-            <h1>Control Center</h1>
+          <div className="brand">
 
-            <p>
-              Manage your store from one place.
-            </p>
+            <div className="brand-logo">
+              {logo ? (
+                <img
+                  src={logo}
+                  alt="Shindara Phoneflair"
+                />
+              ) : (
+                "S"
+              )}
+            </div>
+
+            <div>
+              <div className="brand-name">
+                Shindara Phoneflair
+              </div>
+
+              <div className="brand-subtitle">
+                Admin Control Center
+              </div>
+            </div>
+
           </div>
 
           <button
-            className="admin-refresh"
-            onClick={() => {
-              loadOrders();
-              loadProducts();
-              loadCustomers();
-            }}
+            className="refresh"
+            onClick={loadEverything}
           >
             ↻ Refresh
           </button>
-        </header>
+
+        </div>
 
         {/* NAVIGATION */}
 
-        <nav className="admin-nav">
+        <nav className="nav">
 
-          <button
-            className={
-              activeSection === "dashboard"
-                ? "admin-nav-active"
-                : ""
-            }
-            onClick={openDashboard}
-          >
-            📊 Dashboard
-          </button>
-
-          <button
-            className={
-              activeSection === "products"
-                ? "admin-nav-active"
-                : ""
-            }
-            onClick={openProducts}
-          >
-            📦 Products
-          </button>
-
-          <button
-            className={
-              activeSection === "orders"
-                ? "admin-nav-active"
-                : ""
-            }
-            onClick={openOrders}
-          >
-            🛒 Orders
-          </button>
-
-          <button
-            className={
-              activeSection === "customers"
-                ? "admin-nav-active"
-                : ""
-            }
-            onClick={openCustomers}
-          >
-            👥 Customers
-          </button>
+          {[
+            ["dashboard", "📊 Dashboard"],
+            ["products", "📦 Products"],
+            ["orders", "🛒 Orders"],
+            ["customers", "👥 Customers"],
+            ["settings", "⚙️ Settings"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              className={
+                section === id
+                  ? "active"
+                  : ""
+              }
+              onClick={() => goTo(id)}
+            >
+              {label}
+            </button>
+          ))}
 
         </nav>
 
-        {/* MESSAGE */}
-
         {message && (
-          <div className="admin-message">
+          <div className="message">
             {message}
           </div>
         )}
@@ -1398,93 +1524,201 @@ function Admin() {
             DASHBOARD
         ========================= */}
 
-        {activeSection === "dashboard" && (
+        {section === "dashboard" && (
           <>
-            <div className="admin-stats">
 
-              <div className="admin-stat">
-                <span>Total products</span>
-                <strong>
-                  {products.length}
-                </strong>
+            <div className="hero">
+
+              <div>
+                <p className="eyebrow">
+                  STORE OVERVIEW
+                </p>
+
+                <h1>
+                  Good day, Admin.
+                </h1>
+
+                <p>
+                  Here's what's happening
+                  with your store.
+                </p>
               </div>
 
-              <div className="admin-stat">
-                <span>Total orders</span>
-                <strong>
-                  {orders.length}
-                </strong>
-              </div>
+              <button
+                className="primary"
+                onClick={openAddProduct}
+              >
+                + Add Product
+              </button>
 
-              <div className="admin-stat">
-                <span>Customers</span>
-                <strong>
-                  {customers.length}
-                </strong>
-              </div>
+            </div>
 
-              <div className="admin-stat">
-                <span>Revenue</span>
-                <strong>
+            <div className="stats">
+
+              <div className="stat">
+                <span className="stat-label">
+                  Revenue
+                </span>
+
+                <strong className="stat-value">
                   {money(totalRevenue)}
                 </strong>
               </div>
 
+              <div className="stat">
+                <span className="stat-label">
+                  Orders
+                </span>
+
+                <strong className="stat-value">
+                  {orders.length}
+                </strong>
+              </div>
+
+              <div className="stat">
+                <span className="stat-label">
+                  Customers
+                </span>
+
+                <strong className="stat-value">
+                  {customers.length}
+                </strong>
+              </div>
+
+              <div className="stat">
+                <span className="stat-label">
+                  Products
+                </span>
+
+                <strong className="stat-value">
+                  {products.length}
+                </strong>
+              </div>
+
             </div>
 
-            <div className="admin-stats">
+            <div className="quick-actions">
 
-              <div className="admin-stat">
-                <span>Pending orders</span>
+              <button
+                className="quick"
+                onClick={openAddProduct}
+              >
+                <div className="quick-icon">
+                  ➕
+                </div>
+
                 <strong>
+                  Add Product
+                </strong>
+
+                <span>
+                  Add something new
+                </span>
+              </button>
+
+              <button
+                className="quick"
+                onClick={() =>
+                  goTo("orders")
+                }
+              >
+                <div className="quick-icon">
+                  🛒
+                </div>
+
+                <strong>
+                  View Orders
+                </strong>
+
+                <span>
+                  {pendingOrders} pending
+                </span>
+              </button>
+
+              <button
+                className="quick"
+                onClick={() =>
+                  goTo("customers")
+                }
+              >
+                <div className="quick-icon">
+                  👥
+                </div>
+
+                <strong>
+                  Customers
+                </strong>
+
+                <span>
+                  View customer directory
+                </span>
+              </button>
+
+              <button
+                className="quick"
+                onClick={() =>
+                  goTo("settings")
+                }
+              >
+                <div className="quick-icon">
+                  ⚙️
+                </div>
+
+                <strong>
+                  Settings
+                </strong>
+
+                <span>
+                  Store customization
+                </span>
+              </button>
+
+            </div>
+
+            <div className="stats">
+
+              <div className="stat">
+                <span className="stat-label">
+                  Pending orders
+                </span>
+
+                <strong className="stat-value">
                   {pendingOrders}
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>Delivered orders</span>
-                <strong>
+              <div className="stat">
+                <span className="stat-label">
+                  Delivered
+                </span>
+
+                <strong className="stat-value">
                   {deliveredOrders}
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>Low stock</span>
-                <strong>
-                  {lowStockProducts}
+              <div className="stat">
+                <span className="stat-label">
+                  Low stock
+                </span>
+
+                <strong className="stat-value">
+                  {lowStock}
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>Featured products</span>
-                <strong>
-                  {featuredProducts}
+              <div className="stat">
+                <span className="stat-label">
+                  Out of stock
+                </span>
+
+                <strong className="stat-value">
+                  {outOfStock}
                 </strong>
               </div>
 
             </div>
 
-            <div className="admin-empty">
-
-              <div>🚀</div>
-
-              <h2>
-                Your store is ready to grow.
-              </h2>
-
-              <p>
-                Add products, manage orders and
-                keep track of your customers here.
-              </p>
-
-              <button
-                className="primary-button"
-                onClick={openAddProduct}
-              >
-                + Add product
-              </button>
-
-            </div>
           </>
         )}
 
@@ -1492,77 +1726,93 @@ function Admin() {
             PRODUCTS
         ========================= */}
 
-        {activeSection === "products" && (
+        {section === "products" && (
           <>
-            <div className="section-heading">
+
+            <div className="section-title">
 
               <div>
-                <p className="admin-eyebrow">
+                <p className="eyebrow">
                   STORE INVENTORY
                 </p>
 
-                <h2>Products</h2>
+                <h2>
+                  Products
+                </h2>
+
+                <p>
+                  Manage your products,
+                  stock and pricing.
+                </p>
               </div>
 
               <button
-                className="primary-button"
+                className="primary"
                 onClick={openAddProduct}
               >
-                + Add product
+                + Add Product
               </button>
 
             </div>
 
-            <div className="admin-stats">
+            <div className="stats">
 
-              <div className="admin-stat">
-                <span>All products</span>
-                <strong>
+              <div className="stat">
+                <span className="stat-label">
+                  All Products
+                </span>
+
+                <strong className="stat-value">
                   {products.length}
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>In stock</span>
-                <strong>
+              <div className="stat">
+                <span className="stat-label">
+                  In Stock
+                </span>
+
+                <strong className="stat-value">
                   {
                     products.filter(
                       (p) =>
-                        Number(p.stock || 0) > 0
+                        Number(p.stock) > 0
                     ).length
                   }
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>Out of stock</span>
-                <strong>
-                  {
-                    products.filter(
-                      (p) =>
-                        Number(p.stock || 0) <= 0
-                    ).length
-                  }
+              <div className="stat">
+                <span className="stat-label">
+                  Low Stock
+                </span>
+
+                <strong className="stat-value">
+                  {lowStock}
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>Low stock</span>
-                <strong>
-                  {lowStockProducts}
+              <div className="stat">
+                <span className="stat-label">
+                  Out of Stock
+                </span>
+
+                <strong className="stat-value">
+                  {outOfStock}
                 </strong>
               </div>
 
             </div>
 
             {productsLoading ? (
-              <div className="admin-empty">
+              <div className="empty">
                 Loading products...
               </div>
             ) : products.length === 0 ? (
-              <div className="admin-empty">
-
-                <div>📦</div>
+              <div className="empty">
+                <div className="empty-icon">
+                  📦
+                </div>
 
                 <h2>
                   No products yet
@@ -1573,43 +1823,37 @@ function Admin() {
                 </p>
 
                 <button
-                  className="primary-button"
+                  className="primary"
                   onClick={openAddProduct}
                 >
-                  + Add product
+                  + Add Product
                 </button>
-
               </div>
             ) : (
-              <div className="products-grid">
+              <div className="products">
 
                 {products.map((product) => {
 
-                  const stock = Number(
-                    product.stock || 0
-                  );
+                  const stock =
+                    Number(product.stock || 0);
 
                   return (
                     <article
-                      className="admin-product-card"
+                      className="product"
                       key={product.id}
                     >
 
-                      <div className="admin-product-image">
+                      <div className="product-image">
 
                         {product.image_url ? (
                           <img
-                            src={
-                              product.image_url
-                            }
-                            alt={
-                              product.name
-                            }
+                            src={product.image_url}
+                            alt={product.name}
                           />
                         ) : (
                           <span
                             style={{
-                              fontSize: 55
+                              fontSize: 50,
                             }}
                           >
                             📦
@@ -1618,30 +1862,28 @@ function Admin() {
 
                       </div>
 
-                      <div className="admin-product-content">
+                      <div className="product-content">
 
-                        <span className="admin-product-category">
+                        <div className="category">
                           {product.category ||
                             "Electronics"}
-                        </span>
+                        </div>
 
                         <h3>
                           {product.name}
                         </h3>
 
-                        <div className="admin-product-price">
-                          {money(
-                            product.price
-                          )}
+                        <div className="price">
+                          {money(product.price)}
                         </div>
 
                         <div
                           className={
                             stock <= 0
-                              ? "stock-out"
+                              ? "stock out"
                               : stock <= 5
-                              ? "stock-low"
-                              : "stock-good"
+                              ? "stock low"
+                              : "stock good"
                           }
                         >
                           {stock <= 0
@@ -1650,7 +1892,7 @@ function Admin() {
                         </div>
 
                         {product.featured && (
-                          <span className="featured-badge">
+                          <span className="badge">
                             ⭐ Featured
                           </span>
                         )}
@@ -1658,28 +1900,22 @@ function Admin() {
                         <div className="product-actions">
 
                           <button
-                            className="secondary-button"
+                            className="secondary"
                             onClick={() =>
                               openEditProduct(
                                 product
                               )
-                            }
-                            disabled={
-                              processingProduct
                             }
                           >
                             ✏️ Edit
                           </button>
 
                           <button
-                            className="danger-button"
+                            className="danger"
                             onClick={() =>
                               deleteProduct(
                                 product
                               )
-                            }
-                            disabled={
-                              processingProduct
                             }
                           >
                             🗑️ Delete
@@ -1695,6 +1931,7 @@ function Admin() {
 
               </div>
             )}
+
           </>
         )}
 
@@ -1702,53 +1939,73 @@ function Admin() {
             ORDERS
         ========================= */}
 
-        {activeSection === "orders" && (
+        {section === "orders" && (
           <>
-            <div className="section-heading">
+
+            <div className="section-title">
 
               <div>
-                <p className="admin-eyebrow">
+                <p className="eyebrow">
                   STORE ORDERS
                 </p>
 
-                <h2>Orders</h2>
+                <h2>
+                  Orders
+                </h2>
+
+                <p>
+                  Manage and track customer
+                  purchases.
+                </p>
               </div>
 
               <button
-                className="secondary-button"
+                className="secondary"
                 onClick={loadOrders}
               >
-                ↻ Refresh orders
+                ↻ Refresh
               </button>
 
             </div>
 
-            <div className="admin-stats">
+            <div className="stats">
 
-              <div className="admin-stat">
-                <span>Total orders</span>
-                <strong>
+              <div className="stat">
+                <span className="stat-label">
+                  Orders
+                </span>
+
+                <strong className="stat-value">
                   {orders.length}
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>Pending</span>
-                <strong>
+              <div className="stat">
+                <span className="stat-label">
+                  Pending
+                </span>
+
+                <strong className="stat-value">
                   {pendingOrders}
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>Delivered</span>
-                <strong>
+              <div className="stat">
+                <span className="stat-label">
+                  Delivered
+                </span>
+
+                <strong className="stat-value">
                   {deliveredOrders}
                 </strong>
               </div>
 
-              <div className="admin-stat">
-                <span>Revenue</span>
-                <strong>
+              <div className="stat">
+                <span className="stat-label">
+                  Revenue
+                </span>
+
+                <strong className="stat-value">
                   {money(totalRevenue)}
                 </strong>
               </div>
@@ -1756,67 +2013,66 @@ function Admin() {
             </div>
 
             {loading ? (
-              <div className="admin-empty">
+              <div className="empty">
                 Loading orders...
               </div>
             ) : orders.length === 0 ? (
-              <div className="admin-empty">
-
-                <div>📦</div>
+              <div className="empty">
+                <div className="empty-icon">
+                  🛒
+                </div>
 
                 <h2>
                   No orders yet
                 </h2>
 
                 <p>
-                  New customer orders will
+                  Customer orders will
                   appear here.
                 </p>
-
               </div>
             ) : (
-              <div className="orders-grid">
+              <div className="orders">
 
                 {orders.map((order) => (
 
                   <article
-                    className="order-card"
+                    className="order"
                     key={order.id}
                   >
 
-                    <div className="order-top">
+                    <div className="order-head">
 
                       <div>
 
-                        <span className="order-number">
+                        <div className="order-id">
                           #
                           {String(order.id)
                             .slice(0, 8)
                             .toUpperCase()}
-                        </span>
+                        </div>
 
-                        <p className="order-date">
+                        <div className="order-date">
                           {formatDate(
                             order.created_at
                           )}
-                        </p>
+                        </div>
 
                       </div>
 
                       <select
+                        className="status"
                         value={
                           order.status ||
                           "pending"
                         }
-                        onChange={(event) =>
-                          updateStatus(
+                        onChange={(e) =>
+                          updateOrderStatus(
                             order.id,
-                            event.target.value
+                            e.target.value
                           )
                         }
-                        className="order-status"
                       >
-
                         <option value="pending">
                           Pending
                         </option>
@@ -1836,60 +2092,59 @@ function Admin() {
                         <option value="cancelled">
                           Cancelled
                         </option>
-
                       </select>
 
                     </div>
 
-                    <div className="order-customer">
+                    <div className="order-body">
 
-                      <h3>
+                      <h4>
                         Customer
-                      </h3>
+                      </h4>
 
                       <p>
                         👤{" "}
-                        {order.customer_name}
+                        {order.customer_name ||
+                          "Customer"}
                       </p>
 
                       <p>
                         📱{" "}
-                        {order.customer_phone}
+                        {order.customer_phone ||
+                          "No phone"}
                       </p>
 
                       <p>
                         📍{" "}
-                        {order.delivery_address}
+                        {order.delivery_address ||
+                          "No address"}
                       </p>
 
                       <p>
                         {order.delivery_city}
-
                         {order.delivery_city &&
                         order.delivery_state
                           ? ", "
                           : ""}
-
                         {order.delivery_state}
                       </p>
 
                     </div>
 
-                    <div className="order-products">
+                    <div className="order-body">
 
-                      <h3>
-                        Products
-                      </h3>
+                      <h4>
+                        Order items
+                      </h4>
 
                       {order.order_items?.map(
                         (item) => (
-
                           <div
-                            className="order-product"
+                            className="order-item"
                             key={item.id}
                           >
 
-                            <div className="order-product-image">
+                            <div className="order-item-image">
 
                               {item.image_url ? (
                                 <img
@@ -1916,20 +2171,25 @@ function Admin() {
                                 }
                               </strong>
 
-                              <p>
-                                {
-                                  item.quantity
-                                }
-                                {" × "}
+                              <div
+                                style={{
+                                  color:
+                                    "#64748b",
+                                  fontSize:
+                                    12,
+                                  marginTop:
+                                    4,
+                                }}
+                              >
+                                {item.quantity} ×{" "}
                                 {money(
                                   item.price
                                 )}
-                              </p>
+                              </div>
 
                             </div>
 
                           </div>
-
                         )
                       )}
 
@@ -1942,10 +2202,146 @@ function Admin() {
                       </span>
 
                       <strong>
-                        {money(
-                          order.total
-                        )}
+                        {money(order.total)}
                       </strong>
+
+                    </div>
+
+                    <button
+                      className="secondary"
+                      style={{
+                        width: "100%",
+                        marginTop: 15,
+                      }}
+                      onClick={() =>
+                        setOrderModal(order)
+                      }
+                    >
+                      View Full Order Details
+                    </button>
+
+                  </article>
+
+                ))}
+
+              </div>
+            )}
+
+          </>
+        )}
+
+        {/* =========================
+            CUSTOMERS
+        ========================= */}
+
+        {section === "customers" && (
+          <>
+
+            <div className="section-title">
+
+              <div>
+                <p className="eyebrow">
+                  CUSTOMER DIRECTORY
+                </p>
+
+                <h2>
+                  Customers
+                </h2>
+
+                <p>
+                  Customers who have placed
+                  orders.
+                </p>
+              </div>
+
+              <button
+                className="secondary"
+                onClick={loadCustomers}
+              >
+                ↻ Refresh
+              </button>
+
+            </div>
+
+            <div className="stats">
+
+              <div className="stat">
+                <span className="stat-label">
+                  Customers
+                </span>
+
+                <strong className="stat-value">
+                  {customers.length}
+                </strong>
+              </div>
+
+            </div>
+
+            {customersLoading ? (
+              <div className="empty">
+                Loading customers...
+              </div>
+            ) : customers.length === 0 ? (
+              <div className="empty">
+                <div className="empty-icon">
+                  👥
+                </div>
+
+                <h2>
+                  No customers yet
+                </h2>
+
+                <p>
+                  Customers will appear
+                  after their first order.
+                </p>
+              </div>
+            ) : (
+              <div className="customers">
+
+                {customers.map((customer, index) => (
+
+                  <article
+                    className="customer"
+                    key={
+                      customer.user_id ||
+                      index
+                    }
+                  >
+
+                    <div className="avatar">
+                      👤
+                    </div>
+
+                    <div>
+
+                      <h3>
+                        {customer.customer_name ||
+                          "Customer"}
+                      </h3>
+
+                      <p>
+                        📱{" "}
+                        {customer.customer_phone ||
+                          "No phone"}
+                      </p>
+
+                      <p>
+                        📍{" "}
+                        {customer.delivery_city}
+                        {customer.delivery_city &&
+                        customer.delivery_state
+                          ? ", "
+                          : ""}
+                        {customer.delivery_state}
+                      </p>
+
+                      <p>
+                        Last order:{" "}
+                        {formatDate(
+                          customer.created_at
+                        )}
+                      </p>
 
                     </div>
 
@@ -1955,133 +2351,97 @@ function Admin() {
 
               </div>
             )}
+
           </>
         )}
 
         {/* =========================
-            CUSTOMERS
+            SETTINGS
         ========================= */}
 
-        {activeSection === "customers" && (
+        {section === "settings" && (
           <>
-            <div className="section-heading">
+
+            <div className="section-title">
 
               <div>
-                <p className="admin-eyebrow">
-                  CUSTOMER DIRECTORY
+                <p className="eyebrow">
+                  STORE SETTINGS
                 </p>
 
                 <h2>
-                  Customers
-                </h2>
-              </div>
-
-              <button
-                className="secondary-button"
-                onClick={loadCustomers}
-              >
-                ↻ Refresh customers
-              </button>
-
-            </div>
-
-            <div className="admin-stats">
-
-              <div className="admin-stat">
-                <span>
-                  Customers
-                </span>
-
-                <strong>
-                  {customers.length}
-                </strong>
-              </div>
-
-            </div>
-
-            {customersLoading ? (
-              <div className="admin-empty">
-                Loading customers...
-              </div>
-            ) : customers.length === 0 ? (
-              <div className="admin-empty">
-
-                <div>👥</div>
-
-                <h2>
-                  No customers yet
+                  Settings
                 </h2>
 
                 <p>
-                  Customers who place
-                  orders will appear here.
+                  Customize your Shindara
+                  Phoneflair admin experience.
                 </p>
-
               </div>
-            ) : (
-              <div className="customers-grid">
 
-                {customers.map(
-                  (customer) => (
+            </div>
 
-                    <article
-                      className="customer-card"
-                      key={
-                        customer.user_id
-                      }
-                    >
+            <div className="settings-card">
 
-                      <div className="customer-avatar">
-                        👤
-                      </div>
+              <h2>
+                Store Logo
+              </h2>
 
-                      <div>
+              <p
+                style={{
+                  color: "#64748b",
+                }}
+              >
+                Upload your Shindara
+                Phoneflair logo.
+              </p>
 
-                        <h3>
-                          {
-                            customer.customer_name
-                          }
-                        </h3>
+              <div className="logo-preview">
 
-                        <p>
-                          📱{" "}
-                          {
-                            customer.customer_phone
-                          }
-                        </p>
-
-                        <p>
-                          📍{" "}
-                          {
-                            customer.delivery_city
-                          }
-
-                          {customer.delivery_city &&
-                          customer.delivery_state
-                            ? ", "
-                            : ""}
-
-                          {
-                            customer.delivery_state
-                          }
-                        </p>
-
-                        <small>
-                          Last order:{" "}
-                          {formatDate(
-                            customer.created_at
-                          )}
-                        </small>
-
-                      </div>
-
-                    </article>
-
-                  )
+                {logo ? (
+                  <img
+                    src={logo}
+                    alt="Store logo"
+                  />
+                ) : (
+                  "S"
                 )}
 
               </div>
-            )}
+
+              <label className="upload-label">
+
+                {logoUploading
+                  ? "Uploading..."
+                  : "📷 Upload Logo"}
+
+                <input
+                  className="hidden"
+                  type="file"
+                  accept="image/*"
+                  onChange={
+                    handleLogoChange
+                  }
+                  disabled={
+                    logoUploading
+                  }
+                />
+
+              </label>
+
+              <p
+                style={{
+                  color: "#94a3b8",
+                  fontSize: 12,
+                  marginTop: 15,
+                }}
+              >
+                Your logo is uploaded to
+                Supabase Storage.
+              </p>
+
+            </div>
+
           </>
         )}
 
@@ -2094,29 +2454,25 @@ function Admin() {
       {productModal && (
 
         <div
-          className="admin-modal-backdrop"
+          className="backdrop"
           onClick={closeProductModal}
         >
 
           <div
-            className="admin-modal"
-            onClick={(event) =>
-              event.stopPropagation()
+            className="modal"
+            onClick={(e) =>
+              e.stopPropagation()
             }
           >
 
             <button
-              className="admin-modal-close"
+              className="close"
               onClick={closeProductModal}
-              disabled={
-                savingProduct ||
-                processingProduct
-              }
             >
               ×
             </button>
 
-            <p className="admin-eyebrow">
+            <p className="eyebrow">
               {editingProduct
                 ? "EDIT PRODUCT"
                 : "NEW PRODUCT"}
@@ -2124,34 +2480,26 @@ function Admin() {
 
             <h2>
               {editingProduct
-                ? "Edit product"
-                : "Add product"}
+                ? "Edit Product"
+                : "Add Product"}
             </h2>
 
-            <p style={{ opacity: .6 }}>
-              Add the product details below.
-            </p>
-
             <form
-              className="admin-form"
+              className="form"
               onSubmit={saveProduct}
             >
 
               <label>
-                Product name
+                Product Name
               </label>
 
               <input
-                type="text"
-                placeholder="e.g. iPhone 15 Case"
-                value={
-                  productForm.name
-                }
-                onChange={(event) =>
+                value={productForm.name}
+                placeholder="iPhone 15 Case"
+                onChange={(e) =>
                   setProductForm({
                     ...productForm,
-                    name:
-                      event.target.value,
+                    name: e.target.value,
                   })
                 }
                 required
@@ -2162,15 +2510,15 @@ function Admin() {
               </label>
 
               <textarea
-                placeholder="Describe the product..."
                 value={
                   productForm.description
                 }
-                onChange={(event) =>
+                placeholder="Describe this product..."
+                onChange={(e) =>
                   setProductForm({
                     ...productForm,
                     description:
-                      event.target.value,
+                      e.target.value,
                   })
                 }
               />
@@ -2182,16 +2530,12 @@ function Admin() {
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                value={productForm.price}
                 placeholder="50000"
-                value={
-                  productForm.price
-                }
-                onChange={(event) =>
+                onChange={(e) =>
                   setProductForm({
                     ...productForm,
-                    price:
-                      event.target.value,
+                    price: e.target.value,
                   })
                 }
                 required
@@ -2201,124 +2545,123 @@ function Admin() {
                 Category
               </label>
 
-              <input
-                type="text"
-                placeholder="Phones, Chargers, Cases..."
+              <select
                 value={
                   productForm.category
                 }
-                onChange={(event) =>
+                onChange={(e) =>
                   setProductForm({
                     ...productForm,
                     category:
-                      event.target.value,
+                      e.target.value,
                   })
                 }
                 required
-              />
+              >
+
+                <option value="">
+                  Select category
+                </option>
+
+                {categories.map(
+                  (category) => (
+                    <option
+                      key={category}
+                      value={category}
+                    >
+                      {category}
+                    </option>
+                  )
+                )}
+
+              </select>
 
               <label>
-                Stock quantity
+                Stock Quantity
               </label>
 
               <input
                 type="number"
                 min="0"
                 step="1"
+                value={productForm.stock}
                 placeholder="10"
-                value={
-                  productForm.stock
-                }
-                onChange={(event) =>
+                onChange={(e) =>
                   setProductForm({
                     ...productForm,
-                    stock:
-                      event.target.value,
+                    stock: e.target.value,
                   })
                 }
                 required
               />
 
               <label>
-                Product image
+                Product Image
               </label>
 
-              <div className="image-upload-box">
+              <div>
 
-                {imagePreview ? (
+                <div className="preview">
 
-                  <div className="image-preview">
+                  {imagePreview ? (
                     <img
                       src={imagePreview}
-                      alt="Product preview"
+                      alt="Preview"
                     />
-                  </div>
-
-                ) : (
-
-                  <div className="image-preview">
+                  ) : (
                     <span
                       style={{
-                        fontSize: 50
+                        fontSize: 50,
                       }}
                     >
                       📷
                     </span>
-                  </div>
+                  )}
 
-                )}
+                </div>
 
-                <label
-                  className="image-upload-label"
-                  htmlFor="product-image"
-                >
-                  📷 Choose product image
+                <label className="file-label">
+
+                  {uploading
+                    ? "Uploading image..."
+                    : "📷 Choose Product Image"}
+
+                  <input
+                    className="hidden"
+                    type="file"
+                    accept="image/*"
+                    onChange={
+                      handleImageChange
+                    }
+                    disabled={
+                      uploading ||
+                      saving
+                    }
+                  />
+
                 </label>
-
-                <input
-                  id="product-image"
-                  className="image-upload-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={
-                    handleImageChange
-                  }
-                />
-
-                {processingProduct && (
-                  <p className="uploading-text">
-                    Processing image...
-                  </p>
-                )}
 
               </div>
 
-              <div className="featured-toggle">
+              <div className="featured">
 
                 <input
-                  id="featured"
                   type="checkbox"
                   checked={
                     productForm.featured
                   }
-                  onChange={(event) =>
+                  onChange={(e) =>
                     setProductForm({
                       ...productForm,
                       featured:
-                        event.target.checked,
+                        e.target.checked,
                     })
                   }
                 />
 
-                <label
-                  htmlFor="featured"
-                  style={{
-                    margin: 0,
-                    opacity: 1
-                  }}
-                >
-                  ⭐ Featured product
-                </label>
+                <span>
+                  ⭐ Featured Product
+                </span>
 
               </div>
 
@@ -2326,13 +2669,13 @@ function Admin() {
 
                 <button
                   type="button"
-                  className="secondary-button"
+                  className="secondary"
                   onClick={
                     closeProductModal
                   }
                   disabled={
-                    savingProduct ||
-                    processingProduct
+                    saving ||
+                    uploading
                   }
                 >
                   Cancel
@@ -2340,24 +2683,243 @@ function Admin() {
 
                 <button
                   type="submit"
-                  className="primary-button"
+                  className="primary"
                   disabled={
-                    savingProduct ||
-                    processingProduct
+                    saving ||
+                    uploading
                   }
                 >
-                  {processingProduct
-                    ? "Processing image..."
-                    : savingProduct
+                  {uploading
+                    ? "Uploading..."
+                    : saving
                     ? "Saving..."
                     : editingProduct
-                    ? "Save changes"
-                    : "Add product"}
+                    ? "Save Changes"
+                    : "Add Product"}
                 </button>
 
               </div>
 
             </form>
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* =========================
+          FULL ORDER MODAL
+      ========================= */}
+
+      {orderModal && (
+
+        <div
+          className="backdrop"
+          onClick={() =>
+            setOrderModal(null)
+          }
+        >
+
+          <div
+            className="modal"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+
+            <button
+              className="close"
+              onClick={() =>
+                setOrderModal(null)
+              }
+            >
+              ×
+            </button>
+
+            <p className="eyebrow">
+              ORDER DETAILS
+            </p>
+
+            <h2>
+              Order #
+              {String(orderModal.id)
+                .slice(0, 8)
+                .toUpperCase()}
+            </h2>
+
+            <div
+              style={{
+                background: "#f8fafc",
+                borderRadius: 15,
+                padding: 15,
+                margin: "15px 0",
+              }}
+            >
+
+              <strong>
+                Customer
+              </strong>
+
+              <p>
+                👤{" "}
+                {orderModal.customer_name}
+              </p>
+
+              <p>
+                📱{" "}
+                {orderModal.customer_phone}
+              </p>
+
+              <p>
+                📍{" "}
+                {orderModal.delivery_address}
+              </p>
+
+              <p>
+                {orderModal.delivery_city}
+                {orderModal.delivery_city &&
+                orderModal.delivery_state
+                  ? ", "
+                  : ""}
+                {orderModal.delivery_state}
+              </p>
+
+              <p>
+                🕐{" "}
+                {formatDate(
+                  orderModal.created_at
+                )}
+              </p>
+
+            </div>
+
+            <h3>
+              Items
+            </h3>
+
+            {orderModal.order_items?.map(
+              (item) => (
+
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center",
+                    padding: "10px 0",
+                    borderBottom:
+                      "1px solid #f1f5f9",
+                  }}
+                >
+
+                  <div
+                    style={{
+                      width: 55,
+                      height: 55,
+                      borderRadius: 10,
+                      overflow: "hidden",
+                      background:
+                        "#f1f5f9",
+                      flexShrink: 0,
+                    }}
+                  >
+
+                    {item.image_url ? (
+                      <img
+                        src={
+                          item.image_url
+                        }
+                        alt={
+                          item.product_name
+                        }
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit:
+                            "cover",
+                        }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          justifyContent:
+                            "center",
+                          height:
+                            "100%",
+                        }}
+                      >
+                        📦
+                      </span>
+                    )}
+
+                  </div>
+
+                  <div
+                    style={{
+                      flex: 1,
+                    }}
+                  >
+
+                    <strong>
+                      {
+                        item.product_name
+                      }
+                    </strong>
+
+                    <div
+                      style={{
+                        color:
+                          "#64748b",
+                        fontSize: 12,
+                        marginTop: 4,
+                      }}
+                    >
+                      {item.quantity} ×{" "}
+                      {money(item.price)}
+                    </div>
+
+                  </div>
+
+                  <strong>
+                    {money(
+                      Number(
+                        item.price || 0
+                      ) *
+                        Number(
+                          item.quantity ||
+                            0
+                        )
+                    )}
+                  </strong>
+
+                </div>
+
+              )
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                fontSize: 21,
+                fontWeight: 900,
+                paddingTop: 18,
+              }}
+            >
+              <span>
+                Total
+              </span>
+
+              <span>
+                {money(orderModal.total)}
+              </span>
+            </div>
 
           </div>
 
