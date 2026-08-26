@@ -4,8 +4,9 @@ import { loadNigeriaLocations } from "./nigeriaLocations";
 
 const WHATSAPP = "2348118294548";
 const TIKTOK = "https://www.tiktok.com/@shindara.communication";
-const PAYSTACK_PUBLIC_KEY =
-  "pk_test_064c89b751af46db42ee4dc14ccb5ec906eaafe1";
+
+// TEST MODE — CHANGE BACK TO pk_live_... WHEN TESTING IS FINISHED
+const PAYSTACK_PUBLIC_KEY = "pk_test_064c89b751af46db42ee4dc14ccb5ec906eaafe1";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
@@ -31,23 +32,46 @@ function loadPaystackScript() {
     const script = document.createElement("script");
     script.src = src;
     script.async = true;
+
     script.onload = () =>
       window.PaystackPop
         ? resolve(window.PaystackPop)
         : reject(new Error("Paystack could not be loaded."));
+
     script.onerror = () =>
       reject(new Error("Unable to load Paystack."));
+
     document.body.appendChild(script);
   });
 }
 
 function App() {
-  const [cart, setCart] = useState([]);
+  /* =========================
+     CART
+  ========================= */
+
+  const [cart, setCart] = useState(() => {
+    try {
+      const savedCart = localStorage.getItem("shindara_cart");
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [cartOpen, setCartOpen] = useState(false);
 
-  /* PRODUCT DETAILS */
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [productQuantity, setProductQuantity] = useState(1);
+  useEffect(() => {
+    try {
+      localStorage.setItem("shindara_cart", JSON.stringify(cart));
+    } catch (error) {
+      console.error("Unable to save cart:", error);
+    }
+  }, [cart]);
+
+  /* =========================
+     CHECKOUT
+  ========================= */
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
@@ -59,6 +83,10 @@ function App() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryState, setDeliveryState] = useState("");
   const [deliveryCity, setDeliveryCity] = useState("");
+
+  /* =========================
+     ACCOUNT
+  ========================= */
 
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountTab, setAccountTab] = useState("profile");
@@ -88,16 +116,26 @@ function App() {
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
+  /* =========================
+     ORDERS
+  ========================= */
+
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [expandedOrder, setExpandedOrder] = useState(null);
 
+  /* =========================
+     PRODUCTS
+  ========================= */
+
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
 
-  /* NIGERIAN LOCATIONS */
+  /* =========================
+     NIGERIAN LOCATIONS
+  ========================= */
 
   const [locations, setLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
@@ -118,6 +156,7 @@ function App() {
         setLocations(data);
       } catch (error) {
         console.error("Location loading error:", error);
+
         setLocationsError(
           "Unable to load Nigerian states and cities. Please refresh and try again."
         );
@@ -137,7 +176,8 @@ function App() {
   const cities = useMemo(() => {
     const selected = locations.find(
       (item) =>
-        item.name?.toLowerCase() === deliveryState.toLowerCase()
+        item.name?.toLowerCase() ===
+        deliveryState.toLowerCase()
     );
 
     return selected?.cities || [];
@@ -148,16 +188,20 @@ function App() {
     setDeliveryCity("");
   }
 
-  /* USER */
+  /* =========================
+     USER
+  ========================= */
 
   useEffect(() => {
     let mounted = true;
 
     async function loadUser() {
       const { data } = await supabase.auth.getUser();
+
       if (!mounted) return;
 
       const currentUser = data?.user || null;
+
       setUser(currentUser);
 
       if (currentUser) {
@@ -169,19 +213,22 @@ function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
+    } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (!mounted) return;
 
-      const currentUser = session?.user || null;
-      setUser(currentUser);
+        const currentUser = session?.user || null;
 
-      if (currentUser) {
-        await loadProfile(currentUser.id);
-      } else {
-        setProfile(null);
-        setOrders([]);
+        setUser(currentUser);
+
+        if (currentUser) {
+          await loadProfile(currentUser.id);
+        } else {
+          setProfile(null);
+          setOrders([]);
+        }
       }
-    });
+    );
 
     return () => {
       mounted = false;
@@ -189,7 +236,9 @@ function App() {
     };
   }, []);
 
-  /* PRODUCTS */
+  /* =========================
+     PRODUCTS
+  ========================= */
 
   useEffect(() => {
     loadProducts();
@@ -224,7 +273,9 @@ function App() {
     if (error) {
       console.error(error);
       setProducts([]);
-      setProductsError("We couldn't load our products right now.");
+      setProductsError(
+        "We couldn't load our products right now."
+      );
     } else {
       setProducts(data || []);
     }
@@ -232,72 +283,9 @@ function App() {
     setProductsLoading(false);
   }
 
-  /* PRODUCT DETAILS */
-
-  function openProduct(product) {
-    setSelectedProduct(product);
-    setProductQuantity(1);
-  }
-
-  function closeProduct() {
-    setSelectedProduct(null);
-    setProductQuantity(1);
-  }
-
-  function increaseProductQuantity() {
-    if (!selectedProduct) return;
-
-    const stock = Number(selectedProduct.stock || 0);
-
-    setProductQuantity((quantity) =>
-      Math.min(quantity + 1, stock || quantity + 1)
-    );
-  }
-
-  function decreaseProductQuantity() {
-    setProductQuantity((quantity) =>
-      Math.max(quantity - 1, 1)
-    );
-  }
-
-  function addSelectedProductToCart() {
-    if (!selectedProduct) return;
-
-    const stock = Number(selectedProduct.stock || 0);
-
-    if (stock <= 0) return;
-
-    setCart((items) => {
-      const existing = items.find(
-        (item) => item.id === selectedProduct.id
-      );
-
-      if (existing) {
-        const newQuantity = Math.min(
-          existing.quantity + productQuantity,
-          stock
-        );
-
-        return items.map((item) =>
-          item.id === selectedProduct.id
-            ? { ...item, quantity: newQuantity }
-            : item
-        );
-      }
-
-      return [
-        ...items,
-        {
-          ...selectedProduct,
-          quantity: Math.min(productQuantity, stock),
-        },
-      ];
-    });
-
-    closeProduct();
-  }
-
-  /* PROFILE */
+  /* =========================
+     PROFILE
+  ========================= */
 
   async function loadProfile(userId) {
     const { data, error } = await supabase
@@ -321,7 +309,9 @@ function App() {
     }
   }
 
-  /* ORDERS */
+  /* =========================
+     ORDERS
+  ========================= */
 
   async function loadOrders() {
     if (!user) return;
@@ -348,7 +338,9 @@ function App() {
     if (error) {
       console.error(error);
       setOrders([]);
-      setOrdersError("We couldn't load your orders right now.");
+      setOrdersError(
+        "We couldn't load your orders right now."
+      );
     } else {
       setOrders(data || []);
     }
@@ -368,10 +360,13 @@ function App() {
     }
   }
 
-  /* AUTH */
+  /* =========================
+     AUTH
+  ========================= */
 
   async function handleAuth(event) {
     event.preventDefault();
+
     setAuthLoading(true);
     setAuthMessage("");
 
@@ -382,39 +377,50 @@ function App() {
         const cleanEmail = email.trim();
 
         if (!cleanName)
-          return setAuthMessage("Please enter your full name.");
+          return setAuthMessage(
+            "Please enter your full name."
+          );
 
         if (!cleanPhone)
-          return setAuthMessage("Please enter your phone number.");
+          return setAuthMessage(
+            "Please enter your phone number."
+          );
 
         if (!cleanEmail)
-          return setAuthMessage("Please enter your email address.");
+          return setAuthMessage(
+            "Please enter your email address."
+          );
 
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            data: {
-              full_name: cleanName,
-              phone: cleanPhone,
+        const { data, error } =
+          await supabase.auth.signUp({
+            email: cleanEmail,
+            password,
+            options: {
+              data: {
+                full_name: cleanName,
+                phone: cleanPhone,
+              },
             },
-          },
-        });
+          });
 
         if (error) throw error;
 
         if (data?.user) {
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .upsert({
-              id: data.user.id,
-              name: cleanName,
-              phone: cleanPhone,
-              email: cleanEmail,
-            });
+          const { error: profileError } =
+            await supabase
+              .from("profiles")
+              .upsert({
+                id: data.user.id,
+                name: cleanName,
+                phone: cleanPhone,
+                email: cleanEmail,
+              });
 
           if (profileError) {
-            console.error("Profile save:", profileError);
+            console.error(
+              "Profile save:",
+              profileError
+            );
           }
         }
 
@@ -444,7 +450,9 @@ function App() {
 
       if (error) throw error;
 
-      if (data?.user) await loadProfile(data.user.id);
+      if (data?.user) {
+        await loadProfile(data.user.id);
+      }
 
       setEmail("");
       setPassword("");
@@ -453,7 +461,8 @@ function App() {
       console.error(error);
 
       setAuthMessage(
-        error?.message || "Something went wrong. Please try again."
+        error?.message ||
+          "Something went wrong. Please try again."
       );
     } finally {
       setAuthLoading(false);
@@ -465,17 +474,19 @@ function App() {
     setAuthMessage("");
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
+      const { error } =
+        await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
 
       if (error) throw error;
     } catch (error) {
       setAuthMessage(
-        error?.message || `Unable to continue with ${provider}.`
+        error?.message ||
+          `Unable to continue with ${provider}.`
       );
 
       setAuthLoading(false);
@@ -484,6 +495,7 @@ function App() {
 
   async function handleForgotPassword(event) {
     event.preventDefault();
+
     setResetLoading(true);
     setResetMessage("");
 
@@ -491,14 +503,19 @@ function App() {
       const cleanEmail = resetEmail.trim();
 
       if (!cleanEmail) {
-        setResetMessage("Please enter your email address.");
+        setResetMessage(
+          "Please enter your email address."
+        );
         return;
       }
 
       const { error } =
-        await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo: window.location.origin,
-        });
+        await supabase.auth.resetPasswordForEmail(
+          cleanEmail,
+          {
+            redirectTo: window.location.origin,
+          }
+        );
 
       if (error) throw error;
 
@@ -507,14 +524,17 @@ function App() {
       );
     } catch (error) {
       setResetMessage(
-        error?.message || "Unable to send password reset email."
+        error?.message ||
+          "Unable to send password reset email."
       );
     } finally {
       setResetLoading(false);
     }
   }
 
-  /* PROFILE SETTINGS */
+  /* =========================
+     PROFILE SETTINGS
+  ========================= */
 
   async function saveProfileSettings(event) {
     event.preventDefault();
@@ -534,7 +554,9 @@ function App() {
       }
 
       if (!cleanPhone) {
-        setSettingsMessage("Please enter your phone number.");
+        setSettingsMessage(
+          "Please enter your phone number."
+        );
         return;
       }
 
@@ -561,14 +583,17 @@ function App() {
       console.error(error);
 
       setSettingsMessage(
-        error?.message || "Unable to update your details."
+        error?.message ||
+          "Unable to update your details."
       );
     } finally {
       setSettingsLoading(false);
     }
   }
 
-  /* PASSWORD */
+  /* =========================
+     PASSWORD
+  ========================= */
 
   async function changePassword(event) {
     event.preventDefault();
@@ -584,9 +609,10 @@ function App() {
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const { error } =
+        await supabase.auth.updateUser({
+          password: newPassword,
+        });
 
       if (error) throw error;
 
@@ -597,7 +623,8 @@ function App() {
       );
     } catch (error) {
       setPasswordMessage(
-        error?.message || "Unable to change your password."
+        error?.message ||
+          "Unable to change your password."
       );
     } finally {
       setPasswordLoading(false);
@@ -613,13 +640,11 @@ function App() {
     setAccountOpen(false);
   }
 
-  /* CART */
+  /* =========================
+     CART FUNCTIONS
+  ========================= */
 
   function addToCart(product) {
-    const stock = Number(product.stock || 0);
-
-    if (stock <= 0) return;
-
     setCart((items) => {
       const existing = items.find(
         (item) => item.id === product.id
@@ -630,10 +655,7 @@ function App() {
           item.id === product.id
             ? {
                 ...item,
-                quantity: Math.min(
-                  item.quantity + 1,
-                  stock
-                ),
+                quantity: item.quantity + 1,
               }
             : item
         );
@@ -650,18 +672,12 @@ function App() {
   }
 
   function increaseQuantity(id) {
-    const product = products.find((item) => item.id === id);
-    const stock = Number(product?.stock || 0);
-
     setCart((items) =>
       items.map((item) =>
         item.id === id
           ? {
               ...item,
-              quantity: Math.min(
-                item.quantity + 1,
-                stock || item.quantity + 1
-              ),
+              quantity: item.quantity + 1,
             }
           : item
       )
@@ -707,7 +723,9 @@ function App() {
     0
   );
 
-  /* CHECKOUT */
+  /* =========================
+     CHECKOUT
+  ========================= */
 
   function openCheckout() {
     if (!cart.length) return;
@@ -786,12 +804,16 @@ function App() {
     }
 
     if (!customerName.trim()) {
-      setOrderMessage("Please enter your full name.");
+      setOrderMessage(
+        "Please enter your full name."
+      );
       return;
     }
 
     if (!customerPhone.trim()) {
-      setOrderMessage("Please enter your phone number.");
+      setOrderMessage(
+        "Please enter your phone number."
+      );
       return;
     }
 
@@ -803,7 +825,9 @@ function App() {
     }
 
     if (!deliveryState) {
-      setOrderMessage("Please select your state.");
+      setOrderMessage(
+        "Please select your state."
+      );
       return;
     }
 
@@ -835,11 +859,16 @@ function App() {
         currency: "NGN",
 
         metadata: {
-          customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
-          delivery_address: deliveryAddress.trim(),
-          delivery_city: deliveryCity.trim(),
-          delivery_state: deliveryState.trim(),
+          customer_name:
+            customerName.trim(),
+          customer_phone:
+            customerPhone.trim(),
+          delivery_address:
+            deliveryAddress.trim(),
+          delivery_city:
+            deliveryCity.trim(),
+          delivery_state:
+            deliveryState.trim(),
           user_id: user.id,
         },
 
@@ -850,7 +879,8 @@ function App() {
             );
 
             const reference =
-              transaction.reference;
+              transaction?.reference ||
+              transaction?.trxref;
 
             if (!reference) {
               throw new Error(
@@ -862,7 +892,12 @@ function App() {
               await supabase.functions.invoke(
                 "verify-paystack-payment",
                 {
-                  body: { reference },
+                  body: {
+                    reference,
+                    trxref:
+                      transaction?.trxref ||
+                      reference,
+                  },
                 }
               );
 
@@ -888,7 +923,14 @@ function App() {
                 .toUpperCase()}.`
             );
 
+            // Clear cart AFTER successful order
             setCart([]);
+
+            // Remove saved cart completely
+            localStorage.removeItem(
+              "shindara_cart"
+            );
+
             setCustomerName("");
             setCustomerPhone("");
             setDeliveryAddress("");
@@ -926,7 +968,9 @@ function App() {
     }
   }
 
-  /* HELPERS */
+  /* =========================
+     HELPERS
+  ========================= */
 
   function whatsapp() {
     const message = encodeURIComponent(
@@ -961,878 +1005,568 @@ function App() {
     );
   }
 
+  /* =========================
+     UI
+  ========================= */
+
   return (
     <div className="app">
       <style>{`
-        * {
-          box-sizing: border-box;
+        *{box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{
+          margin:0;
+          font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
+          background:#f7f7f8;
+          color:#111
         }
-
-        html {
-          scroll-behavior: smooth;
-        }
-
-        body {
-          margin: 0;
-          font-family:
-            Inter,
-            -apple-system,
-            BlinkMacSystemFont,
-            "SF Pro Display",
-            "Segoe UI",
-            sans-serif;
-          background: #f7f7f8;
-          color: #111;
-        }
-
-        button,
-        input,
-        select,
-        textarea {
-          font: inherit;
-        }
-
-        button,
-        a {
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        button {
-          cursor: pointer;
-        }
-
-        .app {
-          min-height: 100vh;
+        button,input,select,textarea{font:inherit}
+        button,a{-webkit-tap-highlight-color:transparent}
+        button{cursor:pointer}
+        .app{
+          min-height:100vh;
           background:
-            radial-gradient(
-              circle at 15% 10%,
-              rgba(124,58,237,.08),
-              transparent 28%
-            ),
-            radial-gradient(
-              circle at 85% 20%,
-              rgba(59,130,246,.08),
-              transparent 25%
-            ),
-            #f7f7f8;
+            radial-gradient(circle at 15% 10%,rgba(124,58,237,.08),transparent 28%),
+            radial-gradient(circle at 85% 20%,rgba(59,130,246,.08),transparent 25%),
+            #f7f7f8
         }
-
-        .announcement-bar {
-          width: 100%;
-          overflow: hidden;
-          background: #111;
-          color: #fff;
-          padding: 11px 0;
-          white-space: nowrap;
+        .announcement-bar{
+          width:100%;
+          overflow:hidden;
+          background:#111;
+          color:#fff;
+          padding:11px 0;
+          white-space:nowrap
         }
-
-        .announcement-track {
-          display: flex;
-          width: max-content;
-          animation: marquee 22s linear infinite;
+        .announcement-track{
+          display:flex;
+          width:max-content;
+          animation:marquee 22s linear infinite
         }
-
-        .announcement-group {
-          display: flex;
-          flex-shrink: 0;
+        .announcement-group{
+          display:flex;
+          flex-shrink:0
         }
-
-        .announcement-group span {
-          margin-right: 80px;
-          font-size: 13px;
-          font-weight: 700;
-          letter-spacing: .4px;
+        .announcement-group span{
+          margin-right:80px;
+          font-size:13px;
+          font-weight:700;
+          letter-spacing:.4px
         }
-
-        @keyframes marquee {
-          from {
-            transform: translateX(0);
-          }
-
-          to {
-            transform: translateX(-50%);
-          }
+        @keyframes marquee{
+          from{transform:translateX(0)}
+          to{transform:translateX(-50%)}
         }
-
-        .header {
-          position: sticky;
-          top: 0;
-          z-index: 900;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 16px 5%;
-          background: rgba(255,255,255,.86);
-          backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(0,0,0,.06);
+        .header{
+          position:sticky;
+          top:0;
+          z-index:900;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:20px;
+          padding:16px 5%;
+          background:rgba(255,255,255,.86);
+          backdrop-filter:blur(20px);
+          border-bottom:1px solid rgba(0,0,0,.06)
         }
-
-        .logo {
-          text-decoration: none;
-          color: #111;
-          font-weight: 800;
-          font-size: 21px;
-          letter-spacing: -1px;
+        .logo{
+          text-decoration:none;
+          color:#111;
+          font-weight:800;
+          font-size:21px;
+          letter-spacing:-1px
         }
-
-        .logo span {
-          display: block;
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 1.8px;
-          text-transform: uppercase;
-          opacity: .55;
+        .logo span{
+          display:block;
+          font-size:11px;
+          font-weight:500;
+          letter-spacing:1.8px;
+          text-transform:uppercase;
+          opacity:.55
         }
-
-        .nav {
-          display: flex;
-          gap: 28px;
+        .nav{
+          display:flex;
+          gap:28px
         }
-
-        .nav a {
-          color: #222;
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 600;
-          opacity: .75;
+        .nav a{
+          color:#222;
+          text-decoration:none;
+          font-size:14px;
+          font-weight:600;
+          opacity:.75
         }
-
-        .header-actions {
-          display: flex;
-          gap: 8px;
+        .header-actions{
+          display:flex;
+          gap:8px
         }
-
-        .account-button,
-        .cart-button {
-          border: 1px solid rgba(0,0,0,.08);
-          border-radius: 999px;
-          padding: 10px 14px;
-          background: #fff;
-          font-weight: 700;
-          font-size: 13px;
+        .account-button,.cart-button{
+          border:1px solid rgba(0,0,0,.08);
+          border-radius:999px;
+          padding:10px 14px;
+          background:#fff;
+          font-weight:700;
+          font-size:13px
         }
-
-        .cart-button {
-          background: #111;
-          color: #fff;
+        .cart-button{
+          background:#111;
+          color:#fff
         }
-
-        .hero {
-          min-height: 650px;
-          display: flex;
-          align-items: center;
-          padding: 80px 7%;
+        .hero{
+          min-height:650px;
+          display:flex;
+          align-items:center;
+          padding:80px 7%;
           background:
-            radial-gradient(
-              circle at 70% 40%,
-              rgba(124,58,237,.16),
-              transparent 35%
-            ),
-            radial-gradient(
-              circle at 90% 80%,
-              rgba(37,99,235,.13),
-              transparent 30%
-            );
-        }
-
-        .hero-content {
-          max-width: 720px;
-        }
-
-        .eyebrow {
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 2px;
-          opacity: .55;
-          margin: 0 0 14px;
-        }
-
-        .hero h1 {
-          font-size: clamp(48px,7vw,88px);
-          line-height: .94;
-          letter-spacing: -5px;
-          margin: 0 0 28px;
-        }
-
-        .hero-text {
-          max-width: 550px;
-          font-size: 18px;
-          line-height: 1.65;
-          opacity: .68;
-          margin-bottom: 32px;
-        }
-
-        .shop-button {
-          display: inline-block;
-          background: #111;
-          color: #fff;
-          text-decoration: none;
-          padding: 15px 22px;
-          border-radius: 999px;
-          font-weight: 700;
-        }
-
-        .section {
-          padding: 90px 7%;
-        }
-
-        .section h2 {
-          margin: 0 0 35px;
-          font-size: 46px;
-          letter-spacing: -2.5px;
-        }
-
-        .category-grid {
-          display: grid;
-          grid-template-columns: repeat(6,1fr);
-          gap: 12px;
-        }
-
-        .category-card {
-          min-height: 150px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 20px;
-          text-decoration: none;
-          color: inherit;
-          background: rgba(255,255,255,.8);
-          border: 1px solid rgba(0,0,0,.06);
-          border-radius: 22px;
-        }
-
-        .category-card span {
-          font-size: 30px;
-        }
-
-        .category-card strong {
-          font-size: 14px;
-        }
-
-        .product-grid {
-          display: grid;
-          grid-template-columns: repeat(4,minmax(0,1fr));
-          gap: 18px;
-        }
-
-        .product-card {
-          background: #fff;
-          border: 1px solid rgba(0,0,0,.06);
-          border-radius: 24px;
-          overflow: hidden;
-          box-shadow: 0 10px 35px rgba(0,0,0,.04);
-          cursor: pointer;
-          transition:
-            transform .2s ease,
-            box-shadow .2s ease;
-        }
-
-        .product-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 18px 45px rgba(0,0,0,.09);
-        }
-
-        .product-image {
-          height: 270px;
-          background: #f0f0f2;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-        }
-
-        .product-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          transition: transform .35s ease;
-        }
-
-        .product-card:hover .product-image img {
-          transform: scale(1.04);
-        }
-
-        .product-info {
-          padding: 18px;
-        }
-
-        .product-category {
-          font-size: 10px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          opacity: .45;
-        }
-
-        .product-info h3 {
-          margin: 0 0 10px;
-          font-size: 17px;
-        }
-
-        .price {
-          font-size: 20px;
-          font-weight: 800;
-          margin: 14px 0;
-        }
-
-        .add-button,
-        .modal-action,
-        .checkout-button {
-          width: 100%;
-          border: 0;
-          border-radius: 13px;
-          background: #111;
-          color: #fff;
-          padding: 13px;
-          font-weight: 700;
-        }
-
-        .add-button:disabled,
-        .modal-action:disabled {
-          opacity: .5;
-          cursor: not-allowed;
-        }
-
-        .trust-section {
-          display: grid;
-          grid-template-columns: repeat(3,1fr);
-          gap: 20px;
-          padding: 50px 7%;
-          background: #111;
-          color: #fff;
-        }
-
-        .trust-section>div {
-          padding: 25px;
-          border-radius: 20px;
-          background: rgba(255,255,255,.05);
-        }
-
-        .trust-section span {
-          font-size: 28px;
-        }
-
-        .trust-section p {
-          opacity: .6;
-        }
-
-        footer {
-          padding: 60px 7%;
-          background: #090909;
-          color: #fff;
-          display: flex;
-          justify-content: space-between;
-          gap: 30px;
-          flex-wrap: wrap;
-        }
-
-        .social-links {
-          display: flex;
-          gap: 10px;
-          margin-top: 20px;
-        }
-
-        .social-button {
-          display: inline-block;
-          border: 1px solid rgba(255,255,255,.15);
-          background: rgba(255,255,255,.06);
-          color: #fff;
-          padding: 10px 13px;
-          border-radius: 999px;
-          text-decoration: none;
-        }
-
-        .whatsapp-floating {
-          position: fixed;
-          right: 22px;
-          bottom: 22px;
-          z-index: 950;
-          width: 58px;
-          height: 58px;
-          border: 0;
-          border-radius: 50%;
-          background: #111;
-          color: #fff;
-          box-shadow: 0 12px 30px rgba(0,0,0,.2);
-          font-size: 22px;
-        }
-
-        .modal-backdrop,
-        .cart-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 2000;
-          background: rgba(0,0,0,.55);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 18px;
-        }
-
-        .account-modal {
-          position: relative;
-          width: min(620px,100%);
-          max-height: 92vh;
-          overflow-y: auto;
-          background: #fff;
-          border-radius: 28px;
-          padding: 30px;
-          box-shadow: 0 30px 100px rgba(0,0,0,.3);
-        }
-
-        /* PRODUCT DETAILS */
-
-        .product-details-modal {
-          position: relative;
-          width: min(900px,100%);
-          max-height: 92vh;
-          overflow-y: auto;
-          background: #fff;
-          border-radius: 30px;
-          padding: 20px;
-          box-shadow: 0 30px 100px rgba(0,0,0,.35);
-        }
-
-        .product-details-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 28px;
-          align-items: center;
-        }
-
-        .product-details-image {
-          width: 100%;
-          min-height: 440px;
-          border-radius: 22px;
-          overflow: hidden;
-          background: #f1f1f3;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .product-details-image img {
-          width: 100%;
-          height: 440px;
-          object-fit: cover;
-        }
-
-        .product-details-info {
-          padding: 15px 15px 15px 0;
-        }
-
-        .product-details-category {
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 1.8px;
-          text-transform: uppercase;
-          opacity: .45;
-          margin-bottom: 10px;
-        }
-
-        .product-details-info h2 {
-          font-size: clamp(30px,5vw,48px);
-          line-height: 1;
-          letter-spacing: -2px;
-          margin: 0 0 18px;
-        }
-
-        .product-details-price {
-          font-size: 28px;
-          font-weight: 800;
-          margin: 0 0 20px;
-        }
-
-        .product-details-description {
-          font-size: 15px;
-          line-height: 1.7;
-          opacity: .65;
-          margin-bottom: 25px;
-          white-space: pre-wrap;
-        }
-
-        .stock-status {
-          display: inline-flex;
-          padding: 8px 12px;
-          border-radius: 999px;
-          background: rgba(34,197,94,.1);
-          color: #15803d;
-          font-size: 12px;
-          font-weight: 800;
-          margin-bottom: 20px;
-        }
-
-        .stock-status.out {
-          background: rgba(239,68,68,.1);
-          color: #b91c1c;
-        }
-
-        .product-quantity {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border: 1px solid rgba(0,0,0,.1);
-          border-radius: 15px;
-          padding: 7px;
-          margin-bottom: 12px;
-        }
-
-        .product-quantity button {
-          width: 42px;
-          height: 42px;
-          border: 0;
-          border-radius: 11px;
-          background: #f2f2f3;
-          font-size: 20px;
-        }
-
-        .product-quantity strong {
-          min-width: 45px;
-          text-align: center;
-        }
-
-        .modal-close {
-          position: absolute;
-          right: 18px;
-          top: 18px;
-          z-index: 5;
-          width: 36px;
-          height: 36px;
-          border: 0;
-          border-radius: 50%;
-          background: #eee;
-          font-size: 24px;
-        }
-
-        .auth-form {
-          display: grid;
-          gap: 12px;
-        }
-
-        .auth-form input,
-        .auth-form select,
-        .auth-form textarea {
-          width: 100%;
-          padding: 14px 15px;
-          border: 1px solid rgba(0,0,0,.12);
-          border-radius: 13px;
-          background: #fafafa;
-          outline: none;
-        }
-
-        .auth-form input:focus,
-        .auth-form select:focus,
-        .auth-form textarea:focus {
-          border-color: #111;
-          background: #fff;
-        }
-
-        .modal-secondary {
-          width: 100%;
-          border: 1px solid rgba(0,0,0,.1);
-          background: #fff;
-          color: #111;
-          padding: 13px;
-          border-radius: 13px;
-          font-weight: 700;
-        }
-
-        .auth-message {
-          padding: 12px;
-          border-radius: 12px;
-          background: rgba(124,58,237,.08);
-          font-size: 13px;
-          line-height: 1.5;
-        }
-
-        .auth-divider {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin: 18px 0;
-          font-size: 12px;
-          opacity: .5;
-        }
-
-        .auth-divider:before,
-        .auth-divider:after {
-          content: "";
-          height: 1px;
-          flex: 1;
-          background: currentColor;
-        }
-
-        .social-auth-buttons {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
-
-        .social-auth-button {
-          border: 1px solid rgba(0,0,0,.1);
-          background: #fff;
-          border-radius: 13px;
-          padding: 13px;
-          font-weight: 700;
-        }
-
-        .forgot-password {
-          border: 0;
-          background: none;
-          text-align: right;
-          font-size: 12px;
-          opacity: .65;
-        }
-
-        .cart-overlay {
-          align-items: stretch;
-          justify-content: flex-end;
-          padding: 0;
-        }
-
-        .cart-drawer {
-          width: min(470px,100%);
-          height: 100%;
-          background: #fff;
-          padding: 25px;
-          overflow-y: auto;
-        }
-
-        .cart-header {
-          display: flex;
-          justify-content: space-between;
-        }
-
-        .cart-item {
-          display: flex;
-          gap: 14px;
-          padding: 16px 0;
-          border-bottom: 1px solid rgba(0,0,0,.07);
-        }
-
-        .cart-item-image {
-          width: 80px;
-          height: 80px;
-          flex-shrink: 0;
-          border-radius: 14px;
-          overflow: hidden;
-          background: #f1f1f1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .cart-item-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .cart-item-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .cart-item-info h3 {
-          margin: 0 0 5px;
-          font-size: 14px;
-        }
-
-        .quantity-controls {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-top: 10px;
-        }
-
-        .quantity-controls button {
-          width: 30px;
-          height: 30px;
-          border: 1px solid #ddd;
-          background: #fff;
-          border-radius: 8px;
-        }
-
-        .remove-cart-item,
-        .clear-cart-button {
-          border: 0;
-          background: none;
-          font-size: 12px;
-          opacity: .55;
-        }
-
-        .cart-footer {
-          padding-top: 20px;
-        }
-
-        .cart-total {
-          display: flex;
-          justify-content: space-between;
-          font-size: 20px;
-          margin-bottom: 15px;
-        }
-
-        .location-loading {
-          font-size: 12px;
-          opacity: .55;
-        }
-
-        .field-label {
-          font-size: 12px;
-          font-weight: 700;
-          opacity: .65;
-          margin: 3px 0 -5px;
-        }
-
-        @media(max-width:768px) {
-          .header {
-            padding: 12px;
-            gap: 8px;
+            radial-gradient(circle at 70% 40%,rgba(124,58,237,.16),transparent 35%),
+            radial-gradient(circle at 90% 80%,rgba(37,99,235,.13),transparent 30%)
+        }
+        .hero-content{
+          max-width:720px
+        }
+        .eyebrow{
+          font-size:11px;
+          font-weight:800;
+          letter-spacing:2px;
+          opacity:.55;
+          margin:0 0 14px
+        }
+        .hero h1{
+          font-size:clamp(48px,7vw,88px);
+          line-height:.94;
+          letter-spacing:-5px;
+          margin:0 0 28px
+        }
+        .hero-text{
+          max-width:550px;
+          font-size:18px;
+          line-height:1.65;
+          opacity:.68;
+          margin-bottom:32px
+        }
+        .shop-button{
+          display:inline-block;
+          background:#111;
+          color:#fff;
+          text-decoration:none;
+          padding:15px 22px;
+          border-radius:999px;
+          font-weight:700
+        }
+        .section{
+          padding:90px 7%
+        }
+        .section h2{
+          margin:0 0 35px;
+          font-size:46px;
+          letter-spacing:-2.5px
+        }
+        .category-grid{
+          display:grid;
+          grid-template-columns:repeat(6,1fr);
+          gap:12px
+        }
+        .category-card{
+          min-height:150px;
+          display:flex;
+          flex-direction:column;
+          justify-content:space-between;
+          padding:20px;
+          text-decoration:none;
+          color:inherit;
+          background:rgba(255,255,255,.8);
+          border:1px solid rgba(0,0,0,.06);
+          border-radius:22px
+        }
+        .category-card span{
+          font-size:30px
+        }
+        .category-card strong{
+          font-size:14px
+        }
+        .product-grid{
+          display:grid;
+          grid-template-columns:repeat(4,minmax(0,1fr));
+          gap:18px
+        }
+        .product-card{
+          background:#fff;
+          border:1px solid rgba(0,0,0,.06);
+          border-radius:24px;
+          overflow:hidden;
+          box-shadow:0 10px 35px rgba(0,0,0,.04)
+        }
+        .product-image{
+          height:270px;
+          background:#f0f0f2;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          overflow:hidden
+        }
+        .product-image img{
+          width:100%;
+          height:100%;
+          object-fit:cover
+        }
+        .product-info{
+          padding:18px
+        }
+        .product-category{
+          font-size:10px;
+          font-weight:800;
+          text-transform:uppercase;
+          letter-spacing:1px;
+          opacity:.45
+        }
+        .product-info h3{
+          margin:0 0 10px;
+          font-size:17px
+        }
+        .price{
+          font-size:20px;
+          font-weight:800;
+          margin:14px 0
+        }
+        .add-button,.modal-action,.checkout-button{
+          width:100%;
+          border:0;
+          border-radius:13px;
+          background:#111;
+          color:#fff;
+          padding:13px;
+          font-weight:700
+        }
+        .add-button:disabled,.modal-action:disabled{
+          opacity:.5
+        }
+        .trust-section{
+          display:grid;
+          grid-template-columns:repeat(3,1fr);
+          gap:20px;
+          padding:50px 7%;
+          background:#111;
+          color:#fff
+        }
+        .trust-section>div{
+          padding:25px;
+          border-radius:20px;
+          background:rgba(255,255,255,.05)
+        }
+        .trust-section span{
+          font-size:28px
+        }
+        .trust-section p{
+          opacity:.6
+        }
+        footer{
+          padding:60px 7%;
+          background:#090909;
+          color:#fff;
+          display:flex;
+          justify-content:space-between;
+          gap:30px;
+          flex-wrap:wrap
+        }
+        .social-links{
+          display:flex;
+          gap:10px;
+          margin-top:20px
+        }
+        .social-button{
+          display:inline-block;
+          border:1px solid rgba(255,255,255,.15);
+          background:rgba(255,255,255,.06);
+          color:#fff;
+          padding:10px 13px;
+          border-radius:999px;
+          text-decoration:none
+        }
+        .whatsapp-floating{
+          position:fixed;
+          right:22px;
+          bottom:22px;
+          z-index:950;
+          width:58px;
+          height:58px;
+          border:0;
+          border-radius:50%;
+          background:#111;
+          color:#fff;
+          box-shadow:0 12px 30px rgba(0,0,0,.2);
+          font-size:22px
+        }
+        .modal-backdrop,.cart-overlay{
+          position:fixed;
+          inset:0;
+          z-index:2000;
+          background:rgba(0,0,0,.55);
+          backdrop-filter:blur(8px);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          padding:18px
+        }
+        .account-modal{
+          position:relative;
+          width:min(620px,100%);
+          max-height:92vh;
+          overflow-y:auto;
+          background:#fff;
+          border-radius:28px;
+          padding:30px;
+          box-shadow:0 30px 100px rgba(0,0,0,.3)
+        }
+        .modal-close{
+          position:absolute;
+          right:18px;
+          top:18px;
+          width:36px;
+          height:36px;
+          border:0;
+          border-radius:50%;
+          background:#eee;
+          font-size:24px
+        }
+        .auth-form{
+          display:grid;
+          gap:12px
+        }
+        .auth-form input,.auth-form select,.auth-form textarea{
+          width:100%;
+          padding:14px 15px;
+          border:1px solid rgba(0,0,0,.12);
+          border-radius:13px;
+          background:#fafafa;
+          outline:none
+        }
+        .auth-form input:focus,.auth-form select:focus,.auth-form textarea:focus{
+          border-color:#111;
+          background:#fff
+        }
+        .modal-secondary{
+          width:100%;
+          border:1px solid rgba(0,0,0,.1);
+          background:#fff;
+          color:#111;
+          padding:13px;
+          border-radius:13px;
+          font-weight:700
+        }
+        .auth-message{
+          padding:12px;
+          border-radius:12px;
+          background:rgba(124,58,237,.08);
+          font-size:13px;
+          line-height:1.5
+        }
+        .auth-divider{
+          display:flex;
+          align-items:center;
+          gap:12px;
+          margin:18px 0;
+          font-size:12px;
+          opacity:.5
+        }
+        .auth-divider:before,.auth-divider:after{
+          content:"";
+          height:1px;
+          flex:1;
+          background:currentColor
+        }
+        .social-auth-buttons{
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px
+        }
+        .social-auth-button{
+          border:1px solid rgba(0,0,0,.1);
+          background:#fff;
+          border-radius:13px;
+          padding:13px;
+          font-weight:700
+        }
+        .forgot-password{
+          border:0;
+          background:none;
+          text-align:right;
+          font-size:12px;
+          opacity:.65
+        }
+        .cart-overlay{
+          align-items:stretch;
+          justify-content:flex-end;
+          padding:0
+        }
+        .cart-drawer{
+          width:min(470px,100%);
+          height:100%;
+          background:#fff;
+          padding:25px;
+          overflow-y:auto
+        }
+        .cart-header{
+          display:flex;
+          justify-content:space-between
+        }
+        .cart-item{
+          display:flex;
+          gap:14px;
+          padding:16px 0;
+          border-bottom:1px solid rgba(0,0,0,.07)
+        }
+        .cart-item-image{
+          width:80px;
+          height:80px;
+          flex-shrink:0;
+          border-radius:14px;
+          overflow:hidden;
+          background:#f1f1f1;
+          display:flex;
+          align-items:center;
+          justify-content:center
+        }
+        .cart-item-image img{
+          width:100%;
+          height:100%;
+          object-fit:cover
+        }
+        .cart-item-info{
+          flex:1;
+          min-width:0
+        }
+        .cart-item-info h3{
+          margin:0 0 5px;
+          font-size:14px
+        }
+        .quantity-controls{
+          display:flex;
+          align-items:center;
+          gap:10px;
+          margin-top:10px
+        }
+        .quantity-controls button{
+          width:30px;
+          height:30px;
+          border:1px solid #ddd;
+          background:#fff;
+          border-radius:8px
+        }
+        .remove-cart-item,.clear-cart-button{
+          border:0;
+          background:none;
+          font-size:12px;
+          opacity:.55
+        }
+        .cart-footer{
+          padding-top:20px
+        }
+        .cart-total{
+          display:flex;
+          justify-content:space-between;
+          font-size:20px;
+          margin-bottom:15px
+        }
+        .location-loading{
+          font-size:12px;
+          opacity:.55
+        }
+        .field-label{
+          font-size:12px;
+          font-weight:700;
+          opacity:.65;
+          margin:3px 0 -5px
+        }
+
+        @media(max-width:768px){
+          .header{
+            padding:12px;
+            gap:8px
           }
-
-          .logo {
-            font-size: 17px;
+          .logo{
+            font-size:17px
           }
-
-          .nav {
-            display: none;
+          .nav{
+            display:none
           }
-
-          .header-actions {
-            margin-left: auto;
-            gap: 5px;
+          .header-actions{
+            margin-left:auto;
+            gap:5px
           }
-
-          .account-button,
-          .cart-button {
-            padding: 9px 10px;
-            font-size: 11px;
+          .account-button,.cart-button{
+            padding:9px 10px;
+            font-size:11px
           }
-
-          .hero {
-            min-height: 550px;
-            padding: 65px 20px;
+          .hero{
+            min-height:550px;
+            padding:65px 20px
           }
-
-          .hero h1 {
-            font-size: clamp(42px,13vw,62px);
-            letter-spacing: -3px;
+          .hero h1{
+            font-size:clamp(42px,13vw,62px);
+            letter-spacing:-3px
           }
-
-          .hero-text {
-            font-size: 15px;
+          .hero-text{
+            font-size:15px
           }
-
-          .section {
-            padding: 55px 16px;
+          .section{
+            padding:55px 16px
           }
-
-          .section h2 {
-            font-size: 32px;
+          .section h2{
+            font-size:32px
           }
-
-          .category-grid {
-            grid-template-columns: repeat(2,1fr);
+          .category-grid{
+            grid-template-columns:repeat(2,1fr)
           }
-
-          .product-grid {
-            grid-template-columns: repeat(2,minmax(0,1fr));
-            gap: 10px;
+          .product-grid{
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            gap:10px
           }
-
-          .product-image {
-            height: 170px;
+          .product-image{
+            height:170px
           }
-
-          .product-info {
-            padding: 13px;
+          .product-info{
+            padding:13px
           }
-
-          .product-info h3 {
-            font-size: 14px;
+          .product-info h3{
+            font-size:14px
           }
-
-          .price {
-            font-size: 16px;
+          .price{
+            font-size:16px
           }
-
-          .add-button {
-            font-size: 12px;
-            padding: 10px 7px;
+          .add-button{
+            font-size:12px;
+            padding:10px 7px
           }
-
-          .trust-section {
-            grid-template-columns: 1fr;
-            padding: 35px 16px;
+          .trust-section{
+            grid-template-columns:1fr;
+            padding:35px 16px
           }
-
-          footer {
-            padding: 40px 16px;
+          footer{
+            padding:40px 16px
           }
-
-          .account-modal {
-            width: calc(100% - 16px);
-            padding: 23px 17px;
-            border-radius: 22px;
+          .account-modal{
+            width:calc(100% - 16px);
+            padding:23px 17px;
+            border-radius:22px
           }
-
-          .social-auth-buttons {
-            grid-template-columns: 1fr;
+          .social-auth-buttons{
+            grid-template-columns:1fr
           }
-
-          .cart-drawer {
-            width: 100%;
-            border-radius: 22px 22px 0 0;
+          .cart-drawer{
+            width:100%;
+            border-radius:22px 22px 0 0
           }
-
-          .cart-overlay {
-            align-items: flex-end;
-          }
-
-          .product-details-modal {
-            width: calc(100% - 10px);
-            max-height: 94vh;
-            padding: 12px;
-            border-radius: 24px;
-          }
-
-          .product-details-grid {
-            grid-template-columns: 1fr;
-            gap: 8px;
-          }
-
-          .product-details-image {
-            min-height: 280px;
-            max-height: 350px;
-          }
-
-          .product-details-image img {
-            height: 350px;
-          }
-
-          .product-details-info {
-            padding: 15px 8px 10px;
-          }
-
-          .product-details-info h2 {
-            font-size: 34px;
-            padding-right: 30px;
-          }
-
-          .product-details-price {
-            font-size: 24px;
+          .cart-overlay{
+            align-items:flex-end
           }
         }
 
-        @media(max-width:380px) {
-          .product-grid {
-            grid-template-columns: 1fr;
+        @media(max-width:380px){
+          .product-grid{
+            grid-template-columns:1fr
           }
-
-          .product-image {
-            height: 220px;
+          .product-image{
+            height:220px
           }
         }
       `}</style>
@@ -1841,7 +1575,7 @@ function App() {
 
       <div className="announcement-bar">
         <div className="announcement-track">
-          {[1, 2].map((group) => (
+          {[1,2].map((group) => (
             <div
               className="announcement-group"
               key={group}
@@ -1849,11 +1583,9 @@ function App() {
               <span>
                 ✨ Premium phone accessories, are screaming here!!! ✨
               </span>
-
               <span>
                 📱 Premium phone accessories, are screaming here!!! 📱
               </span>
-
               <span>
                 ⚡ Premium phone accessories, are screaming here!!! ⚡
               </span>
@@ -1910,14 +1642,12 @@ function App() {
             </h1>
 
             <p className="hero-text">
-              Phones, accessories, chargers, audio products,
-              power banks and everyday gadgets.
+              Phones, accessories, chargers, audio
+              products, power banks and everyday
+              gadgets.
             </p>
 
-            <a
-              href="#shop"
-              className="shop-button"
-            >
+            <a href="#shop" className="shop-button">
               Shop now →
             </a>
           </div>
@@ -1929,13 +1659,9 @@ function App() {
           className="section"
           id="categories"
         >
-          <p className="eyebrow">
-            EXPLORE
-          </p>
+          <p className="eyebrow">EXPLORE</p>
 
-          <h2>
-            Shop by category
-          </h2>
+          <h2>Shop by category</h2>
 
           <div className="category-grid">
             {[
@@ -1968,15 +1694,13 @@ function App() {
             SHINDARA STORE
           </p>
 
-          <h2>
-            Popular picks
-          </h2>
+          <h2>Popular picks</h2>
 
           {productsLoading ? (
             <div
               style={{
-                padding: 50,
-                textAlign: "center",
+                padding:50,
+                textAlign:"center"
               }}
             >
               Loading products...
@@ -1984,8 +1708,8 @@ function App() {
           ) : productsError ? (
             <div
               style={{
-                padding: 50,
-                textAlign: "center",
+                padding:50,
+                textAlign:"center"
               }}
             >
               <p>{productsError}</p>
@@ -2000,8 +1724,8 @@ function App() {
           ) : products.length === 0 ? (
             <div
               style={{
-                padding: 50,
-                textAlign: "center",
+                padding:50,
+                textAlign:"center"
               }}
             >
               Products are coming soon.
@@ -2012,9 +1736,6 @@ function App() {
                 <article
                   className="product-card"
                   key={product.id}
-                  onClick={() =>
-                    openProduct(product)
-                  }
                 >
                   <div className="product-image">
                     {product.image_url ? (
@@ -2025,7 +1746,7 @@ function App() {
                     ) : (
                       <span
                         style={{
-                          fontSize: 45,
+                          fontSize:45
                         }}
                       >
                         📦
@@ -2039,15 +1760,13 @@ function App() {
                         "Electronics"}
                     </p>
 
-                    <h3>
-                      {product.name}
-                    </h3>
+                    <h3>{product.name}</h3>
 
                     {product.description && (
                       <p
                         style={{
-                          opacity: 0.65,
-                          fontSize: 13,
+                          opacity:.65,
+                          fontSize:13
                         }}
                       >
                         {product.description}
@@ -2062,10 +1781,9 @@ function App() {
                     0 ? (
                       <button
                         className="add-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(product);
-                        }}
+                        onClick={() =>
+                          addToCart(product)
+                        }
                       >
                         Add to cart
                       </button>
@@ -2073,9 +1791,6 @@ function App() {
                       <button
                         className="add-button"
                         disabled
-                        onClick={(e) =>
-                          e.stopPropagation()
-                        }
                       >
                         Out of stock
                       </button>
@@ -2087,12 +1802,12 @@ function App() {
           )}
         </section>
 
+        {/* TRUST */}
+
         <section className="trust-section">
           <div>
             <span>🚚</span>
-            <h3>
-              Reliable delivery
-            </h3>
+            <h3>Reliable delivery</h3>
             <p>
               Get your order delivered safely.
             </p>
@@ -2100,9 +1815,7 @@ function App() {
 
           <div>
             <span>🔒</span>
-            <h3>
-              Secure shopping
-            </h3>
+            <h3>Secure shopping</h3>
             <p>
               Shop with confidence.
             </p>
@@ -2110,9 +1823,7 @@ function App() {
 
           <div>
             <span>💬</span>
-            <h3>
-              Customer support
-            </h3>
+            <h3>Customer support</h3>
             <p>
               We're here whenever you need us.
             </p>
@@ -2165,139 +1876,6 @@ function App() {
         💬
       </button>
 
-      {/* PRODUCT DETAILS */}
-
-      {selectedProduct && (
-        <div
-          className="modal-backdrop"
-          onClick={closeProduct}
-        >
-          <div
-            className="product-details-modal"
-            onClick={(e) =>
-              e.stopPropagation()
-            }
-          >
-            <button
-              className="modal-close"
-              onClick={closeProduct}
-            >
-              ×
-            </button>
-
-            <div className="product-details-grid">
-              <div className="product-details-image">
-                {selectedProduct.image_url ? (
-                  <img
-                    src={
-                      selectedProduct.image_url
-                    }
-                    alt={
-                      selectedProduct.name
-                    }
-                  />
-                ) : (
-                  <span
-                    style={{
-                      fontSize: 90,
-                    }}
-                  >
-                    📦
-                  </span>
-                )}
-              </div>
-
-              <div className="product-details-info">
-                <div className="product-details-category">
-                  {selectedProduct.category ||
-                    "Electronics"}
-                </div>
-
-                <h2>
-                  {selectedProduct.name}
-                </h2>
-
-                <p className="product-details-price">
-                  {money(
-                    selectedProduct.price
-                  )}
-                </p>
-
-                {Number(
-                  selectedProduct.stock || 0
-                ) > 0 ? (
-                  <div className="stock-status">
-                    ✓ In stock
-                  </div>
-                ) : (
-                  <div className="stock-status out">
-                    Out of stock
-                  </div>
-                )}
-
-                <p className="product-details-description">
-                  {selectedProduct.description ||
-                    "A quality product from Shindara Phoneflair. Add this item to your cart and continue shopping."}
-                </p>
-
-                {Number(
-                  selectedProduct.stock || 0
-                ) > 0 && (
-                  <>
-                    <div className="product-quantity">
-                      <button
-                        type="button"
-                        onClick={
-                          decreaseProductQuantity
-                        }
-                      >
-                        −
-                      </button>
-
-                      <strong>
-                        {productQuantity}
-                      </strong>
-
-                      <button
-                        type="button"
-                        onClick={
-                          increaseProductQuantity
-                        }
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <button
-                      className="modal-action"
-                      onClick={
-                        addSelectedProductToCart
-                      }
-                    >
-                      Add {productQuantity}{" "}
-                      {productQuantity === 1
-                        ? "item"
-                        : "items"}{" "}
-                      to cart
-                    </button>
-                  </>
-                )}
-
-                <button
-                  className="modal-secondary"
-                  style={{
-                    marginTop: 10,
-                  }}
-                  onClick={closeProduct}
-                >
-                  Continue shopping
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* CART */}
 
       {cartOpen && (
@@ -2319,9 +1897,7 @@ function App() {
                   SHINDARA
                 </p>
 
-                <h2>
-                  Your Cart
-                </h2>
+                <h2>Your Cart</h2>
               </div>
 
               <button
@@ -2337,13 +1913,13 @@ function App() {
             {!cart.length ? (
               <div
                 style={{
-                  textAlign: "center",
-                  padding: 60,
+                  textAlign:"center",
+                  padding:60
                 }}
               >
                 <div
                   style={{
-                    fontSize: 55,
+                    fontSize:55
                   }}
                 >
                   🛒
@@ -2354,8 +1930,7 @@ function App() {
                 </h3>
 
                 <p>
-                  Add something you love from
-                  our store.
+                  Add something you love from our store.
                 </p>
 
                 <button
@@ -2377,9 +1952,7 @@ function App() {
                     <div className="cart-item-image">
                       {item.image_url ? (
                         <img
-                          src={
-                            item.image_url
-                          }
+                          src={item.image_url}
                           alt={item.name}
                         />
                       ) : (
@@ -2438,9 +2011,7 @@ function App() {
 
                 <div className="cart-footer">
                   <div className="cart-total">
-                    <span>
-                      Total
-                    </span>
+                    <span>Total</span>
 
                     <strong>
                       {money(cartTotal)}
@@ -2449,18 +2020,14 @@ function App() {
 
                   <button
                     className="checkout-button"
-                    onClick={
-                      openCheckout
-                    }
+                    onClick={openCheckout}
                   >
                     Continue to checkout →
                   </button>
 
                   <button
                     className="clear-cart-button"
-                    onClick={
-                      clearCart
-                    }
+                    onClick={clearCart}
                   >
                     Clear cart
                   </button>
@@ -2500,13 +2067,13 @@ function App() {
             {orderSuccess ? (
               <div
                 style={{
-                  textAlign: "center",
-                  padding: 25,
+                  textAlign:"center",
+                  padding:25
                 }}
               >
                 <div
                   style={{
-                    fontSize: 60,
+                    fontSize:60
                   }}
                 >
                   ✅
@@ -2527,9 +2094,7 @@ function App() {
                 <button
                   className="modal-action"
                   onClick={() =>
-                    setCheckoutOpen(
-                      false
-                    )
+                    setCheckoutOpen(false)
                   }
                 >
                   Continue shopping
@@ -2547,16 +2112,12 @@ function App() {
 
                 <form
                   className="auth-form"
-                  onSubmit={
-                    placeOrder
-                  }
+                  onSubmit={placeOrder}
                 >
                   <input
                     type="text"
                     placeholder="Full name"
-                    value={
-                      customerName
-                    }
+                    value={customerName}
                     onChange={(e) =>
                       setCustomerName(
                         e.target.value
@@ -2568,9 +2129,7 @@ function App() {
                   <input
                     type="tel"
                     placeholder="Phone number"
-                    value={
-                      customerPhone
-                    }
+                    value={customerPhone}
                     onChange={(e) =>
                       setCustomerPhone(
                         e.target.value
@@ -2581,9 +2140,7 @@ function App() {
 
                   <textarea
                     placeholder="Delivery address"
-                    value={
-                      deliveryAddress
-                    }
+                    value={deliveryAddress}
                     onChange={(e) =>
                       setDeliveryAddress(
                         e.target.value
@@ -2603,9 +2160,7 @@ function App() {
                     </div>
                   ) : (
                     <select
-                      value={
-                        deliveryState
-                      }
+                      value={deliveryState}
                       onChange={(e) =>
                         handleStateChange(
                           e.target.value
@@ -2617,16 +2172,14 @@ function App() {
                         Select state
                       </option>
 
-                      {states.map(
-                        (state) => (
-                          <option
-                            key={state}
-                            value={state}
-                          >
-                            {state}
-                          </option>
-                        )
-                      )}
+                      {states.map((state) => (
+                        <option
+                          key={state}
+                          value={state}
+                        >
+                          {state}
+                        </option>
+                      ))}
                     </select>
                   )}
 
@@ -2635,9 +2188,7 @@ function App() {
                   </label>
 
                   <select
-                    value={
-                      deliveryCity
-                    }
+                    value={deliveryCity}
                     onChange={(e) =>
                       setDeliveryCity(
                         e.target.value
@@ -2655,16 +2206,14 @@ function App() {
                         : "Select city / LGA"}
                     </option>
 
-                    {cities.map(
-                      (city) => (
-                        <option
-                          key={city}
-                          value={city}
-                        >
-                          {city}
-                        </option>
-                      )
-                    )}
+                    {cities.map((city) => (
+                      <option
+                        key={city}
+                        value={city}
+                      >
+                        {city}
+                      </option>
+                    ))}
                   </select>
 
                   {locationsError && (
@@ -2675,11 +2224,9 @@ function App() {
 
                   <div
                     style={{
-                      display: "flex",
-                      justifyContent:
-                        "space-between",
-                      padding:
-                        "15px 0",
+                      display:"flex",
+                      justifyContent:"space-between",
+                      padding:"15px 0"
                     }}
                   >
                     <strong>
@@ -2700,9 +2247,7 @@ function App() {
                   <button
                     className="modal-action"
                     type="submit"
-                    disabled={
-                      orderLoading
-                    }
+                    disabled={orderLoading}
                   >
                     {orderLoading
                       ? "Opening Paystack..."
@@ -2759,34 +2304,23 @@ function App() {
 
                 <div
                   style={{
-                    display: "grid",
+                    display:"grid",
                     gridTemplateColumns:
                       "repeat(3,1fr)",
-                    gap: 8,
-                    margin:
-                      "25px 0",
+                    gap:8,
+                    margin:"25px 0"
                   }}
                 >
                   {[
-                    [
-                      "profile",
-                      "👤 Profile",
-                    ],
-                    [
-                      "orders",
-                      "📦 Orders",
-                    ],
-                    [
-                      "settings",
-                      "⚙️ Settings",
-                    ],
+                    ["profile","👤 Profile"],
+                    ["orders","📦 Orders"],
+                    ["settings","⚙️ Settings"]
                   ].map(
-                    ([tab, label]) => (
+                    ([tab,label]) => (
                       <button
                         key={tab}
                         className={
-                          accountTab ===
-                          tab
+                          accountTab === tab
                             ? "modal-action"
                             : "modal-secondary"
                         }
@@ -2828,18 +2362,15 @@ function App() {
                   <div>
                     <div
                       style={{
-                        padding: 20,
-                        borderRadius:
-                          18,
+                        padding:20,
+                        borderRadius:18,
                         background:
                           "rgba(128,128,128,.08)",
-                        marginBottom:
-                          15,
+                        marginBottom:15
                       }}
                     >
                       <p className="eyebrow">
-                        PERSONAL
-                        INFORMATION
+                        PERSONAL INFORMATION
                       </p>
 
                       <h3>
@@ -2848,8 +2379,7 @@ function App() {
                       </h3>
 
                       <p>
-                        📧{" "}
-                        {user.email}
+                        📧 {user.email}
                       </p>
 
                       <p>
@@ -2888,9 +2418,8 @@ function App() {
                     {ordersLoading ? (
                       <div
                         style={{
-                          padding: 35,
-                          textAlign:
-                            "center",
+                          padding:35,
+                          textAlign:"center"
                         }}
                       >
                         Loading your orders...
@@ -2913,14 +2442,13 @@ function App() {
                     ) : !orders.length ? (
                       <div
                         style={{
-                          textAlign:
-                            "center",
-                          padding: 35,
+                          textAlign:"center",
+                          padding:35
                         }}
                       >
                         <div
                           style={{
-                            fontSize: 50,
+                            fontSize:50
                           }}
                         >
                           📦
@@ -2932,25 +2460,21 @@ function App() {
 
                         <p>
                           Your completed
-                          orders will
-                          appear here.
+                          orders will appear
+                          here.
                         </p>
                       </div>
                     ) : (
                       orders.map(
                         (order) => (
                           <div
-                            key={
-                              order.id
-                            }
+                            key={order.id}
                             style={{
-                              padding: 18,
+                              padding:18,
                               border:
                                 "1px solid rgba(128,128,128,.2)",
-                              borderRadius:
-                                18,
-                              marginBottom:
-                                12,
+                              borderRadius:18,
+                              marginBottom:12
                             }}
                           >
                             <strong>
@@ -2967,10 +2491,8 @@ function App() {
 
                             <p
                               style={{
-                                opacity:
-                                  0.6,
-                                fontSize:
-                                  13,
+                                opacity:.6,
+                                fontSize:13
                               }}
                             >
                               {formatDate(
@@ -2980,12 +2502,11 @@ function App() {
 
                             <div
                               style={{
-                                display:
-                                  "flex",
+                                display:"flex",
                                 justifyContent:
                                   "space-between",
                                 alignItems:
-                                  "center",
+                                  "center"
                               }}
                             >
                               <strong>
@@ -2997,8 +2518,7 @@ function App() {
                               <button
                                 className="modal-secondary"
                                 style={{
-                                  width:
-                                    "auto",
+                                  width:"auto"
                                 }}
                                 onClick={() =>
                                   setExpandedOrder(
@@ -3029,68 +2549,59 @@ function App() {
                               order.id && (
                               <div
                                 style={{
-                                  marginTop:
-                                    15,
-                                  paddingTop:
-                                    15,
+                                  marginTop:15,
+                                  paddingTop:15,
                                   borderTop:
-                                    "1px solid rgba(128,128,128,.15)",
+                                    "1px solid rgba(128,128,128,.15)"
                                 }}
                               >
-                                {order
-                                  .order_items
-                                  ?.map(
-                                    (
-                                      item
-                                    ) => (
-                                      <div
-                                        key={
-                                          item.id
-                                        }
-                                        style={{
-                                          display:
-                                            "flex",
-                                          justifyContent:
-                                            "space-between",
-                                          padding:
-                                            "8px 0",
-                                        }}
-                                      >
-                                        <div>
-                                          <strong>
-                                            {
-                                              item.product_name
-                                            }
-                                          </strong>
-
-                                          <div
-                                            style={{
-                                              opacity:
-                                                0.6,
-                                              fontSize:
-                                                13,
-                                            }}
-                                          >
-                                            Qty:{" "}
-                                            {
-                                              item.quantity
-                                            }
-                                          </div>
-                                        </div>
-
+                                {order.order_items?.map(
+                                  (item) => (
+                                    <div
+                                      key={
+                                        item.id
+                                      }
+                                      style={{
+                                        display:"flex",
+                                        justifyContent:
+                                          "space-between",
+                                        padding:
+                                          "8px 0"
+                                      }}
+                                    >
+                                      <div>
                                         <strong>
-                                          {money(
-                                            Number(
-                                              item.price
-                                            ) *
-                                              Number(
-                                                item.quantity
-                                              )
-                                          )}
+                                          {
+                                            item.product_name
+                                          }
                                         </strong>
+
+                                        <div
+                                          style={{
+                                            opacity:.6,
+                                            fontSize:13
+                                          }}
+                                        >
+                                          Qty:{" "}
+                                          {
+                                            item.quantity
+                                          }
+                                        </div>
                                       </div>
-                                    )
-                                  )}
+
+                                      <strong>
+                                        {money(
+                                          Number(
+                                            item.price
+                                          ) *
+                                            Number(
+                                              item.quantity
+                                            )
+                                        )}
+                                      </strong>
+                                    </div>
+                                  )
+                                )}
                               </div>
                             )}
                           </div>
@@ -3127,8 +2638,7 @@ function App() {
                         }
                         onChange={(e) =>
                           setProfileName(
-                            e.target
-                              .value
+                            e.target.value
                           )
                         }
                         required
@@ -3142,8 +2652,7 @@ function App() {
                         }
                         onChange={(e) =>
                           setProfilePhone(
-                            e.target
-                              .value
+                            e.target.value
                           )
                         }
                         required
@@ -3179,11 +2688,10 @@ function App() {
 
                     <div
                       style={{
-                        marginTop: 30,
-                        paddingTop:
-                          25,
+                        marginTop:30,
+                        paddingTop:25,
                         borderTop:
-                          "1px solid rgba(128,128,128,.15)",
+                          "1px solid rgba(128,128,128,.15)"
                       }}
                     >
                       <p className="eyebrow">
@@ -3208,13 +2716,10 @@ function App() {
                           }
                           onChange={(e) =>
                             setNewPassword(
-                              e.target
-                                .value
+                              e.target.value
                             )
                           }
-                          minLength={
-                            6
-                          }
+                          minLength={6}
                           required
                         />
 
@@ -3243,11 +2748,9 @@ function App() {
                     <button
                       className="modal-secondary"
                       style={{
-                        marginTop: 25,
+                        marginTop:25
                       }}
-                      onClick={
-                        logout
-                      }
+                      onClick={logout}
                     >
                       🚪 Log out
                     </button>
@@ -3269,9 +2772,7 @@ function App() {
 
                 <form
                   className="auth-form"
-                  onSubmit={
-                    handleAuth
-                  }
+                  onSubmit={handleAuth}
                 >
                   {authMode ===
                     "signup" && (
@@ -3284,8 +2785,7 @@ function App() {
                         }
                         onChange={(e) =>
                           setFullName(
-                            e.target
-                              .value
+                            e.target.value
                           )
                         }
                         required
@@ -3299,8 +2799,7 @@ function App() {
                         }
                         onChange={(e) =>
                           setPhone(
-                            e.target
-                              .value
+                            e.target.value
                           )
                         }
                         required
@@ -3311,13 +2810,10 @@ function App() {
                   <input
                     type="email"
                     placeholder="Email address"
-                    value={
-                      email
-                    }
+                    value={email}
                     onChange={(e) =>
                       setEmail(
-                        e.target
-                          .value
+                        e.target.value
                       )
                     }
                     required
@@ -3331,13 +2827,10 @@ function App() {
                     }
                     onChange={(e) =>
                       setPassword(
-                        e.target
-                          .value
+                        e.target.value
                       )
                     }
-                    minLength={
-                      6
-                    }
+                    minLength={6}
                     required
                   />
 
@@ -3350,11 +2843,9 @@ function App() {
                         setForgotPassword(
                           true
                         );
-
                         setResetEmail(
                           email
                         );
-
                         setResetMessage(
                           ""
                         );
@@ -3391,8 +2882,7 @@ function App() {
                   <>
                     <div className="auth-divider">
                       <span>
-                        or continue
-                        with
+                        or continue with
                       </span>
                     </div>
 
@@ -3425,7 +2915,7 @@ function App() {
                 <button
                   className="modal-secondary"
                   style={{
-                    marginTop: 12,
+                    marginTop:12
                   }}
                   onClick={() => {
                     setAuthMessage("");
@@ -3455,9 +2945,7 @@ function App() {
         <div
           className="modal-backdrop"
           onClick={() =>
-            setForgotPassword(
-              false
-            )
+            setForgotPassword(false)
           }
         >
           <div
@@ -3469,9 +2957,7 @@ function App() {
             <button
               className="modal-close"
               onClick={() =>
-                setForgotPassword(
-                  false
-                )
+                setForgotPassword(false)
               }
             >
               ×
@@ -3487,11 +2973,12 @@ function App() {
 
             <p
               style={{
-                opacity: 0.65,
+                opacity:.65
               }}
             >
-              Enter your email and we'll
-              send you a password reset link.
+              Enter your email and
+              we'll send you a password
+              reset link.
             </p>
 
             <form
@@ -3508,8 +2995,7 @@ function App() {
                 }
                 onChange={(e) =>
                   setResetEmail(
-                    e.target
-                      .value
+                    e.target.value
                   )
                 }
                 required
