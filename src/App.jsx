@@ -639,13 +639,18 @@ function App() {
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+  await supabase.auth.signOut();
 
-    setUser(null);
-    setProfile(null);
-    setOrders([]);
-    setAccountOpen(false);
-  }
+  setUser(null);
+  setProfile(null);
+  setOrders([]);
+
+  // Clear cart when customer logs out
+  setCart([]);
+  localStorage.removeItem("shindara_cart");
+
+  setAccountOpen(false);
+}
 
   /* =========================
      CART FUNCTIONS
