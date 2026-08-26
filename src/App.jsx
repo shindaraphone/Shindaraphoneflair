@@ -50,7 +50,6 @@ function App() {
      CART
   ========================= */
 
-  /* CART */
 async function loadCart() {
   if (!user) {
     setCart([]);
@@ -67,7 +66,7 @@ async function loadCart() {
           id,
           name,
           price,
-          image_url,
+          image,
           category,
           description,
           stock
@@ -80,6 +79,7 @@ async function loadCart() {
       .filter((item) => item.products)
       .map((item) => ({
         ...item.products,
+        image_url: item.products.image,
         cart_item_id: item.id,
         quantity: Number(item.quantity || 1),
       }));
@@ -138,7 +138,9 @@ async function addToCart(product) {
 }
 async function increaseQuantity(id) {
   if (!user) return;
-  const item = cart.find((product) => product.id === id);
+  const item = cart.find(
+    (product) => product.id === id
+  );
   if (!item) return;
   try {
     const { error } = await supabase
@@ -156,7 +158,9 @@ async function increaseQuantity(id) {
 }
 async function decreaseQuantity(id) {
   if (!user) return;
-  const item = cart.find((product) => product.id === id);
+  const item = cart.find(
+    (product) => product.id === id
+  );
   if (!item) return;
   try {
     const newQuantity = Number(item.quantity) - 1;
@@ -184,7 +188,9 @@ async function decreaseQuantity(id) {
 }
 async function removeFromCart(id) {
   if (!user) return;
-  const item = cart.find((product) => product.id === id);
+  const item = cart.find(
+    (product) => product.id === id
+  );
   if (!item) return;
   try {
     const { error } = await supabase
@@ -212,7 +218,8 @@ async function clearCart() {
   }
 }
 const cartCount = cart.reduce(
-  (total, item) => total + Number(item.quantity || 0),
+  (total, item) =>
+    total + Number(item.quantity || 0),
   0
 );
 const cartTotal = cart.reduce(
