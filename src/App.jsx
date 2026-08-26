@@ -1,15 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const WHATSAPP = "2348118294548";
-
-const TIKTOK =
-  "https://www.tiktok.com/@shindara.communication";
+const TIKTOK = "https://www.tiktok.com/@shindara.communication";
 
 const PAYSTACK_PUBLIC_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
-const CART_STORAGE_KEY = "shindara_phoneflair_cart";
+const NIGERIA_DATA_URL =
+  "https://raw.githubusercontent.com/open-admin-data/nigeria-administrative-divisions/main/data/all-flat.json";
 
 function money(value) {
   return `₦${Number(value || 0).toLocaleString("en-NG")}`;
@@ -22,39 +21,33 @@ function loadPaystackScript() {
       return;
     }
 
-    const existingScript = document.querySelector(
+    const existing = document.querySelector(
       'script[src="https://js.paystack.co/v2/inline.js"]'
     );
 
-    if (existingScript) {
-      existingScript.addEventListener("load", () => {
-        if (window.PaystackPop) {
-          resolve(window.PaystackPop);
-        } else {
-          reject(new Error("Paystack could not be loaded."));
-        }
+    if (existing) {
+      existing.addEventListener("load", () => {
+        window.PaystackPop
+          ? resolve(window.PaystackPop)
+          : reject(new Error("Paystack could not be loaded."));
       });
 
-      existingScript.addEventListener("error", reject);
+      existing.addEventListener("error", reject);
       return;
     }
 
     const script = document.createElement("script");
-
     script.src = "https://js.paystack.co/v2/inline.js";
     script.async = true;
 
     script.onload = () => {
-      if (window.PaystackPop) {
-        resolve(window.PaystackPop);
-      } else {
-        reject(new Error("Paystack could not be loaded."));
-      }
+      window.PaystackPop
+        ? resolve(window.PaystackPop)
+        : reject(new Error("Paystack could not be loaded."));
     };
 
-    script.onerror = () => {
+    script.onerror = () =>
       reject(new Error("Unable to load Paystack."));
-    };
 
     document.body.appendChild(script);
   });
@@ -65,20 +58,7 @@ function App() {
      CART
   ========================= */
 
-  const [cart, setCart] = useState(() => {
-    try {
-      const saved = localStorage.getItem(CART_STORAGE_KEY);
-
-      if (!saved) return [];
-
-      const parsed = JSON.parse(saved);
-
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-
+  const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
   /* =========================
@@ -93,8 +73,133 @@ function App() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryState, setDeliveryState] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+
+  /* =========================
+     NIGERIA LOCATIONS
+  ========================= */
+
+  const [states, setStates] = useState([]);
+  const [lgas, setLgas] = useState([]);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [locationsError, setLocationsError] = useState("");
+
+  useEffect(() => {
+    loadNigeriaLocations();
+  }, []);
+
+  async function loadNigeriaLocations() {
+    try {
+      setLocationsLoading(true);
+      setLocationsError("");
+
+      const response = await fetch(NIGERIA_DATA_URL);
+
+      if (!response.ok) {
+        throw new Error("Unable to load Nigerian locations.");
+      }
+
+      const data = await response.json();
+
+      const records = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
+
+      const stateRecords = records.filter(
+        (item) => Number(item.level) === 1
+      );
+
+      const lgaRecords = records.filter(
+        (item) => Number(item.level) === 2
+      );
+
+      const stateList = stateRecords
+        .map((item) => ({
+          id: item.id,
+          name:
+            item?.name?.en ||
+            item?.name?.local ||
+            item.name ||
+            "",
+          slug: item?.name?.slug || "",
+        }))
+        .filter((item) => item.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      const lgaList = lgaRecords
+        .map((item) => ({
+          id: item.id,
+          name:
+            item?.name?.en ||
+            item?.name?.local ||
+            item.name ||
+            "",
+          parentId:
+            item?.parent?.id ||
+            item?.parent_id ||
+            null,
+          parentName:
+            item?.parent?.name?.en ||
+            item?.parent?.name?.local ||
+            "",
+        }))
+        .filter((item) => item.name);
+
+      setStates(stateList);
+      setLgas(lgaList);
+    } catch (error) {
+      console.error("Nigeria location error:", error);
+
+      setLocationsError(
+        "Unable to load Nigerian states and cities. Please refresh and try again."
+      );
+    } finally {
+      setLocationsLoading(false);
+    }
+  }
+
+  const selectedState = useMemo(() => {
+    return states.find(
+      (state) =>
+        state.name.toLowerCase() ===
+        deliveryState.toLowerCase()
+    );
+  }, [states, deliveryState]);
+
+  const availableCities = useMemo(() => {
+    if (!deliveryState) return [];
+
+    const state = states.find(
+      (item) =>
+        item.name.toLowerCase() ===
+        deliveryState.toLowerCase()
+    );
+
+    if (!state) return [];
+
+    const matching = lgas.filter((lga) => {
+      if (lga.parentId && state.id) {
+        return String(lga.parentId) === String(state.id);
+      }
+
+      return (
+        lga.parentName?.toLowerCase() ===
+        state.name.toLowerCase()
+      );
+    });
+
+    return matching.sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [deliveryState, states, lgas]);
+
+  function handleStateChange(event) {
+    setDeliveryState(event.target.value);
+    setDeliveryCity("");
+  }
 
   /* =========================
      ACCOUNT
@@ -131,7 +236,7 @@ function App() {
   const [resetLoading, setResetLoading] = useState(false);
 
   /* =========================
-     PROFILE SETTINGS
+     PROFILE
   ========================= */
 
   const [profileName, setProfileName] = useState("");
@@ -139,10 +244,6 @@ function App() {
 
   const [settingsMessage, setSettingsMessage] = useState("");
   const [settingsLoading, setSettingsLoading] = useState(false);
-
-  /* =========================
-     PASSWORD
-  ========================= */
 
   const [newPassword, setNewPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
@@ -166,22 +267,7 @@ function App() {
   const [productsError, setProductsError] = useState("");
 
   /* =========================
-     SAVE CART
-  ========================= */
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        CART_STORAGE_KEY,
-        JSON.stringify(cart)
-      );
-    } catch (error) {
-      console.error("Unable to save cart:", error);
-    }
-  }, [cart]);
-
-  /* =========================
-     INITIAL USER
+     USER
   ========================= */
 
   useEffect(() => {
@@ -192,7 +278,7 @@ function App() {
 
       if (!mounted) return;
 
-      const currentUser = data?.user ?? null;
+      const currentUser = data?.user || null;
 
       setUser(currentUser);
 
@@ -209,7 +295,7 @@ function App() {
       async (_event, session) => {
         if (!mounted) return;
 
-        const currentUser = session?.user ?? null;
+        const currentUser = session?.user || null;
 
         setUser(currentUser);
 
@@ -244,9 +330,7 @@ function App() {
           schema: "public",
           table: "products",
         },
-        () => {
-          loadProducts();
-        }
+        () => loadProducts()
       )
       .subscribe();
 
@@ -254,61 +338,6 @@ function App() {
       supabase.removeChannel(channel);
     };
   }, []);
-
-  /* =========================
-     CHECK CART AGAINST STOCK
-  ========================= */
-
-  useEffect(() => {
-    if (!products.length || !cart.length) return;
-
-    setCart((currentCart) => {
-      let changed = false;
-
-      const updated = currentCart
-        .map((item) => {
-          const latestProduct = products.find(
-            (product) => product.id === item.id
-          );
-
-          if (!latestProduct) {
-            changed = true;
-            return null;
-          }
-
-          const stock = Number(
-            latestProduct.stock || 0
-          );
-
-          if (stock <= 0) {
-            changed = true;
-            return null;
-          }
-
-          const currentQuantity = Number(
-            item.quantity || 1
-          );
-
-          const safeQuantity = Math.min(
-            currentQuantity,
-            stock
-          );
-
-          if (safeQuantity !== currentQuantity) {
-            changed = true;
-          }
-
-          return {
-            ...item,
-            ...latestProduct,
-            quantity: safeQuantity,
-          };
-        })
-        .filter(Boolean);
-
-      return changed ? updated : currentCart;
-    });
-  }, [products]);
 
   async function loadProducts() {
     setProductsLoading(true);
@@ -323,11 +352,9 @@ function App() {
 
     if (error) {
       console.error(error);
-
       setProductsError(
         "We couldn't load our products right now."
       );
-
       setProducts([]);
     } else {
       setProducts(data || []);
@@ -348,49 +375,18 @@ function App() {
       .maybeSingle();
 
     if (error) {
-      console.error(
-        "Profile loading error:",
-        error
-      );
+      console.error("Profile loading error:", error);
       return;
     }
 
     setProfile(data || null);
 
     if (data) {
-      setProfileName(
-        data.name ||
-          data.full_name ||
-          ""
-      );
+      setProfileName(data.name || "");
+      setProfilePhone(data.phone || "");
 
-      setProfilePhone(
-        data.phone ||
-          ""
-      );
-
-      setCustomerName(
-        data.name ||
-          data.full_name ||
-          ""
-      );
-
-      setCustomerPhone(
-        data.phone ||
-          ""
-      );
-
-      if (data.state) {
-        setDeliveryState(data.state);
-      }
-
-      if (data.city) {
-        setDeliveryCity(data.city);
-      }
-
-      if (data.address) {
-        setDeliveryAddress(data.address);
-      }
+      setCustomerName(data.name || "");
+      setCustomerPhone(data.phone || "");
     }
   }
 
@@ -423,15 +419,10 @@ function App() {
       });
 
     if (error) {
-      console.error(
-        "Orders loading error:",
-        error
-      );
-
+      console.error(error);
       setOrdersError(
         "We couldn't load your orders right now."
       );
-
       setOrders([]);
     } else {
       setOrders(data || []);
@@ -454,7 +445,7 @@ function App() {
   }
 
   /* =========================
-     SIGN UP / LOGIN
+     AUTH
   ========================= */
 
   async function handleAuth(event) {
@@ -470,23 +461,17 @@ function App() {
         const cleanPhone = phone.trim();
 
         if (!cleanName) {
-          setAuthMessage(
-            "Please enter your full name."
-          );
+          setAuthMessage("Please enter your full name.");
           return;
         }
 
         if (!cleanPhone) {
-          setAuthMessage(
-            "Please enter your phone number."
-          );
+          setAuthMessage("Please enter your phone number.");
           return;
         }
 
         if (!cleanEmail) {
-          setAuthMessage(
-            "Please enter your email address."
-          );
+          setAuthMessage("Please enter your email address.");
           return;
         }
 
@@ -519,10 +504,7 @@ function App() {
               });
 
           if (profileError) {
-            console.error(
-              "Profile save error:",
-              profileError
-            );
+            console.error(profileError);
           }
         }
 
@@ -569,13 +551,9 @@ function App() {
 
       setEmail("");
       setPassword("");
-      setAuthMessage("");
       setAccountOpen(false);
     } catch (error) {
-      console.error(
-        "Authentication error:",
-        error
-      );
+      console.error(error);
 
       setAuthMessage(
         error?.message ||
@@ -586,10 +564,6 @@ function App() {
     }
   }
 
-  /* =========================
-     GOOGLE / APPLE
-  ========================= */
-
   async function signInWithProvider(provider) {
     setAuthLoading(true);
     setAuthMessage("");
@@ -599,17 +573,12 @@ function App() {
         await supabase.auth.signInWithOAuth({
           provider,
           options: {
-            redirectTo:
-              window.location.origin,
+            redirectTo: window.location.origin,
           },
         });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
     } catch (error) {
-      console.error(error);
-
       setAuthMessage(
         error?.message ||
           `Unable to continue with ${provider}.`
@@ -620,7 +589,7 @@ function App() {
   }
 
   /* =========================
-     FORGOT PASSWORD
+     RESET PASSWORD
   ========================= */
 
   async function handleForgotPassword(event) {
@@ -630,8 +599,7 @@ function App() {
     setResetMessage("");
 
     try {
-      const cleanEmail =
-        resetEmail.trim();
+      const cleanEmail = resetEmail.trim();
 
       if (!cleanEmail) {
         setResetMessage(
@@ -644,21 +612,16 @@ function App() {
         await supabase.auth.resetPasswordForEmail(
           cleanEmail,
           {
-            redirectTo:
-              window.location.origin,
+            redirectTo: window.location.origin,
           }
         );
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setResetMessage(
         "Password reset link sent. Please check your email."
       );
     } catch (error) {
-      console.error(error);
-
       setResetMessage(
         error?.message ||
           "Unable to send password reset email."
@@ -681,16 +644,11 @@ function App() {
     setSettingsMessage("");
 
     try {
-      const cleanName =
-        profileName.trim();
-
-      const cleanPhone =
-        profilePhone.trim();
+      const cleanName = profileName.trim();
+      const cleanPhone = profilePhone.trim();
 
       if (!cleanName) {
-        setSettingsMessage(
-          "Please enter your name."
-        );
+        setSettingsMessage("Please enter your name.");
         return;
       }
 
@@ -701,39 +659,16 @@ function App() {
         return;
       }
 
-      const profileData = {
-        id: user.id,
-        name: cleanName,
-        phone: cleanPhone,
-        email: user.email || "",
-      };
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({
+          id: user.id,
+          name: cleanName,
+          phone: cleanPhone,
+          email: user.email || "",
+        });
 
-      if (deliveryState) {
-        profileData.state =
-          deliveryState;
-      }
-
-      if (deliveryCity) {
-        profileData.city =
-          deliveryCity;
-      }
-
-      if (deliveryAddress) {
-        profileData.address =
-          deliveryAddress;
-      }
-
-      const { error } =
-        await supabase
-          .from("profiles")
-          .upsert(profileData);
-
-      if (error) {
-        throw error;
-      }
-
-      setCustomerName(cleanName);
-      setCustomerPhone(cleanPhone);
+      if (error) throw error;
 
       await loadProfile(user.id);
 
@@ -741,10 +676,7 @@ function App() {
         "Your account details have been updated successfully."
       );
     } catch (error) {
-      console.error(
-        "Settings error:",
-        error
-      );
+      console.error(error);
 
       setSettingsMessage(
         error?.message ||
@@ -766,10 +698,7 @@ function App() {
     setPasswordMessage("");
 
     try {
-      if (
-        !newPassword ||
-        newPassword.length < 6
-      ) {
+      if (!newPassword || newPassword.length < 6) {
         setPasswordMessage(
           "Password must be at least 6 characters."
         );
@@ -781,9 +710,7 @@ function App() {
           password: newPassword,
         });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setNewPassword("");
 
@@ -791,11 +718,6 @@ function App() {
         "Your password has been changed successfully."
       );
     } catch (error) {
-      console.error(
-        "Password change error:",
-        error
-      );
-
       setPasswordMessage(
         error?.message ||
           "Unable to change your password."
@@ -804,10 +726,6 @@ function App() {
       setPasswordLoading(false);
     }
   }
-
-  /* =========================
-     LOGOUT
-  ========================= */
 
   async function logout() {
     await supabase.auth.signOut();
@@ -823,36 +741,17 @@ function App() {
   ========================= */
 
   function addToCart(product) {
-    const stock = Number(
-      product.stock || 0
-    );
-
-    if (stock <= 0) return;
-
     setCart((items) => {
-      const existing =
-        items.find(
-          (item) =>
-            item.id === product.id
-        );
+      const existing = items.find(
+        (item) => item.id === product.id
+      );
 
       if (existing) {
-        if (
-          Number(existing.quantity) >=
-          stock
-        ) {
-          return items;
-        }
-
         return items.map((item) =>
           item.id === product.id
             ? {
                 ...item,
-                ...product,
-                quantity:
-                  Number(
-                    item.quantity
-                  ) + 1,
+                quantity: item.quantity + 1,
               }
             : item
         );
@@ -870,39 +769,14 @@ function App() {
 
   function increaseQuantity(id) {
     setCart((items) =>
-      items.map((item) => {
-        if (item.id !== id) {
-          return item;
-        }
-
-        const latestProduct =
-          products.find(
-            (product) =>
-              product.id === id
-          );
-
-        const stock = Number(
-          latestProduct?.stock ??
-            item.stock ??
-            0
-        );
-
-        const currentQuantity =
-          Number(item.quantity || 1);
-
-        if (
-          stock > 0 &&
-          currentQuantity >= stock
-        ) {
-          return item;
-        }
-
-        return {
-          ...item,
-          quantity:
-            currentQuantity + 1,
-        };
-      })
+      items.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              quantity: item.quantity + 1,
+            }
+          : item
+      )
     );
   }
 
@@ -913,25 +787,17 @@ function App() {
           item.id === id
             ? {
                 ...item,
-                quantity:
-                  Number(
-                    item.quantity || 1
-                  ) - 1,
+                quantity: item.quantity - 1,
               }
             : item
         )
-        .filter(
-          (item) =>
-            Number(item.quantity) > 0
-        )
+        .filter((item) => item.quantity > 0)
     );
   }
 
   function removeFromCart(id) {
     setCart((items) =>
-      items.filter(
-        (item) => item.id !== id
-      )
+      items.filter((item) => item.id !== id)
     );
   }
 
@@ -939,22 +805,19 @@ function App() {
     setCart([]);
   }
 
-  const cartCount =
-    cart.reduce(
-      (total, item) =>
-        total +
-        Number(item.quantity || 0),
-      0
-    );
+  const cartCount = cart.reduce(
+    (total, item) =>
+      total + Number(item.quantity || 0),
+    0
+  );
 
-  const cartTotal =
-    cart.reduce(
-      (total, item) =>
-        total +
-        Number(item.price || 0) *
-          Number(item.quantity || 0),
-      0
-    );
+  const cartTotal = cart.reduce(
+    (total, item) =>
+      total +
+      Number(item.price || 0) *
+        Number(item.quantity || 0),
+    0
+  );
 
   /* =========================
      CHECKOUT
@@ -969,11 +832,9 @@ function App() {
 
     if (!user) {
       setAccountOpen(true);
-
       setAuthMessage(
         "Please sign in or create an account before checkout."
       );
-
       return;
     }
 
@@ -986,43 +847,28 @@ function App() {
         .from("orders")
         .insert({
           user_id: user.id,
-          customer_name:
-            customerName.trim(),
-          customer_phone:
-            customerPhone.trim(),
-          delivery_address:
-            deliveryAddress.trim(),
-          delivery_city:
-            deliveryCity.trim(),
-          delivery_state:
-            deliveryState.trim(),
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
+          delivery_address: deliveryAddress.trim(),
+          delivery_city: deliveryCity.trim(),
+          delivery_state: deliveryState.trim(),
           total: cartTotal,
           status: "paid",
-          payment_reference:
-            reference,
+          payment_reference: reference,
         })
         .select()
         .single();
 
-    if (orderError) {
-      throw orderError;
-    }
+    if (orderError) throw orderError;
 
-    const items =
-      cart.map((item) => ({
-        order_id: order.id,
-        product_id: item.id,
-        product_name:
-          item.name,
-        price: Number(
-          item.price || 0
-        ),
-        quantity: Number(
-          item.quantity || 1
-        ),
-        image_url:
-          item.image_url || null,
-      }));
+    const items = cart.map((item) => ({
+      order_id: order.id,
+      product_id: item.id,
+      product_name: item.name,
+      price: Number(item.price || 0),
+      quantity: Number(item.quantity || 1),
+      image_url: item.image_url || null,
+    }));
 
     const { error: itemsError } =
       await supabase
@@ -1052,8 +898,25 @@ function App() {
     }
 
     if (!cart.length) {
+      setOrderMessage("Your cart is empty.");
+      return;
+    }
+
+    if (!deliveryState) {
+      setOrderMessage("Please select your state.");
+      return;
+    }
+
+    if (!deliveryCity) {
       setOrderMessage(
-        "Your cart is empty."
+        "Please select your city / LGA."
+      );
+      return;
+    }
+
+    if (!deliveryAddress.trim()) {
+      setOrderMessage(
+        "Please enter your delivery address."
       );
       return;
     }
@@ -1065,138 +928,100 @@ function App() {
       const PaystackPop =
         await loadPaystackScript();
 
-      const amountInKobo =
-        Math.round(
-          cartTotal * 100
-        );
-
-      const popup =
-        new PaystackPop();
+      const popup = new PaystackPop();
 
       popup.newTransaction({
-        key:
-          PAYSTACK_PUBLIC_KEY,
+        key: PAYSTACK_PUBLIC_KEY,
 
-        email:
-          user.email,
+        email: user.email,
 
-        amount:
-          amountInKobo,
+        amount: Math.round(cartTotal * 100),
 
-        currency:
-          "NGN",
+        currency: "NGN",
 
         metadata: {
-          customer_name:
-            customerName.trim(),
-
-          customer_phone:
-            customerPhone.trim(),
-
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
           delivery_address:
             deliveryAddress.trim(),
-
-          delivery_city:
-            deliveryCity.trim(),
-
-          delivery_state:
-            deliveryState.trim(),
-
-          user_id:
-            user.id,
+          delivery_city: deliveryCity.trim(),
+          delivery_state: deliveryState.trim(),
+          user_id: user.id,
         },
 
-        onSuccess:
-          async (
-            transaction
-          ) => {
-            try {
-              setOrderMessage(
-                "Payment successful. Verifying your payment..."
-              );
+        onSuccess: async (transaction) => {
+          try {
+            setOrderMessage(
+              "Payment successful. Verifying your payment..."
+            );
 
-              const reference =
-                transaction.reference;
+            const reference =
+              transaction.reference;
 
-              if (!reference) {
-                throw new Error(
-                  "Paystack did not return a payment reference."
-                );
-              }
-
-              const {
-                data:
-                  verificationData,
-                error:
-                  verificationError,
-              } =
-                await supabase.functions.invoke(
-                  "verify-paystack-payment",
-                  {
-                    body: {
-                      reference,
-                    },
-                  }
-                );
-
-              if (
-                verificationError
-              ) {
-                throw new Error(
-                  verificationError.message ||
-                    "Failed to verify Paystack payment."
-                );
-              }
-
-              if (
-                !verificationData?.success
-              ) {
-                throw new Error(
-                  verificationData?.error ||
-                    "Payment could not be verified."
-                );
-              }
-
-              const order =
-                await saveOrder(
-                  reference
-                );
-
-              setOrderSuccess(
-                true
-              );
-
-              setOrderMessage(
-                `Order placed successfully! Your order number is ${String(
-                  order.id
-                )
-                  .slice(0, 8)
-                  .toUpperCase()}.`
-              );
-
-              setCart([]);
-
-              setCustomerName("");
-              setCustomerPhone("");
-              setDeliveryAddress("");
-              setDeliveryCity("");
-              setDeliveryState("");
-            } catch (error) {
-              console.error(
-                "Payment/order error:",
-                error
-              );
-
-              setOrderMessage(
-                error?.message ||
-                  "Payment was received, but we couldn't complete the order. Please contact Shindara Phoneflair."
-              );
-            } finally {
-              setOrderLoading(
-                false
+            if (!reference) {
+              throw new Error(
+                "Paystack did not return a payment reference."
               );
             }
-          },
+
+            const {
+              data: verificationData,
+              error: verificationError,
+            } =
+              await supabase.functions.invoke(
+                "verify-paystack-payment",
+                {
+                  body: {
+                    reference,
+                  },
+                }
+              );
+
+            if (verificationError) {
+              throw new Error(
+                verificationError.message ||
+                  "Failed to verify Paystack payment."
+              );
+            }
+
+            if (!verificationData?.success) {
+              throw new Error(
+                verificationData?.error ||
+                  "Payment could not be verified."
+              );
+            }
+
+            const order =
+              await saveOrder(reference);
+
+            setOrderSuccess(true);
+
+            setOrderMessage(
+              `Order placed successfully! Your order number is ${String(
+                order.id
+              )
+                .slice(0, 8)
+                .toUpperCase()}.`
+            );
+
+            setCart([]);
+
+            setCustomerName("");
+            setCustomerPhone("");
+            setDeliveryAddress("");
+            setDeliveryState("");
+            setDeliveryCity("");
+          } catch (error) {
+            console.error(error);
+
+            setOrderMessage(
+              error?.message ||
+                "Payment was received, but we couldn't complete the order. Please contact Shindara Phoneflair."
+            );
+          } finally {
+            setOrderLoading(false);
+          }
+        },
 
         onCancel: () => {
           setOrderLoading(false);
@@ -1207,10 +1032,7 @@ function App() {
         },
       });
     } catch (error) {
-      console.error(
-        "Paystack error:",
-        error
-      );
+      console.error(error);
 
       setOrderMessage(
         error?.message ||
@@ -1226,10 +1048,9 @@ function App() {
   ========================= */
 
   function whatsapp() {
-    const message =
-      encodeURIComponent(
-        "Hello Shindara Phoneflair, I would like to make an enquiry."
-      );
+    const message = encodeURIComponent(
+      "Hello Shindara Phoneflair, I would like to make an enquiry."
+    );
 
     window.open(
       `https://wa.me/${WHATSAPP}?text=${message}`,
@@ -1240,9 +1061,7 @@ function App() {
   function formatDate(date) {
     if (!date) return "";
 
-    return new Date(
-      date
-    ).toLocaleDateString(
+    return new Date(date).toLocaleDateString(
       "en-NG",
       {
         day: "numeric",
@@ -1296,13 +1115,9 @@ function App() {
         }
 
         button,
-        a {
+        a,
+        select {
           -webkit-tap-highlight-color: transparent;
-        }
-
-        button:disabled {
-          opacity: .5;
-          cursor: not-allowed;
         }
 
         .app {
@@ -1310,18 +1125,16 @@ function App() {
           background:
             radial-gradient(
               circle at 15% 10%,
-              rgba(124, 58, 237, .08),
+              rgba(124,58,237,.08),
               transparent 28%
             ),
             radial-gradient(
               circle at 85% 20%,
-              rgba(59, 130, 246, .08),
+              rgba(59,130,246,.08),
               transparent 25%
             ),
             #f7f7f8;
         }
-
-        /* ANNOUNCEMENT */
 
         .announcement-bar {
           width: 100%;
@@ -1337,8 +1150,7 @@ function App() {
         .announcement-track {
           display: flex;
           width: max-content;
-          animation:
-            marquee 22s linear infinite;
+          animation: marquee 22s linear infinite;
         }
 
         .announcement-group {
@@ -1365,8 +1177,6 @@ function App() {
           }
         }
 
-        /* HEADER */
-
         .header {
           position: sticky;
           top: 0;
@@ -1376,14 +1186,10 @@ function App() {
           justify-content: space-between;
           gap: 20px;
           padding: 16px 5%;
-          background:
-            rgba(255,255,255,.82);
-          backdrop-filter:
-            blur(20px);
-          -webkit-backdrop-filter:
-            blur(20px);
-          border-bottom:
-            1px solid rgba(0,0,0,.06);
+          background: rgba(255,255,255,.82);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-bottom: 1px solid rgba(0,0,0,.06);
         }
 
         .logo {
@@ -1430,8 +1236,7 @@ function App() {
 
         .account-button,
         .cart-button {
-          border:
-            1px solid rgba(0,0,0,.08);
+          border: 1px solid rgba(0,0,0,.08);
           background: white;
           color: #111;
           border-radius: 999px;
@@ -1445,8 +1250,6 @@ function App() {
           background: #111;
           color: white;
         }
-
-        /* HERO */
 
         .hero {
           min-height: 650px;
@@ -1479,8 +1282,7 @@ function App() {
         }
 
         .hero h1 {
-          font-size:
-            clamp(48px, 7vw, 88px);
+          font-size: clamp(48px,7vw,88px);
           line-height: .94;
           letter-spacing: -5px;
           margin: 0 0 28px;
@@ -1504,8 +1306,6 @@ function App() {
           font-weight: 700;
         }
 
-        /* SECTIONS */
-
         .section {
           padding: 90px 7%;
         }
@@ -1516,12 +1316,9 @@ function App() {
           letter-spacing: -2.5px;
         }
 
-        /* CATEGORIES */
-
         .category-grid {
           display: grid;
-          grid-template-columns:
-            repeat(6, 1fr);
+          grid-template-columns: repeat(6,1fr);
           gap: 12px;
         }
 
@@ -1533,18 +1330,14 @@ function App() {
           padding: 20px;
           text-decoration: none;
           color: inherit;
-          background:
-            rgba(255,255,255,.8);
-          border:
-            1px solid rgba(0,0,0,.06);
+          background: rgba(255,255,255,.8);
+          border: 1px solid rgba(0,0,0,.06);
           border-radius: 22px;
-          transition:
-            transform .2s ease;
+          transition: transform .2s ease;
         }
 
         .category-card:hover {
-          transform:
-            translateY(-4px);
+          transform: translateY(-4px);
         }
 
         .category-card span {
@@ -1555,23 +1348,19 @@ function App() {
           font-size: 14px;
         }
 
-        /* PRODUCTS */
-
         .product-grid {
           display: grid;
           grid-template-columns:
-            repeat(4, minmax(0, 1fr));
+            repeat(4,minmax(0,1fr));
           gap: 18px;
         }
 
         .product-card {
           background: white;
-          border:
-            1px solid rgba(0,0,0,.06);
+          border: 1px solid rgba(0,0,0,.06);
           border-radius: 24px;
           overflow: hidden;
-          box-shadow:
-            0 10px 35px rgba(0,0,0,.04);
+          box-shadow: 0 10px 35px rgba(0,0,0,.04);
         }
 
         .product-image {
@@ -1613,24 +1402,6 @@ function App() {
           margin: 14px 0;
         }
 
-        .stock-text {
-          font-size: 12px;
-          margin: 0 0 10px;
-          opacity: .65;
-        }
-
-        .stock-low {
-          color: #b45309;
-          font-weight: 700;
-          opacity: 1;
-        }
-
-        .stock-out {
-          color: #dc2626;
-          font-weight: 700;
-          opacity: 1;
-        }
-
         .add-button {
           width: 100%;
           border: 0;
@@ -1642,12 +1413,14 @@ function App() {
           font-weight: 700;
         }
 
-        /* TRUST */
+        .add-button:disabled {
+          opacity: .45;
+          cursor: not-allowed;
+        }
 
         .trust-section {
           display: grid;
-          grid-template-columns:
-            repeat(3,1fr);
+          grid-template-columns: repeat(3,1fr);
           gap: 20px;
           padding: 50px 7%;
           background: #111;
@@ -1657,8 +1430,7 @@ function App() {
         .trust-section > div {
           padding: 25px;
           border-radius: 20px;
-          background:
-            rgba(255,255,255,.05);
+          background: rgba(255,255,255,.05);
         }
 
         .trust-section span {
@@ -1672,8 +1444,6 @@ function App() {
         .trust-section p {
           opacity: .6;
         }
-
-        /* FOOTER */
 
         footer {
           padding: 60px 7%;
@@ -1697,18 +1467,14 @@ function App() {
 
         .social-button {
           display: inline-block;
-          border:
-            1px solid rgba(255,255,255,.15);
-          background:
-            rgba(255,255,255,.06);
+          border: 1px solid rgba(255,255,255,.15);
+          background: rgba(255,255,255,.06);
           color: white;
           padding: 10px 13px;
           border-radius: 999px;
           text-decoration: none;
           cursor: pointer;
         }
-
-        /* WHATSAPP */
 
         .whatsapp-floating {
           position: fixed;
@@ -1721,25 +1487,19 @@ function App() {
           border-radius: 50%;
           background: #111;
           color: white;
-          box-shadow:
-            0 12px 30px rgba(0,0,0,.2);
+          box-shadow: 0 12px 30px rgba(0,0,0,.2);
           cursor: pointer;
           font-size: 22px;
         }
-
-        /* MODALS */
 
         .modal-backdrop,
         .cart-overlay {
           position: fixed;
           inset: 0;
           z-index: 2000;
-          background:
-            rgba(0,0,0,.55);
-          backdrop-filter:
-            blur(8px);
-          -webkit-backdrop-filter:
-            blur(8px);
+          background: rgba(0,0,0,.55);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1748,16 +1508,14 @@ function App() {
 
         .account-modal {
           position: relative;
-          width:
-            min(620px, 100%);
+          width: min(620px,100%);
           max-height: 90vh;
           overflow-y: auto;
           background: white;
           color: #111;
           border-radius: 28px;
           padding: 30px;
-          box-shadow:
-            0 30px 100px rgba(0,0,0,.3);
+          box-shadow: 0 30px 100px rgba(0,0,0,.3);
         }
 
         .modal-close {
@@ -1768,8 +1526,7 @@ function App() {
           height: 36px;
           border: 0;
           border-radius: 50%;
-          background:
-            rgba(0,0,0,.06);
+          background: rgba(0,0,0,.06);
           font-size: 24px;
           cursor: pointer;
         }
@@ -1784,11 +1541,11 @@ function App() {
         .auth-form textarea {
           width: 100%;
           padding: 14px 15px;
-          border:
-            1px solid rgba(0,0,0,.12);
+          border: 1px solid rgba(0,0,0,.12);
           border-radius: 13px;
           outline: none;
           background: #fafafa;
+          color: #111;
         }
 
         .auth-form input:focus,
@@ -1796,6 +1553,12 @@ function App() {
         .auth-form textarea:focus {
           border-color: #111;
           background: white;
+        }
+
+        .location-help {
+          font-size: 11px;
+          opacity: .55;
+          margin-top: -5px;
         }
 
         .modal-action {
@@ -1809,10 +1572,13 @@ function App() {
           cursor: pointer;
         }
 
+        .modal-action:disabled {
+          opacity: .5;
+        }
+
         .modal-secondary {
           width: 100%;
-          border:
-            1px solid rgba(0,0,0,.1);
+          border: 1px solid rgba(0,0,0,.1);
           background: white;
           color: #111;
           padding: 13px;
@@ -1824,8 +1590,7 @@ function App() {
         .auth-message {
           padding: 12px;
           border-radius: 12px;
-          background:
-            rgba(124,58,237,.08);
+          background: rgba(124,58,237,.08);
           font-size: 13px;
           line-height: 1.5;
         }
@@ -1844,20 +1609,17 @@ function App() {
           content: "";
           height: 1px;
           flex: 1;
-          background:
-            currentColor;
+          background: currentColor;
         }
 
         .social-auth-buttons {
           display: grid;
-          grid-template-columns:
-            1fr 1fr;
+          grid-template-columns: 1fr 1fr;
           gap: 10px;
         }
 
         .social-auth-button {
-          border:
-            1px solid rgba(0,0,0,.1);
+          border: 1px solid rgba(0,0,0,.1);
           background: white;
           border-radius: 13px;
           padding: 13px;
@@ -1875,8 +1637,6 @@ function App() {
           opacity: .65;
         }
 
-        /* CART */
-
         .cart-overlay {
           align-items: stretch;
           justify-content: flex-end;
@@ -1884,15 +1644,13 @@ function App() {
         }
 
         .cart-drawer {
-          width:
-            min(470px, 100%);
+          width: min(470px,100%);
           height: 100%;
           background: white;
           color: #111;
           padding: 25px;
           overflow-y: auto;
-          box-shadow:
-            -20px 0 60px rgba(0,0,0,.2);
+          box-shadow: -20px 0 60px rgba(0,0,0,.2);
         }
 
         .cart-header {
@@ -1909,8 +1667,7 @@ function App() {
           display: flex;
           gap: 14px;
           padding: 16px 0;
-          border-bottom:
-            1px solid rgba(0,0,0,.07);
+          border-bottom: 1px solid rgba(0,0,0,.07);
         }
 
         .cart-item-image {
@@ -1941,11 +1698,6 @@ function App() {
           font-size: 14px;
         }
 
-        .cart-item-stock {
-          font-size: 11px;
-          opacity: .6;
-        }
-
         .quantity-controls {
           display: flex;
           align-items: center;
@@ -1956,15 +1708,10 @@ function App() {
         .quantity-controls button {
           width: 30px;
           height: 30px;
-          border:
-            1px solid rgba(0,0,0,.1);
+          border: 1px solid rgba(0,0,0,.1);
           background: white;
           border-radius: 8px;
           cursor: pointer;
-        }
-
-        .quantity-controls button:disabled {
-          opacity: .35;
         }
 
         .remove-cart-item,
@@ -2004,9 +1751,7 @@ function App() {
           margin: 15px auto 0;
         }
 
-        /* MOBILE */
-
-        @media (max-width: 768px) {
+        @media (max-width:768px) {
 
           .header {
             padding: 12px;
@@ -2028,8 +1773,7 @@ function App() {
 
           .account-button,
           .cart-button {
-            padding:
-              9px 10px;
+            padding: 9px 10px;
             font-size: 11px;
           }
 
@@ -2039,8 +1783,7 @@ function App() {
           }
 
           .hero h1 {
-            font-size:
-              clamp(42px, 13vw, 62px);
+            font-size: clamp(42px,13vw,62px);
             letter-spacing: -3px;
           }
 
@@ -2058,8 +1801,7 @@ function App() {
           }
 
           .category-grid {
-            grid-template-columns:
-              repeat(2,1fr);
+            grid-template-columns: repeat(2,1fr);
           }
 
           .product-grid {
@@ -2099,23 +1841,18 @@ function App() {
           }
 
           .account-modal {
-            width:
-              calc(100% - 16px);
-            padding:
-              23px 17px;
+            width: calc(100% - 16px);
+            padding: 23px 17px;
             border-radius: 22px;
           }
 
           .social-auth-buttons {
-            grid-template-columns:
-              1fr;
+            grid-template-columns: 1fr;
           }
 
           .cart-drawer {
             width: 100%;
-            height: 92%;
-            border-radius:
-              22px 22px 0 0;
+            border-radius: 22px 22px 0 0;
           }
 
           .cart-overlay {
@@ -2139,19 +1876,14 @@ function App() {
           }
         }
 
-        @media (max-width: 380px) {
+        @media (max-width:380px) {
 
           .product-grid {
-            grid-template-columns:
-              1fr;
+            grid-template-columns: 1fr;
           }
 
           .product-image {
             height: 220px;
-          }
-
-          .header-actions {
-            gap: 3px;
           }
 
           .account-button,
@@ -2163,88 +1895,58 @@ function App() {
 
       `}</style>
 
-      {/* =========================
-          ANNOUNCEMENT
-      ========================= */}
+      {/* ANNOUNCEMENT */}
 
       <div className="announcement-bar">
         <div className="announcement-track">
 
           <div className="announcement-group">
-
             <span>
-              ✨ Premium phone accessories, are screaming here!!! ✨
+              ✨ Premium phone accessories are screaming here!!! ✨
             </span>
-
             <span>
-              📱 Premium phone accessories, are screaming here!!! 📱
+              📱 Premium phone accessories are screaming here!!! 📱
             </span>
-
             <span>
-              ⚡ Premium phone accessories, are screaming here!!! ⚡
+              ⚡ Premium phone accessories are screaming here!!! ⚡
             </span>
-
             <span>
-              ✨ Premium phone accessories, are screaming here!!! ✨
+              ✨ Premium phone accessories are screaming here!!! ✨
             </span>
-
           </div>
 
           <div className="announcement-group">
-
             <span>
-              ✨ Premium phone accessories, are screaming here!!! ✨
+              ✨ Premium phone accessories are screaming here!!! ✨
             </span>
-
             <span>
-              📱 Premium phone accessories, are screaming here!!! 📱
+              📱 Premium phone accessories are screaming here!!! 📱
             </span>
-
             <span>
-              ⚡ Premium phone accessories, are screaming here!!! ⚡
+              ⚡ Premium phone accessories are screaming here!!! ⚡
             </span>
-
             <span>
-              ✨ Premium phone accessories, are screaming here!!! ✨
+              ✨ Premium phone accessories are screaming here!!! ✨
             </span>
-
           </div>
 
         </div>
       </div>
 
-      {/* =========================
-          HEADER
-      ========================= */}
+      {/* HEADER */}
 
       <header className="header">
 
-        <a
-          href="#home"
-          className="logo"
-        >
+        <a href="#home" className="logo">
           Shindara
-          <span>
-            Phoneflair
-          </span>
+          <span>Phoneflair</span>
         </a>
 
         <nav className="nav">
-          <a href="#home">
-            Home
-          </a>
-
-          <a href="#shop">
-            Shop
-          </a>
-
-          <a href="#categories">
-            Categories
-          </a>
-
-          <a href="#contact">
-            Contact
-          </a>
+          <a href="#home">Home</a>
+          <a href="#shop">Shop</a>
+          <a href="#categories">Categories</a>
+          <a href="#contact">Contact</a>
         </nav>
 
         <div className="header-actions">
@@ -2253,17 +1955,12 @@ function App() {
             className="account-button"
             onClick={openAccount}
           >
-            👤{" "}
-            {user
-              ? "Account"
-              : "Sign in"}
+            👤 {user ? "Account" : "Sign in"}
           </button>
 
           <button
             className="cart-button"
-            onClick={() =>
-              setCartOpen(true)
-            }
+            onClick={() => setCartOpen(true)}
           >
             🛒 Cart ({cartCount})
           </button>
@@ -2272,16 +1969,11 @@ function App() {
 
       </header>
 
-      {/* =========================
-          HERO
-      ========================= */}
+      {/* HERO */}
 
       <main>
 
-        <section
-          className="hero"
-          id="home"
-        >
+        <section className="hero" id="home">
 
           <div className="hero-content">
 
@@ -2296,16 +1988,12 @@ function App() {
             </h1>
 
             <p className="hero-text">
-              Phones, accessories,
-              chargers, audio products,
-              power banks and everyday
-              gadgets.
+              Phones, accessories, chargers,
+              audio products, power banks and
+              everyday gadgets.
             </p>
 
-            <a
-              href="#shop"
-              className="shop-button"
-            >
+            <a href="#shop" className="shop-button">
               Shop now →
             </a>
 
@@ -2313,9 +2001,7 @@ function App() {
 
         </section>
 
-        {/* =========================
-            CATEGORIES
-        ========================= */}
+        {/* CATEGORIES */}
 
         <section
           className="section"
@@ -2339,35 +2025,27 @@ function App() {
               ["🎧", "Audio"],
               ["🔋", "Power Banks"],
               ["✨", "Gadgets"],
-            ].map(
-              ([icon, name]) => (
+            ].map(([icon, name]) => (
 
-                <a
-                  href="#shop"
-                  className="category-card"
-                  key={name}
-                >
+              <a
+                href="#shop"
+                className="category-card"
+                key={name}
+              >
 
-                  <span>
-                    {icon}
-                  </span>
+                <span>{icon}</span>
 
-                  <strong>
-                    {name}
-                  </strong>
+                <strong>{name}</strong>
 
-                </a>
+              </a>
 
-              )
-            )}
+            ))}
 
           </div>
 
         </section>
 
-        {/* =========================
-            SHOP
-        ========================= */}
+        {/* SHOP */}
 
         <section
           className="section"
@@ -2386,9 +2064,8 @@ function App() {
 
             <div
               style={{
-                padding: "50px",
-                textAlign:
-                  "center",
+                padding: 50,
+                textAlign: "center",
               }}
             >
               Loading products...
@@ -2398,21 +2075,16 @@ function App() {
 
             <div
               style={{
-                padding: "50px",
-                textAlign:
-                  "center",
+                padding: 50,
+                textAlign: "center",
               }}
             >
 
-              <p>
-                {productsError}
-              </p>
+              <p>{productsError}</p>
 
               <button
                 className="add-button"
-                onClick={
-                  loadProducts
-                }
+                onClick={loadProducts}
               >
                 Try again
               </button>
@@ -2423,9 +2095,8 @@ function App() {
 
             <div
               style={{
-                padding: "50px",
-                textAlign:
-                  "center",
+                padding: 50,
+                textAlign: "center",
               }}
             >
               <p>
@@ -2437,165 +2108,90 @@ function App() {
 
             <div className="product-grid">
 
-              {products.map(
-                (product) => {
+              {products.map((product) => (
 
-                  const stock =
-                    Number(
-                      product.stock ||
-                        0
-                    );
+                <article
+                  className="product-card"
+                  key={product.id}
+                >
 
-                  const lowStock =
-                    stock > 0 &&
-                    stock <= 5;
+                  <div className="product-image">
 
-                  const cartItem =
-                    cart.find(
-                      (item) =>
-                        item.id ===
-                        product.id
-                    );
+                    {product.image_url ? (
 
-                  const cartQuantity =
-                    Number(
-                      cartItem?.quantity ||
-                        0
-                    );
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                      />
 
-                  const maxReached =
-                    stock > 0 &&
-                    cartQuantity >=
-                      stock;
+                    ) : (
 
-                  return (
+                      <span
+                        style={{
+                          fontSize: 45,
+                        }}
+                      >
+                        📦
+                      </span>
 
-                    <article
-                      className="product-card"
-                      key={product.id}
-                    >
+                    )}
 
-                      <div className="product-image">
+                  </div>
 
-                        {product.image_url ? (
+                  <div className="product-info">
 
-                          <img
-                            src={
-                              product.image_url
-                            }
-                            alt={
-                              product.name
-                            }
-                          />
+                    <p className="product-category">
+                      {product.category ||
+                        "Electronics"}
+                    </p>
 
-                        ) : (
+                    <h3>
+                      {product.name}
+                    </h3>
 
-                          <span
-                            style={{
-                              fontSize: 45,
-                            }}
-                          >
-                            📦
-                          </span>
+                    {product.description && (
+                      <p
+                        style={{
+                          opacity: .65,
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {product.description}
+                      </p>
+                    )}
 
-                        )}
+                    <p className="price">
+                      {money(product.price)}
+                    </p>
 
-                      </div>
+                    {Number(product.stock || 0) > 0 ? (
 
-                      <div className="product-info">
+                      <button
+                        className="add-button"
+                        onClick={() =>
+                          addToCart(product)
+                        }
+                      >
+                        Add to cart
+                      </button>
 
-                        <p className="product-category">
-                          {product.category ||
-                            "Electronics"}
-                        </p>
+                    ) : (
 
-                        <h3>
-                          {product.name}
-                        </h3>
+                      <button
+                        className="add-button"
+                        disabled
+                      >
+                        Out of stock
+                      </button>
 
-                        {product.description && (
-                          <p
-                            style={{
-                              opacity:
-                                .65,
-                              fontSize:
-                                13,
-                              lineHeight:
-                                1.5,
-                            }}
-                          >
-                            {
-                              product.description
-                            }
-                          </p>
-                        )}
+                    )}
 
-                        <p className="price">
-                          {money(
-                            product.price
-                          )}
-                        </p>
+                  </div>
 
-                        {stock <= 0 ? (
+                </article>
 
-                          <p className="stock-text stock-out">
-                            Out of stock
-                          </p>
-
-                        ) : lowStock ? (
-
-                          <p className="stock-text stock-low">
-                            Only{" "}
-                            {stock}{" "}
-                            left
-                          </p>
-
-                        ) : (
-
-                          <p className="stock-text">
-                            {stock} available
-                          </p>
-
-                        )}
-
-                        {stock > 0 ? (
-
-                          <button
-                            className="add-button"
-                            onClick={() =>
-                              addToCart(
-                                product
-                              )
-                            }
-                            disabled={
-                              maxReached
-                            }
-                          >
-                            {maxReached
-                              ? "Maximum in cart"
-                              : cartQuantity > 0
-                              ? `Add another (${cartQuantity} in cart)`
-                              : "Add to cart"}
-                          </button>
-
-                        ) : (
-
-                          <button
-                            className="add-button"
-                            disabled
-                          >
-                            Out of stock
-                          </button>
-
-                        )}
-
-                      </div>
-
-                    </article>
-
-                  );
-                }
-              )}
+              ))}
 
             </div>
 
@@ -2603,49 +2199,35 @@ function App() {
 
         </section>
 
-        {/* =========================
-            TRUST
-        ========================= */}
+        {/* TRUST */}
 
         <section className="trust-section">
 
           <div>
-            <span>
-              🚚
-            </span>
-
+            <span>🚚</span>
             <h3>
               Reliable delivery
             </h3>
-
             <p>
               Get your order delivered safely.
             </p>
           </div>
 
           <div>
-            <span>
-              🔒
-            </span>
-
+            <span>🔒</span>
             <h3>
               Secure shopping
             </h3>
-
             <p>
               Shop with confidence.
             </p>
           </div>
 
           <div>
-            <span>
-              💬
-            </span>
-
+            <span>💬</span>
             <h3>
               Customer support
             </h3>
-
             <p>
               We're here whenever you need us.
             </p>
@@ -2655,9 +2237,7 @@ function App() {
 
       </main>
 
-      {/* =========================
-          FOOTER
-      ========================= */}
+      {/* FOOTER */}
 
       <footer id="contact">
 
@@ -2699,9 +2279,7 @@ function App() {
 
       </footer>
 
-      {/* =========================
-          WHATSAPP
-      ========================= */}
+      {/* WHATSAPP */}
 
       <button
         className="whatsapp-floating"
@@ -2710,17 +2288,13 @@ function App() {
         💬
       </button>
 
-      {/* =========================
-          CART
-      ========================= */}
+      {/* CART */}
 
       {cartOpen && (
 
         <div
           className="cart-overlay"
-          onClick={() =>
-            setCartOpen(false)
-          }
+          onClick={() => setCartOpen(false)}
         >
 
           <aside
@@ -2742,18 +2316,6 @@ function App() {
                   Your Cart
                 </h2>
 
-                <p
-                  style={{
-                    opacity: .55,
-                    fontSize: 13,
-                  }}
-                >
-                  {cartCount}{" "}
-                  {cartCount === 1
-                    ? "item"
-                    : "items"}
-                </p>
-
               </div>
 
               <button
@@ -2771,10 +2333,8 @@ function App() {
 
               <div
                 style={{
-                  textAlign:
-                    "center",
-                  padding:
-                    "60px 20px",
+                  textAlign: "center",
+                  padding: "60px 20px",
                 }}
               >
 
@@ -2809,153 +2369,82 @@ function App() {
 
               <>
 
-                <div className="cart-items">
+                <div>
 
-                  {cart.map(
-                    (item) => {
+                  {cart.map((item) => (
 
-                      const latestProduct =
-                        products.find(
-                          (product) =>
-                            product.id ===
-                            item.id
-                        );
+                    <div
+                      className="cart-item"
+                      key={item.id}
+                    >
 
-                      const stock =
-                        Number(
-                          latestProduct?.stock ??
-                            item.stock ??
-                            0
-                        );
+                      <div className="cart-item-image">
 
-                      const quantity =
-                        Number(
-                          item.quantity ||
-                            1
-                        );
+                        {item.image_url ? (
 
-                      const maximum =
-                        stock > 0 &&
-                        quantity >=
-                          stock;
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                          />
 
-                      return (
+                        ) : (
+                          <span>📦</span>
+                        )}
 
-                        <div
-                          className="cart-item"
-                          key={item.id}
-                        >
+                      </div>
 
-                          <div className="cart-item-image">
+                      <div className="cart-item-info">
 
-                            {item.image_url ? (
+                        <h3>
+                          {item.name}
+                        </h3>
 
-                              <img
-                                src={
-                                  item.image_url
-                                }
-                                alt={
-                                  item.name
-                                }
-                              />
+                        <p>
+                          {money(item.price)}
+                        </p>
 
-                            ) : (
+                        <div className="quantity-controls">
 
-                              <span>
-                                📦
-                              </span>
+                          <button
+                            onClick={() =>
+                              decreaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            −
+                          </button>
 
-                            )}
+                          <strong>
+                            {item.quantity}
+                          </strong>
 
-                          </div>
-
-                          <div className="cart-item-info">
-
-                            <h3>
-                              {item.name}
-                            </h3>
-
-                            <p>
-                              {money(
-                                item.price
-                              )}
-                            </p>
-
-                            {stock > 0 && (
-
-                              <p className="cart-item-stock">
-                                {stock}{" "}
-                                available
-                              </p>
-
-                            )}
-
-                            <div className="quantity-controls">
-
-                              <button
-                                onClick={() =>
-                                  decreaseQuantity(
-                                    item.id
-                                  )
-                                }
-                                aria-label="Decrease quantity"
-                              >
-                                −
-                              </button>
-
-                              <strong>
-                                {quantity}
-                              </strong>
-
-                              <button
-                                onClick={() =>
-                                  increaseQuantity(
-                                    item.id
-                                  )
-                                }
-                                disabled={
-                                  maximum
-                                }
-                                aria-label="Increase quantity"
-                              >
-                                +
-                              </button>
-
-                            </div>
-
-                            {maximum && (
-                              <p
-                                style={{
-                                  fontSize:
-                                    11,
-                                  color:
-                                    "#b45309",
-                                  margin:
-                                    "7px 0 0",
-                                }}
-                              >
-                                Maximum available quantity reached.
-                              </p>
-                            )}
-
-                            <button
-                              className="remove-cart-item"
-                              onClick={() =>
-                                removeFromCart(
-                                  item.id
-                                )
-                              }
-                            >
-                              Remove
-                            </button>
-
-                          </div>
+                          <button
+                            onClick={() =>
+                              increaseQuantity(
+                                item.id
+                              )
+                            }
+                          >
+                            +
+                          </button>
 
                         </div>
 
-                      );
-                    }
-                  )}
+                        <button
+                          className="remove-cart-item"
+                          onClick={() =>
+                            removeFromCart(item.id)
+                          }
+                        >
+                          Remove
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  ))}
 
                 </div>
 
@@ -2968,27 +2457,21 @@ function App() {
                     </span>
 
                     <strong>
-                      {money(
-                        cartTotal
-                      )}
+                      {money(cartTotal)}
                     </strong>
 
                   </div>
 
                   <button
                     className="checkout-button"
-                    onClick={
-                      openCheckout
-                    }
+                    onClick={openCheckout}
                   >
                     Continue to checkout →
                   </button>
 
                   <button
                     className="clear-cart-button"
-                    onClick={
-                      clearCart
-                    }
+                    onClick={clearCart}
                   >
                     Clear cart
                   </button>
@@ -3005,9 +2488,7 @@ function App() {
 
       )}
 
-      {/* =========================
-          CHECKOUT
-      ========================= */}
+      {/* CHECKOUT */}
 
       {checkoutOpen && (
 
@@ -3015,9 +2496,7 @@ function App() {
           className="modal-backdrop"
           onClick={() =>
             !orderLoading &&
-            setCheckoutOpen(
-              false
-            )
+            setCheckoutOpen(false)
           }
         >
 
@@ -3032,9 +2511,7 @@ function App() {
               className="modal-close"
               onClick={() =>
                 !orderLoading &&
-                setCheckoutOpen(
-                  false
-                )
+                setCheckoutOpen(false)
               }
             >
               ×
@@ -3044,10 +2521,8 @@ function App() {
 
               <div
                 style={{
-                  textAlign:
-                    "center",
-                  padding:
-                    "25px 5px",
+                  textAlign: "center",
+                  padding: "25px 5px",
                 }}
               >
 
@@ -3075,9 +2550,7 @@ function App() {
                 <button
                   className="modal-action"
                   onClick={() =>
-                    setCheckoutOpen(
-                      false
-                    )
+                    setCheckoutOpen(false)
                   }
                 >
                   Continue shopping
@@ -3097,31 +2570,22 @@ function App() {
                   Delivery details
                 </h2>
 
-                <p
-                  style={{
-                    opacity: .65,
-                  }}
-                >
+                <p style={{ opacity: .65 }}>
                   Tell us where to deliver your order.
                 </p>
 
                 <form
                   className="auth-form"
-                  onSubmit={
-                    placeOrder
-                  }
+                  onSubmit={placeOrder}
                 >
 
                   <input
                     type="text"
                     placeholder="Full name"
-                    value={
-                      customerName
-                    }
+                    value={customerName}
                     onChange={(event) =>
                       setCustomerName(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
@@ -3130,71 +2594,111 @@ function App() {
                   <input
                     type="tel"
                     placeholder="Phone number"
-                    value={
-                      customerPhone
-                    }
+                    value={customerPhone}
                     onChange={(event) =>
                       setCustomerPhone(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
                   />
 
-                  <textarea
-                    placeholder="Delivery address"
-                    value={
-                      deliveryAddress
-                    }
-                    onChange={(event) =>
-                      setDeliveryAddress(
-                        event.target
-                          .value
-                      )
-                    }
-                    rows={3}
-                    required
-                  />
+                  {/* STATE */}
 
-                  <input
-                    type="text"
-                    placeholder="City"
-                    value={
-                      deliveryCity
-                    }
+                  <select
+                    value={deliveryState}
+                    onChange={handleStateChange}
+                    required
+                    disabled={locationsLoading}
+                  >
+
+                    <option value="">
+                      {locationsLoading
+                        ? "Loading states..."
+                        : "Select state"}
+                    </option>
+
+                    {states.map((state) => (
+
+                      <option
+                        key={state.id}
+                        value={state.name}
+                      >
+                        {state.name}
+                      </option>
+
+                    ))}
+
+                  </select>
+
+                  {/* CITY / LGA */}
+
+                  <select
+                    value={deliveryCity}
                     onChange={(event) =>
                       setDeliveryCity(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="State"
-                    value={
-                      deliveryState
+                    disabled={
+                      !deliveryState ||
+                      locationsLoading ||
+                      availableCities.length === 0
                     }
+                  >
+
+                    <option value="">
+                      {!deliveryState
+                        ? "Select state first"
+                        : locationsLoading
+                        ? "Loading cities..."
+                        : availableCities.length === 0
+                        ? "No city/LGA found"
+                        : "Select city / LGA"}
+                    </option>
+
+                    {availableCities.map((city) => (
+
+                      <option
+                        key={city.id}
+                        value={city.name}
+                      >
+                        {city.name}
+                      </option>
+
+                    ))}
+
+                  </select>
+
+                  <p className="location-help">
+                    City/LGA automatically changes according to the selected state.
+                  </p>
+
+                  {locationsError && (
+                    <p className="auth-message">
+                      {locationsError}
+                    </p>
+                  )}
+
+                  <textarea
+                    placeholder="Delivery address — house number, street, landmark..."
+                    value={deliveryAddress}
                     onChange={(event) =>
-                      setDeliveryState(
-                        event.target
-                          .value
+                      setDeliveryAddress(
+                        event.target.value
                       )
                     }
+                    rows={4}
                     required
                   />
 
                   <div
                     style={{
-                      display:
-                        "flex",
+                      display: "flex",
                       justifyContent:
                         "space-between",
-                      padding:
-                        "15px 0",
+                      padding: "15px 0",
                     }}
                   >
 
@@ -3203,9 +2707,7 @@ function App() {
                     </strong>
 
                     <strong>
-                      {money(
-                        cartTotal
-                      )}
+                      {money(cartTotal)}
                     </strong>
 
                   </div>
@@ -3219,15 +2721,11 @@ function App() {
                   <button
                     className="modal-action"
                     type="submit"
-                    disabled={
-                      orderLoading
-                    }
+                    disabled={orderLoading}
                   >
                     {orderLoading
                       ? "Opening Paystack..."
-                      : `Pay ${money(
-                          cartTotal
-                        )}`}
+                      : `Pay ${money(cartTotal)}`}
                   </button>
 
                 </form>
@@ -3242,18 +2740,14 @@ function App() {
 
       )}
 
-      {/* =========================
-          CUSTOMER ACCOUNT
-      ========================= */}
+      {/* ACCOUNT */}
 
       {accountOpen && (
 
         <div
           className="modal-backdrop"
           onClick={() =>
-            setAccountOpen(
-              false
-            )
+            setAccountOpen(false)
           }
         >
 
@@ -3267,9 +2761,7 @@ function App() {
             <button
               className="modal-close"
               onClick={() =>
-                setAccountOpen(
-                  false
-                )
+                setAccountOpen(false)
               }
             >
               ×
@@ -3285,37 +2777,28 @@ function App() {
 
                 <h2>
                   {profile?.name
-                    ? `Hello, ${
-                        profile.name.split(
-                          " "
-                        )[0]
-                      } 👋`
+                    ? `Hello, ${profile.name.split(" ")[0]} 👋`
                     : "My Account"}
                 </h2>
 
                 <div
                   style={{
-                    display:
-                      "grid",
+                    display: "grid",
                     gridTemplateColumns:
                       "repeat(3,1fr)",
                     gap: 8,
-                    margin:
-                      "25px 0",
+                    margin: "25px 0",
                   }}
                 >
 
                   <button
                     className={
-                      accountTab ===
-                      "profile"
+                      accountTab === "profile"
                         ? "modal-action"
                         : "modal-secondary"
                     }
                     onClick={() =>
-                      setAccountTab(
-                        "profile"
-                      )
+                      setAccountTab("profile")
                     }
                   >
                     👤 Profile
@@ -3323,15 +2806,12 @@ function App() {
 
                   <button
                     className={
-                      accountTab ===
-                      "orders"
+                      accountTab === "orders"
                         ? "modal-action"
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab(
-                        "orders"
-                      );
+                      setAccountTab("orders");
                       loadOrders();
                     }}
                   >
@@ -3340,21 +2820,14 @@ function App() {
 
                   <button
                     className={
-                      accountTab ===
-                      "settings"
+                      accountTab === "settings"
                         ? "modal-action"
                         : "modal-secondary"
                     }
                     onClick={() => {
-                      setAccountTab(
-                        "settings"
-                      );
-                      setSettingsMessage(
-                        ""
-                      );
-                      setPasswordMessage(
-                        ""
-                      );
+                      setAccountTab("settings");
+                      setSettingsMessage("");
+                      setPasswordMessage("");
                     }}
                   >
                     ⚙️ Settings
@@ -3362,22 +2835,17 @@ function App() {
 
                 </div>
 
-                {/* PROFILE */}
-
-                {accountTab ===
-                  "profile" && (
+                {accountTab === "profile" && (
 
                   <div>
 
                     <div
                       style={{
                         padding: 20,
-                        borderRadius:
-                          18,
+                        borderRadius: 18,
                         background:
                           "rgba(128,128,128,.08)",
-                        marginBottom:
-                          15,
+                        marginBottom: 15,
                       }}
                     >
 
@@ -3391,8 +2859,7 @@ function App() {
                       </h3>
 
                       <p>
-                        📧{" "}
-                        {user.email}
+                        📧 {user.email}
                       </p>
 
                       <p>
@@ -3401,26 +2868,12 @@ function App() {
                           "Phone number not added"}
                       </p>
 
-                      {profile?.city && (
-                        <p>
-                          📍{" "}
-                          {
-                            profile.city
-                          }
-                          {profile.state
-                            ? `, ${profile.state}`
-                            : ""}
-                        </p>
-                      )}
-
                     </div>
 
                     <button
                       className="modal-action"
                       onClick={() =>
-                        setAccountTab(
-                          "settings"
-                        )
+                        setAccountTab("settings")
                       }
                     >
                       Edit profile
@@ -3432,9 +2885,7 @@ function App() {
                         marginTop: 10,
                       }}
                       onClick={() => {
-                        setAccountTab(
-                          "orders"
-                        );
+                        setAccountTab("orders");
                         loadOrders();
                       }}
                     >
@@ -3445,10 +2896,7 @@ function App() {
 
                 )}
 
-                {/* ORDERS */}
-
-                {accountTab ===
-                  "orders" && (
+                {accountTab === "orders" && (
 
                   <div>
 
@@ -3464,10 +2912,8 @@ function App() {
 
                       <div
                         style={{
-                          padding:
-                            35,
-                          textAlign:
-                            "center",
+                          padding: 35,
+                          textAlign: "center",
                         }}
                       >
                         Loading your orders...
@@ -3477,10 +2923,8 @@ function App() {
 
                       <div
                         style={{
-                          padding:
-                            20,
-                          textAlign:
-                            "center",
+                          padding: 20,
+                          textAlign: "center",
                         }}
                       >
 
@@ -3490,31 +2934,25 @@ function App() {
 
                         <button
                           className="modal-action"
-                          onClick={
-                            loadOrders
-                          }
+                          onClick={loadOrders}
                         >
                           Try again
                         </button>
 
                       </div>
 
-                    ) : orders.length ===
-                      0 ? (
+                    ) : orders.length === 0 ? (
 
                       <div
                         style={{
-                          textAlign:
-                            "center",
-                          padding:
-                            35,
+                          textAlign: "center",
+                          padding: 35,
                         }}
                       >
 
                         <div
                           style={{
-                            fontSize:
-                              50,
+                            fontSize: 50,
                           }}
                         >
                           📦
@@ -3531,9 +2969,7 @@ function App() {
                         <button
                           className="modal-action"
                           onClick={() => {
-                            setAccountOpen(
-                              false
-                            );
+                            setAccountOpen(false);
                             window.location.hash =
                               "shop";
                           }}
@@ -3547,213 +2983,175 @@ function App() {
 
                       <div>
 
-                        {orders.map(
-                          (order) => (
+                        {orders.map((order) => (
+
+                          <div
+                            key={order.id}
+                            style={{
+                              padding: 18,
+                              border:
+                                "1px solid rgba(128,128,128,.2)",
+                              borderRadius: 18,
+                              marginBottom: 12,
+                            }}
+                          >
 
                             <div
-                              key={
-                                order.id
-                              }
                               style={{
-                                padding:
-                                  18,
-                                border:
-                                  "1px solid rgba(128,128,128,.2)",
-                                borderRadius:
-                                  18,
-                                marginBottom:
-                                  12,
+                                display: "flex",
+                                justifyContent:
+                                  "space-between",
+                                gap: 12,
                               }}
                             >
 
-                              <div
-                                style={{
-                                  display:
-                                    "flex",
-                                  justifyContent:
-                                    "space-between",
-                                  gap:
-                                    12,
-                                }}
-                              >
-
-                                <div>
-
-                                  <strong>
-                                    Order #
-                                    {String(
-                                      order.id
-                                    )
-                                      .slice(
-                                        0,
-                                        8
-                                      )
-                                      .toUpperCase()}
-                                  </strong>
-
-                                  <p
-                                    style={{
-                                      opacity:
-                                        .6,
-                                      fontSize:
-                                        13,
-                                    }}
-                                  >
-                                    {formatDate(
-                                      order.created_at
-                                    )}
-                                  </p>
-
-                                </div>
-
-                                <span
-                                  style={{
-                                    padding:
-                                      "6px 10px",
-                                    borderRadius:
-                                      999,
-                                    background:
-                                      "rgba(128,128,128,.12)",
-                                    fontSize:
-                                      12,
-                                    height:
-                                      "fit-content",
-                                  }}
-                                >
-                                  {statusLabel(
-                                    order.status
-                                  )}
-                                </span>
-
-                              </div>
-
-                              <div
-                                style={{
-                                  display:
-                                    "flex",
-                                  justifyContent:
-                                    "space-between",
-                                  alignItems:
-                                    "center",
-                                  marginTop:
-                                    12,
-                                }}
-                              >
+                              <div>
 
                                 <strong>
-                                  {money(
-                                    order.total
-                                  )}
+                                  Order #
+                                  {String(order.id)
+                                    .slice(0,8)
+                                    .toUpperCase()}
                                 </strong>
 
-                                <button
-                                  className="modal-secondary"
+                                <p
                                   style={{
-                                    width:
-                                      "auto",
+                                    opacity: .6,
+                                    fontSize: 13,
                                   }}
-                                  onClick={() =>
-                                    setExpandedOrder(
-                                      expandedOrder ===
-                                        order.id
-                                        ? null
-                                        : order.id
-                                    )
-                                  }
                                 >
-                                  {expandedOrder ===
-                                  order.id
-                                    ? "Hide items"
-                                    : "View items"}
-                                </button>
+                                  {formatDate(
+                                    order.created_at
+                                  )}
+                                </p>
 
                               </div>
 
-                              {expandedOrder ===
-                                order.id && (
-
-                                <div
-                                  style={{
-                                    marginTop:
-                                      15,
-                                    paddingTop:
-                                      15,
-                                    borderTop:
-                                      "1px solid rgba(128,128,128,.15)",
-                                  }}
-                                >
-
-                                  {order
-                                    .order_items
-                                    ?.map(
-                                      (
-                                        item
-                                      ) => (
-
-                                        <div
-                                          key={
-                                            item.id
-                                          }
-                                          style={{
-                                            display:
-                                              "flex",
-                                            justifyContent:
-                                              "space-between",
-                                            padding:
-                                              "8px 0",
-                                            gap:
-                                              10,
-                                          }}
-                                        >
-
-                                          <div>
-
-                                            <strong>
-                                              {
-                                                item.product_name
-                                              }
-                                            </strong>
-
-                                            <div
-                                              style={{
-                                                opacity:
-                                                  .6,
-                                                fontSize:
-                                                  13,
-                                              }}
-                                            >
-                                              Qty:{" "}
-                                              {
-                                                item.quantity
-                                              }
-                                            </div>
-
-                                          </div>
-
-                                          <strong>
-                                            {money(
-                                              Number(
-                                                item.price
-                                              ) *
-                                                Number(
-                                                  item.quantity
-                                                )
-                                            )}
-                                          </strong>
-
-                                        </div>
-
-                                      )
-                                    )}
-
-                                </div>
-
-                              )}
+                              <span
+                                style={{
+                                  padding:
+                                    "6px 10px",
+                                  borderRadius: 999,
+                                  background:
+                                    "rgba(128,128,128,.12)",
+                                  fontSize: 12,
+                                  height:
+                                    "fit-content",
+                                }}
+                              >
+                                {statusLabel(
+                                  order.status
+                                )}
+                              </span>
 
                             </div>
 
-                          )
-                        )}
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent:
+                                  "space-between",
+                                alignItems:
+                                  "center",
+                                marginTop: 12,
+                              }}
+                            >
+
+                              <strong>
+                                {money(order.total)}
+                              </strong>
+
+                              <button
+                                className="modal-secondary"
+                                style={{
+                                  width: "auto",
+                                }}
+                                onClick={() =>
+                                  setExpandedOrder(
+                                    expandedOrder ===
+                                      order.id
+                                      ? null
+                                      : order.id
+                                  )
+                                }
+                              >
+                                {expandedOrder ===
+                                order.id
+                                  ? "Hide items"
+                                  : "View items"}
+                              </button>
+
+                            </div>
+
+                            {expandedOrder ===
+                              order.id && (
+
+                              <div
+                                style={{
+                                  marginTop: 15,
+                                  paddingTop: 15,
+                                  borderTop:
+                                    "1px solid rgba(128,128,128,.15)",
+                                }}
+                              >
+
+                                {order.order_items?.map(
+                                  (item) => (
+
+                                    <div
+                                      key={item.id}
+                                      style={{
+                                        display:
+                                          "flex",
+                                        justifyContent:
+                                          "space-between",
+                                        padding:
+                                          "8px 0",
+                                        gap: 10,
+                                      }}
+                                    >
+
+                                      <div>
+
+                                        <strong>
+                                          {item.product_name}
+                                        </strong>
+
+                                        <div
+                                          style={{
+                                            opacity: .6,
+                                            fontSize: 13,
+                                          }}
+                                        >
+                                          Qty:{" "}
+                                          {item.quantity}
+                                        </div>
+
+                                      </div>
+
+                                      <strong>
+                                        {money(
+                                          Number(
+                                            item.price
+                                          ) *
+                                            Number(
+                                              item.quantity
+                                            )
+                                        )}
+                                      </strong>
+
+                                    </div>
+
+                                  )
+                                )}
+
+                              </div>
+
+                            )}
+
+                          </div>
+
+                        ))}
 
                       </div>
 
@@ -3763,10 +3161,7 @@ function App() {
 
                 )}
 
-                {/* SETTINGS */}
-
-                {accountTab ===
-                  "settings" && (
+                {accountTab === "settings" && (
 
                   <div>
 
@@ -3788,13 +3183,10 @@ function App() {
                       <input
                         type="text"
                         placeholder="Full name"
-                        value={
-                          profileName
-                        }
+                        value={profileName}
                         onChange={(event) =>
                           setProfileName(
-                            event.target
-                              .value
+                            event.target.value
                           )
                         }
                         required
@@ -3803,13 +3195,10 @@ function App() {
                       <input
                         type="tel"
                         placeholder="Phone number"
-                        value={
-                          profilePhone
-                        }
+                        value={profilePhone}
                         onChange={(event) =>
                           setProfilePhone(
-                            event.target
-                              .value
+                            event.target.value
                           )
                         }
                         required
@@ -3817,61 +3206,14 @@ function App() {
 
                       <input
                         type="email"
-                        value={
-                          user.email ||
-                          ""
-                        }
+                        value={user.email || ""}
                         disabled
-                      />
-
-                      <input
-                        type="text"
-                        placeholder="City"
-                        value={
-                          deliveryCity
-                        }
-                        onChange={(event) =>
-                          setDeliveryCity(
-                            event.target
-                              .value
-                          )
-                        }
-                      />
-
-                      <input
-                        type="text"
-                        placeholder="State"
-                        value={
-                          deliveryState
-                        }
-                        onChange={(event) =>
-                          setDeliveryState(
-                            event.target
-                              .value
-                          )
-                        }
-                      />
-
-                      <textarea
-                        placeholder="Delivery address"
-                        value={
-                          deliveryAddress
-                        }
-                        onChange={(event) =>
-                          setDeliveryAddress(
-                            event.target
-                              .value
-                          )
-                        }
-                        rows={3}
                       />
 
                       <button
                         className="modal-action"
                         type="submit"
-                        disabled={
-                          settingsLoading
-                        }
+                        disabled={settingsLoading}
                       >
                         {settingsLoading
                           ? "Saving..."
@@ -3888,10 +3230,8 @@ function App() {
 
                     <div
                       style={{
-                        marginTop:
-                          30,
-                        paddingTop:
-                          25,
+                        marginTop: 30,
+                        paddingTop: 25,
                         borderTop:
                           "1px solid rgba(128,128,128,.15)",
                       }}
@@ -3907,26 +3247,19 @@ function App() {
 
                       <form
                         className="auth-form"
-                        onSubmit={
-                          changePassword
-                        }
+                        onSubmit={changePassword}
                       >
 
                         <input
                           type="password"
                           placeholder="New password"
-                          value={
-                            newPassword
-                          }
+                          value={newPassword}
                           onChange={(event) =>
                             setNewPassword(
-                              event.target
-                                .value
+                              event.target.value
                             )
                           }
-                          minLength={
-                            6
-                          }
+                          minLength={6}
                           required
                         />
 
@@ -3946,9 +3279,7 @@ function App() {
 
                       {passwordMessage && (
                         <p className="auth-message">
-                          {
-                            passwordMessage
-                          }
+                          {passwordMessage}
                         </p>
                       )}
 
@@ -3957,12 +3288,9 @@ function App() {
                     <button
                       className="modal-secondary"
                       style={{
-                        marginTop:
-                          25,
+                        marginTop: 25,
                       }}
-                      onClick={
-                        logout
-                      }
+                      onClick={logout}
                     >
                       🚪 Log out
                     </button>
@@ -3975,42 +3303,31 @@ function App() {
 
             ) : (
 
-              /* LOGIN / SIGNUP */
-
               <>
-
                 <p className="eyebrow">
                   SHINDARA ACCOUNT
                 </p>
 
                 <h2>
-                  {authMode ===
-                  "signup"
+                  {authMode === "signup"
                     ? "Create your account"
                     : "Welcome back"}
                 </h2>
 
                 <form
                   className="auth-form"
-                  onSubmit={
-                    handleAuth
-                  }
+                  onSubmit={handleAuth}
                 >
 
-                  {authMode ===
-                    "signup" && (
+                  {authMode === "signup" && (
                     <>
-
                       <input
                         type="text"
                         placeholder="Full name"
-                        value={
-                          fullName
-                        }
+                        value={fullName}
                         onChange={(event) =>
                           setFullName(
-                            event.target
-                              .value
+                            event.target.value
                           )
                         }
                         required
@@ -4019,31 +3336,24 @@ function App() {
                       <input
                         type="tel"
                         placeholder="Phone number"
-                        value={
-                          phone
-                        }
+                        value={phone}
                         onChange={(event) =>
                           setPhone(
-                            event.target
-                              .value
+                            event.target.value
                           )
                         }
                         required
                       />
-
                     </>
                   )}
 
                   <input
                     type="email"
                     placeholder="Email address"
-                    value={
-                      email
-                    }
+                    value={email}
                     onChange={(event) =>
                       setEmail(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
                     required
@@ -4052,57 +3362,38 @@ function App() {
                   <input
                     type="password"
                     placeholder="Password"
-                    value={
-                      password
-                    }
+                    value={password}
                     onChange={(event) =>
                       setPassword(
-                        event.target
-                          .value
+                        event.target.value
                       )
                     }
-                    minLength={
-                      6
-                    }
+                    minLength={6}
                     required
                   />
 
-                  {authMode ===
-                    "login" && (
-
+                  {authMode === "login" && (
                     <button
                       type="button"
                       className="forgot-password"
                       onClick={() => {
-                        setForgotPassword(
-                          true
-                        );
-
-                        setResetEmail(
-                          email
-                        );
-
-                        setResetMessage(
-                          ""
-                        );
+                        setForgotPassword(true);
+                        setResetEmail(email);
+                        setResetMessage("");
                       }}
                     >
                       Forgot password?
                     </button>
-
                   )}
 
                   <button
                     className="modal-action"
                     type="submit"
-                    disabled={
-                      authLoading
-                    }
+                    disabled={authLoading}
                   >
                     {authLoading
                       ? "Please wait..."
-                      : authMode ===
-                        "signup"
+                      : authMode === "signup"
                       ? "Create account"
                       : "Sign in"}
                   </button>
@@ -4111,17 +3402,12 @@ function App() {
 
                 {authMessage && (
                   <p className="auth-message">
-                    {
-                      authMessage
-                    }
+                    {authMessage}
                   </p>
                 )}
 
-                {authMode ===
-                  "login" && (
-
+                {authMode === "login" && (
                   <>
-
                     <div className="auth-divider">
                       <span>
                         or continue with
@@ -4138,9 +3424,7 @@ function App() {
                             "google"
                           )
                         }
-                        disabled={
-                          authLoading
-                        }
+                        disabled={authLoading}
                       >
                         Google
                       </button>
@@ -4153,38 +3437,31 @@ function App() {
                             "apple"
                           )
                         }
-                        disabled={
-                          authLoading
-                        }
+                        disabled={authLoading}
                       >
                         Apple
                       </button>
 
                     </div>
-
                   </>
-
                 )}
 
                 <button
                   className="modal-secondary"
                   style={{
-                    marginTop:
-                      12,
+                    marginTop: 12,
                   }}
                   onClick={() => {
                     setAuthMessage("");
 
                     setAuthMode(
-                      authMode ===
-                        "login"
+                      authMode === "login"
                         ? "signup"
                         : "login"
                     );
                   }}
                 >
-                  {authMode ===
-                  "login"
+                  {authMode === "login"
                     ? "Create a new account"
                     : "Already have an account? Sign in"}
                 </button>
@@ -4199,18 +3476,14 @@ function App() {
 
       )}
 
-      {/* =========================
-          FORGOT PASSWORD
-      ========================= */}
+      {/* FORGOT PASSWORD */}
 
       {forgotPassword && (
 
         <div
           className="modal-backdrop"
           onClick={() =>
-            setForgotPassword(
-              false
-            )
+            setForgotPassword(false)
           }
         >
 
@@ -4224,9 +3497,7 @@ function App() {
             <button
               className="modal-close"
               onClick={() =>
-                setForgotPassword(
-                  false
-                )
+                setForgotPassword(false)
               }
             >
               ×
@@ -4240,31 +3511,22 @@ function App() {
               Reset your password
             </h2>
 
-            <p
-              style={{
-                opacity: .65,
-              }}
-            >
+            <p style={{ opacity: .65 }}>
               Enter your email and we'll send you a password reset link.
             </p>
 
             <form
               className="auth-form"
-              onSubmit={
-                handleForgotPassword
-              }
+              onSubmit={handleForgotPassword}
             >
 
               <input
                 type="email"
                 placeholder="Email address"
-                value={
-                  resetEmail
-                }
+                value={resetEmail}
                 onChange={(event) =>
                   setResetEmail(
-                    event.target
-                      .value
+                    event.target.value
                   )
                 }
                 required
@@ -4273,9 +3535,7 @@ function App() {
               <button
                 className="modal-action"
                 type="submit"
-                disabled={
-                  resetLoading
-                }
+                disabled={resetLoading}
               >
                 {resetLoading
                   ? "Sending..."
@@ -4293,9 +3553,7 @@ function App() {
             <button
               className="modal-secondary"
               onClick={() =>
-                setForgotPassword(
-                  false
-                )
+                setForgotPassword(false)
               }
             >
               Back to sign in
