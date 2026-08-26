@@ -58,6 +58,13 @@ function App() {
       return [];
     }
   });
+  useEffect(() => {
+  try {
+    localStorage.setItem("shindara_cart", JSON.stringify(cart));
+  } catch (error) {
+    console.error("Unable to save cart:", error);
+  }
+}, [cart]);
 
   const [cartOpen, setCartOpen] = useState(false);
 
