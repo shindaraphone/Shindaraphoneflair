@@ -1,103 +1,115 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import Admin from "./Admin";
-import AdminLogin from "./AdminLogin";
-
-function ProtectedAdmin() {
+function ProtectedAdmin({ children }) {
   const [checking, setChecking] = useState(true);
-  const [user, setUser] = useState(null);
-
+  const [isAdmin, setIsAdmin] = useState(false);
   async function checkAdmin() {
     try {
       setChecking(true);
-
       const {
-        data: { user: currentUser },
+        data: { user },
         error: userError,
       } = await supabase.auth.getUser();
-
-      if (userError || !currentUser) {
-        setUser(null);
+      if (userError || !user) {
+        setIsAdmin(false);
+        window.location.replace("/admin-login");
         return;
       }
-
       const { data: profile, error: profileError } =
         await supabase
           .from("profiles")
           .select("id, email, is_admin")
-          .eq("id", currentUser.id)
+          .eq("id", user.id)
           .maybeSingle();
-
       if (profileError) {
         console.error(
-          "Profile check error:",
+          "Admin profile check error:",
           profileError
         );
-
         await supabase.auth.signOut();
-        setUser(null);
+        setIsAdmin(false);
+        window.location.replace("/admin-login");
         return;
       }
-
       if (!profile) {
+        console.error(
+          "No profile found for admin user."
+        );
         await supabase.auth.signOut();
-        setUser(null);
+        setIsAdmin(false);
+        window.location.replace("/admin-login");
         return;
       }
-
-      if (!profile.is_admin) {
+      if (profile.is_admin !== true) {
+        console.error(
+          "User is authenticated but is not an admin."
+        );
         await supabase.auth.signOut();
-        setUser(null);
+        setIsAdmin(false);
+        window.location.replace("/admin-login");
         return;
       }
-
-      setUser(currentUser);
+      setIsAdmin(true);
     } catch (error) {
       console.error(
         "Admin authentication error:",
         error
       );
-
-      setUser(null);
+      setIsAdmin(false);
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error(
+          "Sign out error:",
+          signOutError
+        );
+      }
+      window.location.replace("/admin-login");
     } finally {
       setChecking(false);
     }
   }
-
   useEffect(() => {
-    checkAdmin();
-
+    let mounted = true;
+    async function verify() {
+      if (!mounted) return;
+      await checkAdmin();
+    }
+    verify();
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        if (!mounted) return;
         if (
           event === "SIGNED_OUT" ||
           !session
         ) {
-          setUser(null);
-          setChecking(false);
+          setIsAdmin(false);
+          if (
+            window.location.pathname === "/admin"
+          ) {
+            window.location.replace(
+              "/admin-login"
+            );
+          }
           return;
         }
-
-        if (
-          event === "SIGNED_IN" ||
-          event === "INITIAL_SESSION"
-        ) {
-          await checkAdmin();
+        if (event === "SIGNED_IN") {
+          checkAdmin();
         }
       }
     );
-
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
-
   /*
-   * Checking whether an admin is already logged in.
-   */
-
+  ========================================
+  LOADING
+  ========================================
+  */
   if (checking) {
     return (
       <div className="protected-admin-loading">
@@ -105,11 +117,11 @@ function ProtectedAdmin() {
           * {
             box-sizing: border-box;
           }
-
+          html,
           body {
             margin: 0;
+            padding: 0;
           }
-
           .protected-admin-loading {
             min-height: 100vh;
             display: flex;
@@ -130,79 +142,70 @@ function ProtectedAdmin() {
               "SF Pro Display",
               "Segoe UI",
               sans-serif;
+            color: #111;
           }
-
           .protected-admin-loading-box {
+            width: min(360px, 100%);
             text-align: center;
           }
-
           .protected-admin-spinner {
-            width: 42px;
-            height: 42px;
-            border: 4px solid rgba(0,0,0,.08);
+            width: 44px;
+            height: 44px;
+            border: 4px solid
+              rgba(0,0,0,.08);
             border-top-color: #111;
             border-radius: 50%;
             animation:
-              protectedSpin .8s linear infinite;
-            margin: 0 auto 18px;
+              protectedSpin
+              .8s
+              linear
+              infinite;
+            margin:
+              0 auto 20px;
           }
-
           .protected-admin-loading-box strong {
             display: block;
-            font-size: 15px;
+            font-size: 16px;
+            font-weight: 800;
           }
-
           .protected-admin-loading-box p {
-            margin-top: 7px;
+            margin: 8px 0 0;
             font-size: 13px;
             opacity: .5;
           }
-
           @keyframes protectedSpin {
             to {
               transform: rotate(360deg);
             }
           }
         `}</style>
-
         <div className="protected-admin-loading-box">
-
-          <div className="protected-admin-spinner"></div>
-
+          <div
+            className="protected-admin-spinner"
+          />
           <strong>
             Checking admin access...
           </strong>
-
           <p>
             Please wait a moment.
           </p>
-
         </div>
       </div>
     );
   }
-
   /*
-   * No authenticated admin.
-   * Show the Admin Login page.
-   */
-
-  if (!user) {
-    return (
-      <AdminLogin
-        onLogin={(loggedInUser) => {
-          setUser(loggedInUser);
-        }}
-      />
-    );
+  ========================================
+  NOT ADMIN
+  ========================================
+  */
+  if (!isAdmin) {
+    return null;
   }
-
   /*
-   * Authenticated and verified admin.
-   * Show the existing Admin dashboard.
-   */
-
-  return <Admin />;
+  ========================================
+  VERIFIED ADMIN
+  ========================================
+  */
+  return children;
 }
-
 export default ProtectedAdmin;
