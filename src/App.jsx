@@ -644,11 +644,6 @@ function App() {
   setUser(null);
   setProfile(null);
   setOrders([]);
-
-  // Clear cart when customer logs out
-  setCart([]);
-  localStorage.removeItem("shindara_cart");
-
   setAccountOpen(false);
 }
 
