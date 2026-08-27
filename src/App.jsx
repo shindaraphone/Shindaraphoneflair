@@ -2,10 +2,35 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
 
-const money = (n) =>
+const money = n =>
   `₦${Number(n || 0).toLocaleString("en-NG", {
     minimumFractionDigits: 0,
   })}`;
+
+const states = {
+  Lagos: ["Ikeja","Lekki","Victoria Island","Yaba","Surulere","Ajah","Ikorodu","Badagry"],
+  Ogun: ["Abeokuta","Ijebu Ode","Sagamu","Ota","Ilaro","Agbara","Ifo"],
+  Oyo: ["Ibadan","Ogbomoso","Oyo","Iseyin","Eruwa","Saki"],
+  Abuja: ["Garki","Wuse","Maitama","Asokoro","Gwarinpa","Kubwa","Jabi"],
+  Rivers: ["Port Harcourt","Bonny","Eleme","Obio-Akpor"],
+  Kwara: ["Ilorin","Offa","Jebba","Malete"],
+  Osun: ["Osogbo","Ile-Ife","Ilesa","Ede"],
+  Ondo: ["Akure","Ondo","Owo","Ikare"],
+  Edo: ["Benin City","Auchi","Ekpoma"],
+  Kaduna: ["Kaduna","Zaria","Kafanchan"],
+  Kano: ["Kano","Wudil","Gaya"],
+  Enugu: ["Enugu","Nsukka","Agbani"],
+  Anambra: ["Awka","Onitsha","Nnewi"],
+  Delta: ["Asaba","Warri","Sapele"],
+  Akwa_Ibom: ["Uyo","Eket","Ikot Ekpene"],
+};
+
+const cleanStates = Object.fromEntries(
+  Object.entries(states).map(([k,v]) => [
+    k.replace("_"," "),
+    v
+  ])
+);
 
 const emptyCheckout = {
   customer_name: "",
@@ -17,114 +42,125 @@ const emptyCheckout = {
 };
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
+  const [user,setUser] = useState(null);
+  const [profile,setProfile] = useState(null);
+  const [products,setProducts] = useState([]);
+  const [categories,setCategories] = useState([]);
+  const [cart,setCart] = useState([]);
+  const [orders,setOrders] = useState([]);
 
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [cartLoading,setCartLoading] = useState(false);
+  const [authLoading,setAuthLoading] = useState(false);
+  const [placingOrder,setPlacingOrder] = useState(false);
 
-  const [cart, setCart] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [search,setSearch] = useState("");
+  const [category,setCategory] = useState("All");
 
-  const [loading, setLoading] = useState(true);
-  const [cartLoading, setCartLoading] = useState(false);
+  const [accountOpen,setAccountOpen] = useState(false);
+  const [cartOpen,setCartOpen] = useState(false);
+  const [checkoutOpen,setCheckoutOpen] = useState(false);
+  const [ordersOpen,setOrdersOpen] = useState(false);
 
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
+  const [authMode,setAuthMode] = useState("login");
+  const [authMessage,setAuthMessage] = useState("");
 
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [ordersOpen, setOrdersOpen] = useState(false);
+  const [fullName,setFullName] = useState("");
+  const [phone,setPhone] = useState("");
+  const [email,setEmail] = useState("");
+  const [password,setPassword] = useState("");
 
-  const [authMode, setAuthMode] = useState("login");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authMessage, setAuthMessage] = useState("");
+  const [editName,setEditName] = useState("");
+  const [editPhone,setEditPhone] = useState("");
+  const [savingProfile,setSavingProfile] = useState(false);
 
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [checkout,setCheckout] = useState(emptyCheckout);
+  const [checkoutMessage,setCheckoutMessage] = useState("");
+  const [notice,setNotice] = useState("");
 
-  const [checkout, setCheckout] = useState(emptyCheckout);
-  const [checkoutMessage, setCheckoutMessage] = useState("");
-  const [placingOrder, setPlacingOrder] = useState(false);
+  const [dark,setDark] = useState(false);
 
-  const [notice, setNotice] = useState("");
-
-  const showNotice = (message) => {
-    setNotice(message);
-    setTimeout(() => setNotice(""), 2800);
+  const showNotice = msg => {
+    setNotice(msg);
+    setTimeout(() => setNotice(""),2800);
   };
 
-  /* =========================
-     AUTH
-  ========================= */
+  /* THEME */
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const change = () => setDark(media.matches);
+    change();
+    media.addEventListener?.("change",change);
+    return () => media.removeEventListener?.("change",change);
+  },[]);
 
+  /* AUTH + INITIAL LOAD */
   useEffect(() => {
     let mounted = true;
 
     const start = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const {data:{session}} = await supabase.auth.getSession();
 
       if (!mounted) return;
 
       setUser(session?.user || null);
 
-      if (session?.user) {
-        await loadUser(session.user);
-      }
+      if (session?.user) await loadUser(session.user);
 
-      await Promise.all([loadProducts(), loadCategories()]);
+      await Promise.all([loadProducts(),loadCategories()]);
 
-      setLoading(false);
+      if (mounted) setLoading(false);
     };
 
     start();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user || null);
+    const {data:{subscription}} =
+      supabase.auth.onAuthStateChange(async (_event,session) => {
+        setUser(session?.user || null);
 
-      if (session?.user) {
-        await loadUser(session.user);
-      } else {
-        setProfile(null);
-        setCart([]);
-        setOrders([]);
-      }
-    });
+        if (session?.user) {
+          await loadUser(session.user);
+        } else {
+          setProfile(null);
+          setCart([]);
+          setOrders([]);
+        }
+      });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  },[]);
 
-  const loadUser = async (currentUser) => {
+  const loadUser = async currentUser => {
     if (!currentUser) return;
 
-    const { data: profileData } = await supabase
+    const {data:profileData} = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", currentUser.id)
+      .eq("id",currentUser.id)
       .maybeSingle();
 
     setProfile(profileData || null);
 
-    setCheckout((old) => ({
+    const name =
+      profileData?.full_name ||
+      currentUser.user_metadata?.full_name ||
+      "";
+
+    const userPhone =
+      profileData?.phone ||
+      currentUser.user_metadata?.phone ||
+      "";
+
+    setEditName(name);
+    setEditPhone(userPhone);
+
+    setCheckout(old => ({
       ...old,
-      customer_name:
-        profileData?.full_name ||
-        currentUser.user_metadata?.full_name ||
-        old.customer_name,
-      customer_phone:
-        profileData?.phone ||
-        currentUser.user_metadata?.phone ||
-        old.customer_phone,
+      customer_name: name || old.customer_name,
+      customer_phone: userPhone || old.customer_phone,
       customer_email: currentUser.email || old.customer_email,
     }));
 
@@ -135,23 +171,24 @@ export default function App() {
   };
 
   const loadProducts = async () => {
-    const { data, error } = await supabase
+    const {data,error} = await supabase
       .from("products")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at",{ascending:false});
 
     if (!error) setProducts(data || []);
   };
 
   const loadCategories = async () => {
-    const { data, error } = await supabase
+    const {data,error} = await supabase
       .from("categories")
       .select("*");
 
     if (!error) setCategories(data || []);
   };
 
-  const loadCart = async (userId) => {
+  /* CART */
+  const loadCart = async userId => {
     if (!userId) {
       setCart([]);
       return;
@@ -159,39 +196,192 @@ export default function App() {
 
     setCartLoading(true);
 
-    const { data, error } = await supabase
+    const {data,error} = await supabase
       .from("cart_items")
       .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true });
+      .eq("user_id",userId)
+      .order("created_at",{ascending:true});
 
-    if (!error) {
-      setCart(data || []);
-    }
+    if (!error) setCart(data || []);
 
     setCartLoading(false);
   };
 
-  const loadOrders = async (userId) => {
+  const loadOrders = async userId => {
     if (!userId) return;
 
-    const { data, error } = await supabase
+    const {data,error} = await supabase
       .from("orders")
       .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .eq("user_id",userId)
+      .order("created_at",{ascending:false});
 
     if (!error) setOrders(data || []);
   };
 
+  const addToCart = async product => {
+    if (!user) {
+      setAccountOpen(true);
+      setAuthMode("login");
+      setAuthMessage(
+        "Please login or create an account before shopping."
+      );
+      return;
+    }
+
+    if (Number(product.stock) <= 0) {
+      showNotice("This product is currently out of stock.");
+      return;
+    }
+
+    const existing = cart.find(
+      item => item.product_id === product.id
+    );
+
+    if (existing) {
+      const quantity = Number(existing.quantity) + 1;
+
+      if (quantity > Number(product.stock)) {
+        showNotice("You have reached the available stock.");
+        return;
+      }
+
+      const {error} = await supabase
+        .from("cart_items")
+        .update({quantity})
+        .eq("id",existing.id)
+        .eq("user_id",user.id);
+
+      if (error) {
+        showNotice("Could not update your cart.");
+        return;
+      }
+
+      setCart(old =>
+        old.map(item =>
+          item.id === existing.id
+            ? {...item,quantity}
+            : item
+        )
+      );
+    } else {
+      const {data,error} = await supabase
+        .from("cart_items")
+        .insert({
+          user_id:user.id,
+          product_id:product.id,
+          quantity:1,
+        })
+        .select()
+        .single();
+
+      if (error || !data) {
+        showNotice("Could not add this item.");
+        return;
+      }
+
+      setCart(old => [...old,data]);
+    }
+
+    showNotice(`${product.name} added to your cart.`);
+  };
+
+  const updateQuantity = async (item,change) => {
+    if (!user) return;
+
+    const product = products.find(
+      p => p.id === item.product_id
+    );
+
+    if (!product) return;
+
+    const quantity = Number(item.quantity) + change;
+
+    if (quantity <= 0) {
+      await removeFromCart(item);
+      return;
+    }
+
+    if (quantity > Number(product.stock)) {
+      showNotice("No more stock is available.");
+      return;
+    }
+
+    const {error} = await supabase
+      .from("cart_items")
+      .update({quantity})
+      .eq("id",item.id)
+      .eq("user_id",user.id);
+
+    if (!error) {
+      setCart(old =>
+        old.map(x =>
+          x.id === item.id
+            ? {...x,quantity}
+            : x
+        )
+      );
+    }
+  };
+
+  const removeFromCart = async item => {
+    if (!user) return;
+
+    const {error} = await supabase
+      .from("cart_items")
+      .delete()
+      .eq("id",item.id)
+      .eq("user_id",user.id);
+
+    if (!error) {
+      setCart(old =>
+        old.filter(x => x.id !== item.id)
+      );
+    }
+  };
+
+  const cartProducts = useMemo(() =>
+    cart
+      .map(item => {
+        const product = products.find(
+          p => p.id === item.product_id
+        );
+
+        if (!product) return null;
+
+        return {
+          ...item,
+          product,
+          subtotal:
+            Number(product.price) *
+            Number(item.quantity),
+        };
+      })
+      .filter(Boolean),
+    [cart,products]
+  );
+
+  const cartCount = cart.reduce(
+    (sum,item) =>
+      sum + Number(item.quantity || 0),
+    0
+  );
+
+  const cartTotal = cartProducts.reduce(
+    (sum,item) => sum + item.subtotal,
+    0
+  );
+
+  /* AUTH */
   const login = async () => {
     setAuthLoading(true);
     setAuthMessage("");
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    const {data,error} =
+      await supabase.auth.signInWithPassword({
+        email:email.trim(),
+        password,
+      });
 
     if (error) {
       setAuthMessage(error.message);
@@ -199,14 +389,13 @@ export default function App() {
       return;
     }
 
-    if (data?.user) {
-      await loadUser(data.user);
-    }
+    if (data?.user) await loadUser(data.user);
 
     setPassword("");
     setEmail("");
     setAccountOpen(false);
     setAuthLoading(false);
+
     showNotice("Welcome back 👋🏽");
   };
 
@@ -214,22 +403,28 @@ export default function App() {
     setAuthLoading(true);
     setAuthMessage("");
 
-    if (!fullName.trim() || !phone.trim() || !email.trim() || !password) {
+    if (
+      !fullName.trim() ||
+      !phone.trim() ||
+      !email.trim() ||
+      !password
+    ) {
       setAuthMessage("Please complete all fields.");
       setAuthLoading(false);
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
-          phone: phone.trim(),
+    const {data,error} =
+      await supabase.auth.signUp({
+        email:email.trim(),
+        password,
+        options:{
+          data:{
+            full_name:fullName.trim(),
+            phone:phone.trim(),
+          },
         },
-      },
-    });
+      });
 
     if (error) {
       setAuthMessage(error.message);
@@ -239,10 +434,10 @@ export default function App() {
 
     if (data?.user) {
       await supabase.from("profiles").upsert({
-        id: data.user.id,
-        email: email.trim(),
-        full_name: fullName.trim(),
-        phone: phone.trim(),
+        id:data.user.id,
+        email:email.trim(),
+        full_name:fullName.trim(),
+        phone:phone.trim(),
       });
 
       if (data.session) {
@@ -259,6 +454,24 @@ export default function App() {
     setAuthLoading(false);
   };
 
+  const googleLogin = async () => {
+    setAuthLoading(true);
+    setAuthMessage("");
+
+    const {error} =
+      await supabase.auth.signInWithOAuth({
+        provider:"google",
+        options:{
+          redirectTo:window.location.origin,
+        },
+      });
+
+    if (error) {
+      setAuthMessage(error.message);
+      setAuthLoading(false);
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setCart([]);
@@ -269,192 +482,96 @@ export default function App() {
     showNotice("You have been logged out.");
   };
 
-  const submitAuth = async (e) => {
+  const submitAuth = async e => {
     e.preventDefault();
-
-    if (authMode === "signup") {
-      await signup();
-    } else {
-      await login();
-    }
+    authMode === "signup"
+      ? await signup()
+      : await login();
   };
 
-  /* =========================
-     CART
-  ========================= */
-
-  const addToCart = async (product) => {
-    if (!user) {
-      setAccountOpen(true);
-      setAuthMode("login");
-      setAuthMessage("Please login or create an account before shopping.");
-      return;
-    }
-
-    if (Number(product.stock) <= 0) {
-      showNotice("This product is currently out of stock.");
-      return;
-    }
-
-    const existing = cart.find((item) => item.product_id === product.id);
-
-    if (existing) {
-      const newQuantity = Number(existing.quantity) + 1;
-
-      if (newQuantity > Number(product.stock)) {
-        showNotice("You have reached the available stock.");
-        return;
-      }
-
-      const { error } = await supabase
-        .from("cart_items")
-        .update({ quantity: newQuantity })
-        .eq("id", existing.id)
-        .eq("user_id", user.id);
-
-      if (!error) {
-        setCart((old) =>
-          old.map((item) =>
-            item.id === existing.id
-              ? { ...item, quantity: newQuantity }
-              : item
-          )
-        );
-      }
-    } else {
-      const { data, error } = await supabase
-        .from("cart_items")
-        .insert({
-          user_id: user.id,
-          product_id: product.id,
-          quantity: 1,
-        })
-        .select()
-        .single();
-
-      if (!error && data) {
-        setCart((old) => [...old, data]);
-      }
-    }
-
-    setCartOpen(false);
-    showNotice(`${product.name} added to your cart.`);
-  };
-
-  const updateQuantity = async (item, change) => {
+  /* PROFILE */
+  const saveProfile = async () => {
     if (!user) return;
 
-    const product = products.find((p) => p.id === item.product_id);
-    if (!product) return;
-
-    const newQuantity = Number(item.quantity) + change;
-
-    if (newQuantity <= 0) {
-      await removeFromCart(item);
+    if (!editName.trim() || !editPhone.trim()) {
+      showNotice("Please enter your name and phone.");
       return;
     }
 
-    if (newQuantity > Number(product.stock)) {
-      showNotice("No more stock is available.");
+    setSavingProfile(true);
+
+    const {error} = await supabase
+      .from("profiles")
+      .upsert({
+        id:user.id,
+        email:user.email,
+        full_name:editName.trim(),
+        phone:editPhone.trim(),
+      });
+
+    setSavingProfile(false);
+
+    if (error) {
+      showNotice("Could not save your profile.");
       return;
     }
 
-    const { error } = await supabase
-      .from("cart_items")
-      .update({ quantity: newQuantity })
-      .eq("id", item.id)
-      .eq("user_id", user.id);
+    setProfile(old => ({
+      ...(old || {}),
+      full_name:editName.trim(),
+      phone:editPhone.trim(),
+      email:user.email,
+    }));
 
-    if (!error) {
-      setCart((old) =>
-        old.map((x) =>
-          x.id === item.id ? { ...x, quantity: newQuantity } : x
-        )
-      );
-    }
+    setCheckout(old => ({
+      ...old,
+      customer_name:editName.trim(),
+      customer_phone:editPhone.trim(),
+    }));
+
+    showNotice("Account details saved.");
   };
 
-  const removeFromCart = async (item) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("id", item.id)
-      .eq("user_id", user.id);
-
-    if (!error) {
-      setCart((old) => old.filter((x) => x.id !== item.id));
-    }
-  };
-
-  const cartProducts = useMemo(() => {
-    return cart
-      .map((item) => {
-        const product = products.find((p) => p.id === item.product_id);
-
-        if (!product) return null;
-
-        return {
-          ...item,
-          product,
-          subtotal: Number(product.price) * Number(item.quantity),
-        };
-      })
-      .filter(Boolean);
-  }, [cart, products]);
-
-  const cartCount = cart.reduce(
-    (sum, item) => sum + Number(item.quantity || 0),
-    0
-  );
-
-  const cartTotal = cartProducts.reduce(
-    (sum, item) => sum + item.subtotal,
-    0
-  );
-
-  /* =========================
-     PRODUCTS
-  ========================= */
-
+  /* PRODUCTS */
   const categoryNames = useMemo(() => {
     const names = categories
-      .map((c) => c.name || c.title || c.category)
+      .map(c => c.name || c.title || c.category)
       .filter(Boolean);
 
     const productNames = products
-      .map((p) => p.category)
+      .map(p => p.category)
       .filter(Boolean);
 
-    return ["All", ...new Set([...names, ...productNames])];
-  }, [categories, products]);
+    return [
+      "All",
+      ...new Set([...names,...productNames])
+    ].filter(
+      x => !String(x)
+        .toLowerCase()
+        .includes("smartphone")
+    );
+  },[categories,products]);
 
   const filteredProducts = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const q = search.trim().toLowerCase();
 
-    return products.filter((product) => {
+    return products.filter(product => {
+      const text =
+        `${product.name || ""} ${product.description || ""} ${product.category || ""}`
+          .toLowerCase();
+
       const matchesSearch =
-        !query ||
-        product.name?.toLowerCase().includes(query) ||
-        product.description?.toLowerCase().includes(query) ||
-        product.category?.toLowerCase().includes(query);
+        !q || text.includes(q);
 
       const matchesCategory =
-        category === "All" || product.category === category;
+        category === "All" ||
+        product.category === category;
 
       return matchesSearch && matchesCategory;
     });
-  }, [products, search, category]);
+  },[products,search,category]);
 
-  const featuredProducts = filteredProducts.filter(
-    (product) => product.featured
-  );
-
-  /* =========================
-     CHECKOUT
-  ========================= */
-
+  /* CHECKOUT */
   const openCheckout = () => {
     if (!user) {
       setCartOpen(false);
@@ -473,7 +590,7 @@ export default function App() {
     setCheckoutOpen(true);
   };
 
-  const placeOrder = async (e) => {
+  const placeOrder = async e => {
     e.preventDefault();
 
     if (!user) {
@@ -490,64 +607,73 @@ export default function App() {
       !checkout.customer_name.trim() ||
       !checkout.customer_phone.trim() ||
       !checkout.delivery_address.trim() ||
-      !checkout.delivery_city.trim() ||
-      !checkout.delivery_state.trim()
+      !checkout.delivery_city ||
+      !checkout.delivery_state
     ) {
-      setCheckoutMessage("Please complete your delivery information.");
+      setCheckoutMessage(
+        "Please complete your delivery information."
+      );
       return;
     }
 
     setPlacingOrder(true);
     setCheckoutMessage("");
 
+    const paymentReference =
+      `SFP-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2,7)
+        .toUpperCase()}`;
+
     const deliveryFee = 0;
     const total = cartTotal + deliveryFee;
 
-    const paymentReference = `SFP-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 7)
-      .toUpperCase()}`;
-
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        user_id: user.id,
-        customer_name: checkout.customer_name.trim(),
-        customer_phone: checkout.customer_phone.trim(),
-        customer_email:
-          checkout.customer_email.trim() || user.email || null,
-        delivery_address: checkout.delivery_address.trim(),
-        delivery_city: checkout.delivery_city.trim(),
-        delivery_state: checkout.delivery_state.trim(),
-        total,
-        delivery_fee: deliveryFee,
-        status: "pending",
-        payment_reference: paymentReference,
-        payment_status: "pending",
-      })
-      .select()
-      .single();
+    const {data:order,error:orderError} =
+      await supabase
+        .from("orders")
+        .insert({
+          user_id:user.id,
+          customer_name:checkout.customer_name.trim(),
+          customer_phone:checkout.customer_phone.trim(),
+          customer_email:
+            checkout.customer_email.trim() ||
+            user.email ||
+            null,
+          delivery_address:
+            checkout.delivery_address.trim(),
+          delivery_city:checkout.delivery_city,
+          delivery_state:checkout.delivery_state,
+          total,
+          delivery_fee:deliveryFee,
+          status:"pending",
+          payment_reference:paymentReference,
+          payment_status:"pending",
+        })
+        .select()
+        .single();
 
     if (orderError || !order) {
       setCheckoutMessage(
-        orderError?.message || "Unable to create your order."
+        orderError?.message ||
+        "Unable to create your order."
       );
       setPlacingOrder(false);
       return;
     }
 
-    const items = cartProducts.map((item) => ({
-      order_id: order.id,
-      product_id: item.product.id,
-      product_name: item.product.name,
-      price: Number(item.product.price),
-      quantity: Number(item.quantity),
-      image_url: item.product.image_url || null,
+    const items = cartProducts.map(item => ({
+      order_id:order.id,
+      product_id:item.product.id,
+      product_name:item.product.name,
+      price:Number(item.product.price),
+      quantity:Number(item.quantity),
+      image_url:item.product.image_url || null,
     }));
 
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(items);
+    const {error:itemsError} =
+      await supabase
+        .from("order_items")
+        .insert(items);
 
     if (itemsError) {
       setCheckoutMessage(itemsError.message);
@@ -558,7 +684,7 @@ export default function App() {
     await supabase
       .from("cart_items")
       .delete()
-      .eq("user_id", user.id);
+      .eq("user_id",user.id);
 
     setCart([]);
     await loadOrders(user.id);
@@ -566,18 +692,19 @@ export default function App() {
     setCheckoutOpen(false);
     setCheckout(emptyCheckout);
     setPlacingOrder(false);
-
-    showNotice(`Order placed successfully • ${paymentReference}`);
     setOrdersOpen(true);
-  };
 
-  /* =========================
-     UI
-  ========================= */
+    showNotice(
+      `Order placed successfully • ${paymentReference}`
+    );
+  };
 
   if (loading) {
     return (
-      <div style={styles.loading}>
+      <div style={{
+        ...styles.loading,
+        background:dark ? "#08050d" : "#12091d"
+      }}>
         <div style={styles.loadingLogo}>S</div>
         <strong>Shindara Phoneflair</strong>
         <span>Loading your store...</span>
@@ -585,62 +712,190 @@ export default function App() {
     );
   }
 
+  const theme = dark ? darkTheme : lightTheme;
+
   return (
-    <div className="app" style={styles.app}>
-      {/* ANNOUNCEMENT */}
+    <div
+      className="app"
+      style={{
+        ...styles.app,
+        ...theme.app,
+      }}
+    >
+      <style>{`
+        *{box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{margin:0}
+        button,input,textarea,select{font:inherit}
+        .shindara-marquee{
+          display:flex;
+          width:max-content;
+          animation:shindaraMove 22s linear infinite;
+        }
+        .shindara-marquee span{
+          white-space:nowrap;
+          padding-right:70px;
+        }
+        @keyframes shindaraMove{
+          from{transform:translateX(0)}
+          to{transform:translateX(-50%)}
+        }
+        .mobile-menu{display:none}
+        @media(max-width:760px){
+          .desktop-nav{display:none!important}
+          .mobile-menu{display:flex}
+          .shindara-header{
+            padding:12px 15px!important;
+            gap:8px!important;
+          }
+          .hero{
+            min-height:auto!important;
+            padding:55px 18px 45px!important;
+            display:block!important;
+          }
+          .hero h1{
+            font-size:47px!important;
+            letter-spacing:-3px!important;
+          }
+          .hero-card{
+            width:100%!important;
+            min-height:260px!important;
+            margin-top:30px;
+          }
+          .section{
+            padding:55px 15px!important;
+          }
+          .shop-top{
+            display:block!important;
+          }
+          .search{
+            margin-top:20px!important;
+            width:100%!important;
+          }
+          .category-grid{
+            grid-template-columns:repeat(2,1fr)!important;
+          }
+          .product-grid{
+            grid-template-columns:repeat(2,minmax(0,1fr))!important;
+            gap:10px!important;
+          }
+          .product-image{
+            height:175px!important;
+          }
+          .product-info{
+            padding:11px!important;
+          }
+          .product-bottom{
+            display:block!important;
+          }
+          .add-button{
+            width:100%!important;
+            margin-top:9px!important;
+          }
+          .trust{
+            grid-template-columns:1fr!important;
+            padding:40px 15px!important;
+          }
+          .header-actions{
+            gap:5px!important;
+          }
+          .account-button,.cart-button{
+            padding:8px 10px!important;
+            font-size:10px!important;
+          }
+          .two-inputs{
+            grid-template-columns:1fr!important;
+          }
+          .account-cards{
+            grid-template-columns:1fr!important;
+          }
+          .drawer{
+            width:100%!important;
+            padding:18px!important;
+          }
+          .modal{
+            width:calc(100% - 20px)!important;
+            padding:21px!important;
+          }
+          .cart-item{
+            grid-template-columns:55px 1fr!important;
+          }
+          .cart-item>strong{
+            grid-column:2;
+          }
+        }
+      `}</style>
+
+      {/* MOVING ANNOUNCEMENT */}
       <div style={styles.announcement}>
-        <div style={styles.marquee}>
-          PREMIUM PHONE ACCESSORIES • BEAUTIFULLY SELECTED •
-          PREMIUM PHONE ACCESSORIES • BEAUTIFULLY SELECTED •
+        <div className="shindara-marquee">
+          <span>
+            PREMIUM PHONE ACCESSORIES • CHARGERS • POWER BANKS •
+            AUDIO • CABLES • CASES • GADGETS • SCREEN PROTECTORS •
+          </span>
+          <span>
+            PREMIUM PHONE ACCESSORIES • CHARGERS • POWER BANKS •
+            AUDIO • CABLES • CASES • GADGETS • SCREEN PROTECTORS •
+          </span>
         </div>
       </div>
 
       {/* HEADER */}
-      <header className="header" style={styles.header}>
+      <header
+        className="shindara-header"
+        style={{
+          ...styles.header,
+          ...theme.header
+        }}
+      >
         <button
-          onClick={() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+          onClick={() =>
+            window.scrollTo({top:0,behavior:"smooth"})
+          }
           style={styles.logoButton}
         >
           <span style={styles.logoMain}>SHINDARA</span>
           <span style={styles.logoSub}>PHONEFLAIR</span>
         </button>
 
-        <nav style={styles.nav}>
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            style={styles.navButton}
-          >
-            Home
-          </button>
+        <nav
+          className="desktop-nav"
+          style={styles.nav}
+        >
+          {["Home","Shop","Categories"].map(item => (
+            <button
+              key={item}
+              style={{
+                ...styles.navButton,
+                color:theme.muted
+              }}
+              onClick={() => {
+                const id =
+                  item === "Home"
+                    ? null
+                    : item.toLowerCase();
 
-          <button
-            onClick={() =>
-              document
-                .getElementById("shop")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-            style={styles.navButton}
-          >
-            Shop
-          </button>
-
-          <button
-            onClick={() =>
-              document
-                .getElementById("categories")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-            style={styles.navButton}
-          >
-            Categories
-          </button>
+                id
+                  ? document
+                      .getElementById(id)
+                      ?.scrollIntoView({behavior:"smooth"})
+                  : window.scrollTo({
+                      top:0,
+                      behavior:"smooth"
+                    });
+              }}
+            >
+              {item}
+            </button>
+          ))}
         </nav>
 
         <div style={styles.headerActions}>
           <button
-            style={styles.accountButton}
+            style={{
+              ...styles.accountButton,
+              ...theme.button
+            }}
             onClick={() => {
               setAccountOpen(true);
               setAuthMessage("");
@@ -654,81 +909,117 @@ export default function App() {
             onClick={() => {
               if (!user) {
                 setAccountOpen(true);
-                setAuthMessage("Please login to access your cart.");
+                setAuthMessage(
+                  "Please login to access your cart."
+                );
               } else {
                 setCartOpen(true);
               }
             }}
           >
-            Cart {user && cartCount > 0 ? `(${cartCount})` : ""}
+            Cart{user && cartCount ? ` (${cartCount})` : ""}
           </button>
         </div>
       </header>
 
       {/* HERO */}
-      <section className="hero" style={styles.hero}>
-        <div style={styles.heroGlow} />
+      <section
+        className="hero"
+        style={{
+          ...styles.hero,
+          ...theme.hero
+        }}
+      >
+        <div style={styles.heroGlow}/>
 
-        <div className="hero-content" style={styles.heroContent}>
-          <div className="eyebrow" style={styles.eyebrow}>
+        <div
+          className="hero-content"
+          style={styles.heroContent}
+        >
+          <div style={styles.eyebrow}>
             SHINDARA PHONEFLAIR
           </div>
 
-          <h1 style={styles.heroTitle}>
+          <h1 style={{
+            ...styles.heroTitle,
+            color:theme.heading
+          }}>
             Technology,
-            <br />
+            <br/>
             beautifully selected.
           </h1>
 
-          <p className="hero-text" style={styles.heroText}>
-            Premium phone accessories, chargers, audio products,
-            power banks and everyday gadgets made for the way you live.
+          <p style={{
+            ...styles.heroText,
+            color:theme.muted
+          }}>
+            Premium phone accessories, chargers,
+            audio products, power banks, cables,
+            cases and everyday gadgets made for
+            the way you live.
           </p>
 
           <button
-            className="shop-button"
             style={styles.shopButton}
             onClick={() =>
               document
                 .getElementById("shop")
-                ?.scrollIntoView({ behavior: "smooth" })
+                ?.scrollIntoView({behavior:"smooth"})
             }
           >
-            Shop accessories <span>→</span>
+            Shop accessories →
           </button>
         </div>
 
-        <div style={styles.heroCard}>
-          <span style={styles.heroCardSmall}>THE SHINDARA EDIT</span>
+        <div
+          className="hero-card"
+          style={styles.heroCard}
+        >
+          <span style={styles.heroCardSmall}>
+            THE SHINDARA EDIT
+          </span>
           <strong>Better accessories.</strong>
           <strong>Better everyday.</strong>
-          <span style={styles.heroCardLine} />
+          <span style={styles.heroCardLine}/>
           <span style={styles.heroCardText}>
-            Curated tech essentials for your phone and your lifestyle.
+            Curated tech essentials for your phone
+            and your lifestyle.
           </span>
         </div>
       </section>
 
       {/* CATEGORIES */}
-      <section id="categories" className="section" style={styles.section}>
-        <div style={styles.sectionHeader}>
-          <div>
-            <span style={styles.kicker}>EXPLORE</span>
-            <h2 style={styles.sectionTitle}>Shop by category</h2>
-          </div>
-        </div>
+      <section
+        id="categories"
+        className="section"
+        style={styles.section}
+      >
+        <span style={styles.kicker}>EXPLORE</span>
+        <h2 style={{
+          ...styles.sectionTitle,
+          color:theme.heading
+        }}>
+          Shop by category
+        </h2>
 
-        <div className="category-grid" style={styles.categoryGrid}>
-          {categoryNames.slice(0, 9).map((name) => (
+        <div
+          className="category-grid"
+          style={styles.categoryGrid}
+        >
+          {categoryNames.slice(0,9).map(name => (
             <button
               key={name}
-              className="category-card"
-              style={styles.categoryCard}
+              style={{
+                ...styles.categoryCard,
+                ...theme.card
+              }}
               onClick={() => {
                 setCategory(name);
                 document
                   .getElementById("shop")
-                  ?.scrollIntoView({ behavior: "smooth" });
+                  ?.scrollIntoView({
+                    behavior:"smooth"
+                  });
               }}
             >
               <span style={styles.categoryIcon}>
@@ -742,32 +1033,60 @@ export default function App() {
       </section>
 
       {/* SHOP */}
-      <section id="shop" className="section" style={styles.shopSection}>
-        <div style={styles.shopTop}>
+      <section
+        id="shop"
+        className="section"
+        style={styles.shopSection}
+      >
+        <div
+          className="shop-top"
+          style={styles.shopTop}
+        >
           <div>
-            <span style={styles.kicker}>SHINDARA STORE</span>
-            <h2 style={styles.sectionTitle}>Popular picks</h2>
+            <span style={styles.kicker}>
+              SHINDARA STORE
+            </span>
+            <h2 style={{
+              ...styles.sectionTitle,
+              color:theme.heading
+            }}>
+              Popular picks
+            </h2>
           </div>
 
-          <div style={styles.searchWrap}>
+          <div
+            className="search"
+            style={{
+              ...styles.searchWrap,
+              ...theme.input
+            }}
+          >
             <span>⌕</span>
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={e =>
+                setSearch(e.target.value)
+              }
               placeholder="Search accessories..."
-              style={styles.searchInput}
+              style={{
+                ...styles.searchInput,
+                color:theme.heading
+              }}
             />
           </div>
         </div>
 
         <div style={styles.filters}>
-          {categoryNames.slice(0, 8).map((name) => (
+          {categoryNames.slice(0,8).map(name => (
             <button
               key={name}
               onClick={() => setCategory(name)}
               style={{
                 ...styles.filter,
-                ...(category === name ? styles.filterActive : {}),
+                ...theme.button,
+                ...(category === name
+                  ? styles.filterActive
+                  : {})
               }}
             >
               {name}
@@ -776,27 +1095,32 @@ export default function App() {
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div style={styles.emptyProducts}>
+          <div style={{
+            ...styles.emptyProducts,
+            ...theme.card
+          }}>
             <div style={styles.emptyIcon}>⌕</div>
             <h3>No products found</h3>
             <p>Try another search or category.</p>
           </div>
         ) : (
-          <div className="product-grid" style={styles.productGrid}>
-            {(featuredProducts.length && !search && category === "All"
-              ? featuredProducts
-              : filteredProducts
-            )
-              .slice(0, 12)
-              .map((product) => (
+          <div
+            className="product-grid"
+            style={styles.productGrid}
+          >
+            {filteredProducts
+              .slice(0,12)
+              .map(product => (
                 <article
-                  className="product-card"
-                  style={styles.productCard}
                   key={product.id}
+                  style={styles.productCard}
                 >
                   <div
                     className="product-image"
-                    style={styles.productImage}
+                    style={{
+                      ...styles.productImage,
+                      ...theme.image
+                    }}
                   >
                     {product.image_url ? (
                       <img
@@ -809,34 +1133,52 @@ export default function App() {
                     )}
 
                     {Number(product.stock) <= 0 && (
-                      <span style={styles.outStock}>OUT OF STOCK</span>
+                      <span style={styles.outStock}>
+                        OUT OF STOCK
+                      </span>
                     )}
                   </div>
 
-                  <div className="product-info" style={styles.productInfo}>
-                    <span
-                      className="product-category"
-                      style={styles.productCategory}
-                    >
+                  <div
+                    className="product-info"
+                    style={styles.productInfo}
+                  >
+                    <span style={styles.productCategory}>
                       {product.category || "ACCESSORY"}
                     </span>
 
-                    <h3 style={styles.productName}>{product.name}</h3>
+                    <h3 style={{
+                      ...styles.productName,
+                      color:theme.heading
+                    }}>
+                      {product.name}
+                    </h3>
 
-                    <p style={styles.productDescription}>
-                      {product.description || "Premium tech essential."}
+                    <p style={{
+                      ...styles.productDescription,
+                      color:theme.muted
+                    }}>
+                      {product.description ||
+                        "Premium tech essential."}
                     </p>
 
-                    <div style={styles.productBottom}>
-                      <strong className="price" style={styles.price}>
+                    <div
+                      className="product-bottom"
+                      style={styles.productBottom}
+                    >
+                      <strong style={styles.price}>
                         {money(product.price)}
                       </strong>
 
                       <button
                         className="add-button"
                         style={styles.addButton}
-                        onClick={() => addToCart(product)}
-                        disabled={Number(product.stock) <= 0}
+                        disabled={
+                          Number(product.stock) <= 0
+                        }
+                        onClick={() =>
+                          addToCart(product)
+                        }
                       >
                         {Number(product.stock) <= 0
                           ? "Sold out"
@@ -851,49 +1193,59 @@ export default function App() {
       </section>
 
       {/* TRUST */}
-      <section className="trust-section" style={styles.trust}>
-        <div style={styles.trustItem}>
-          <span style={styles.trustIcon}>✦</span>
-          <h3>Reliable delivery</h3>
-          <p>Your order is handled with care from store to doorstep.</p>
-        </div>
-
-        <div style={styles.trustItem}>
-          <span style={styles.trustIcon}>⌾</span>
-          <h3>Secure shopping</h3>
-          <p>Your account and shopping experience stay protected.</p>
-        </div>
-
-        <div style={styles.trustItem}>
-          <span style={styles.trustIcon}>◌</span>
-          <h3>Customer support</h3>
-          <p>We're here whenever you need help with your order.</p>
-        </div>
+      <section
+        className="trust"
+        style={styles.trust}
+      >
+        {[
+          ["✦","Reliable delivery",
+           "Your order is handled with care from store to doorstep."],
+          ["⌾","Secure shopping",
+           "Your account and shopping experience stay protected."],
+          ["◌","Customer support",
+           "We're here whenever you need help with your order."]
+        ].map(([icon,title,text]) => (
+          <div
+            key={title}
+            style={styles.trustItem}
+          >
+            <span style={styles.trustIcon}>{icon}</span>
+            <h3>{title}</h3>
+            <p>{text}</p>
+          </div>
+        ))}
       </section>
 
       {/* FOOTER */}
       <footer style={styles.footer}>
-        <div>
-          <div style={styles.footerLogo}>SHINDARA PHONEFLAIR</div>
-          <p style={styles.footerText}>
-            Premium phone accessories and everyday technology.
-          </p>
+        <div style={styles.footerLogo}>
+          SHINDARA PHONEFLAIR
         </div>
+
+        <p style={styles.footerText}>
+          Premium phone accessories and everyday technology.
+        </p>
 
         <div style={styles.footerLinks}>
           <button
-            onClick={() => {
-              setAccountOpen(true);
-              setOrdersOpen(true);
-            }}
             style={styles.footerButton}
+            onClick={() => setAccountOpen(true)}
           >
             My account
           </button>
 
           <button
-            onClick={() => setCartOpen(true)}
             style={styles.footerButton}
+            onClick={() => {
+              if (!user) {
+                setAccountOpen(true);
+                setAuthMessage(
+                  "Please login to access your cart."
+                );
+              } else {
+                setCartOpen(true);
+              }
+            }}
           >
             My cart
           </button>
@@ -904,25 +1256,35 @@ export default function App() {
         </div>
       </footer>
 
-      {/* NOTICE */}
       {notice && (
-        <div style={styles.notice}>
-          {notice}
-        </div>
+        <div style={styles.notice}>{notice}</div>
       )}
 
-      {/* CART DRAWER */}
+      {/* CART */}
       {cartOpen && user && (
-        <div style={styles.overlay} onClick={() => setCartOpen(false)}>
+        <div
+          style={styles.overlay}
+          onClick={() => setCartOpen(false)}
+        >
           <aside
-            className="cart-drawer"
-            style={styles.drawer}
-            onClick={(e) => e.stopPropagation()}
+            className="drawer"
+            style={{
+              ...styles.drawer,
+              ...theme.surface
+            }}
+            onClick={e => e.stopPropagation()}
           >
             <div style={styles.drawerHeader}>
               <div>
-                <span style={styles.kicker}>YOUR SHOPPING</span>
-                <h2 style={styles.drawerTitle}>Cart</h2>
+                <span style={styles.kicker}>
+                  YOUR SHOPPING
+                </span>
+                <h2 style={{
+                  ...styles.drawerTitle,
+                  color:theme.heading
+                }}>
+                  Cart
+                </h2>
               </div>
 
               <button
@@ -934,18 +1296,29 @@ export default function App() {
             </div>
 
             {cartLoading ? (
-              <div style={styles.emptyCart}>Loading cart...</div>
+              <div style={styles.emptyCart}>
+                Loading cart...
+              </div>
             ) : cartProducts.length === 0 ? (
               <div style={styles.emptyCart}>
-                <div style={styles.emptyCartIcon}>🛒</div>
+                <div style={styles.emptyCartIcon}>
+                  🛒
+                </div>
                 <h3>Your cart is empty</h3>
                 <p>Add something beautiful to get started.</p>
               </div>
             ) : (
               <>
                 <div style={styles.cartList}>
-                  {cartProducts.map((item) => (
-                    <div style={styles.cartItem} key={item.id}>
+                  {cartProducts.map(item => (
+                    <div
+                      className="cart-item"
+                      style={{
+                        ...styles.cartItem,
+                        borderColor:theme.border
+                      }}
+                      key={item.id}
+                    >
                       <div style={styles.cartImage}>
                         {item.product.image_url ? (
                           <img
@@ -953,18 +1326,27 @@ export default function App() {
                             alt={item.product.name}
                             style={styles.cartImg}
                           />
-                        ) : (
-                          "S"
-                        )}
+                        ) : "S"}
                       </div>
 
                       <div style={styles.cartInfo}>
-                        <strong>{item.product.name}</strong>
-                        <span>{money(item.product.price)}</span>
+                        <strong style={{
+                          color:theme.heading
+                        }}>
+                          {item.product.name}
+                        </strong>
+
+                        <span style={{
+                          color:theme.muted
+                        }}>
+                          {money(item.product.price)}
+                        </span>
 
                         <div style={styles.quantity}>
                           <button
-                            onClick={() => updateQuantity(item, -1)}
+                            onClick={() =>
+                              updateQuantity(item,-1)
+                            }
                           >
                             −
                           </button>
@@ -972,33 +1354,44 @@ export default function App() {
                           <b>{item.quantity}</b>
 
                           <button
-                            onClick={() => updateQuantity(item, 1)}
+                            onClick={() =>
+                              updateQuantity(item,1)
+                            }
                           >
                             +
                           </button>
 
                           <button
                             style={styles.remove}
-                            onClick={() => removeFromCart(item)}
+                            onClick={() =>
+                              removeFromCart(item)
+                            }
                           >
                             Remove
                           </button>
                         </div>
                       </div>
 
-                      <strong>{money(item.subtotal)}</strong>
+                      <strong style={{
+                        color:theme.heading
+                      }}>
+                        {money(item.subtotal)}
+                      </strong>
                     </div>
                   ))}
                 </div>
 
                 <div style={styles.cartSummary}>
-                  <div>
+                  <div style={{
+                    display:"flex",
+                    justifyContent:"space-between",
+                    color:theme.heading
+                  }}>
                     <span>Subtotal</span>
                     <strong>{money(cartTotal)}</strong>
                   </div>
 
                   <button
-                    className="checkout-button"
                     style={styles.checkoutButton}
                     onClick={openCheckout}
                   >
@@ -1018,9 +1411,12 @@ export default function App() {
           onClick={() => setAccountOpen(false)}
         >
           <div
-            className="account-modal"
-            style={styles.modal}
-            onClick={(e) => e.stopPropagation()}
+            className="modal"
+            style={{
+              ...styles.modal,
+              ...theme.surface
+            }}
+            onClick={e => e.stopPropagation()}
           >
             <button
               style={styles.modalClose}
@@ -1031,18 +1427,73 @@ export default function App() {
 
             {user ? (
               <>
-                <span style={styles.kicker}>WELCOME BACK</span>
-                <h2 style={styles.modalTitle}>
-                  {profile?.full_name ||
-                    user.user_metadata?.full_name ||
-                    "Your account"}
+                <span style={styles.kicker}>
+                  CUSTOMER ACCOUNT
+                </span>
+
+                <h2 style={{
+                  ...styles.modalTitle,
+                  color:theme.heading
+                }}>
+                  My account
                 </h2>
 
-                <p style={styles.modalText}>{user.email}</p>
+                <p style={{
+                  ...styles.modalText,
+                  color:theme.muted
+                }}>
+                  {user.email}
+                </p>
 
-                <div style={styles.accountCards}>
+                <label style={styles.label}>
+                  Full name
+                </label>
+
+                <input
+                  value={editName}
+                  onChange={e =>
+                    setEditName(e.target.value)
+                  }
+                  style={{
+                    ...styles.input,
+                    ...theme.input
+                  }}
+                />
+
+                <label style={styles.label}>
+                  Phone number
+                </label>
+
+                <input
+                  value={editPhone}
+                  onChange={e =>
+                    setEditPhone(e.target.value)
+                  }
+                  style={{
+                    ...styles.input,
+                    ...theme.input
+                  }}
+                />
+
+                <button
+                  style={styles.authButton}
+                  disabled={savingProfile}
+                  onClick={saveProfile}
+                >
+                  {savingProfile
+                    ? "Saving..."
+                    : "Save account details"}
+                </button>
+
+                <div
+                  className="account-cards"
+                  style={styles.accountCards}
+                >
                   <button
-                    style={styles.accountCard}
+                    style={{
+                      ...styles.accountCard,
+                      ...theme.card
+                    }}
                     onClick={() => {
                       setAccountOpen(false);
                       setCartOpen(true);
@@ -1054,7 +1505,10 @@ export default function App() {
                   </button>
 
                   <button
-                    style={styles.accountCard}
+                    style={{
+                      ...styles.accountCard,
+                      ...theme.card
+                    }}
                     onClick={() => {
                       setAccountOpen(false);
                       setOrdersOpen(true);
@@ -1079,58 +1533,106 @@ export default function App() {
                   SHINDARA ACCOUNT
                 </span>
 
-                <h2 style={styles.modalTitle}>
+                <h2 style={{
+                  ...styles.modalTitle,
+                  color:theme.heading
+                }}>
                   {authMode === "login"
                     ? "Welcome back."
                     : "Create your account."}
                 </h2>
 
-                <p style={styles.modalText}>
-                  Login to shop and keep your personal cart saved.
+                <p style={{
+                  ...styles.modalText,
+                  color:theme.muted
+                }}>
+                  Login to shop and keep your personal
+                  cart saved.
                 </p>
+
+                <button
+                  style={styles.googleButton}
+                  onClick={googleLogin}
+                  disabled={authLoading}
+                >
+                  <span style={styles.googleG}>G</span>
+                  Continue with Google
+                </button>
+
+                <div style={styles.or}>
+                  <span/>
+                  OR
+                  <span/>
+                </div>
 
                 <form onSubmit={submitAuth}>
                   {authMode === "signup" && (
                     <>
-                      <label style={styles.label}>Full name</label>
+                      <label style={styles.label}>
+                        Full name
+                      </label>
+
                       <input
                         value={fullName}
-                        onChange={(e) =>
+                        onChange={e =>
                           setFullName(e.target.value)
                         }
-                        style={styles.input}
+                        style={{
+                          ...styles.input,
+                          ...theme.input
+                        }}
                         placeholder="Your full name"
                       />
 
-                      <label style={styles.label}>Phone number</label>
+                      <label style={styles.label}>
+                        Phone number
+                      </label>
+
                       <input
                         value={phone}
-                        onChange={(e) =>
+                        onChange={e =>
                           setPhone(e.target.value)
                         }
-                        style={styles.input}
+                        style={{
+                          ...styles.input,
+                          ...theme.input
+                        }}
                         placeholder="080..."
                       />
                     </>
                   )}
 
-                  <label style={styles.label}>Email</label>
+                  <label style={styles.label}>
+                    Email
+                  </label>
+
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    style={styles.input}
+                    onChange={e =>
+                      setEmail(e.target.value)
+                    }
+                    style={{
+                      ...styles.input,
+                      ...theme.input
+                    }}
                     placeholder="you@example.com"
                   />
 
-                  <label style={styles.label}>Password</label>
+                  <label style={styles.label}>
+                    Password
+                  </label>
+
                   <input
                     type="password"
                     value={password}
-                    onChange={(e) =>
+                    onChange={e =>
                       setPassword(e.target.value)
                     }
-                    style={styles.input}
+                    style={{
+                      ...styles.input,
+                      ...theme.input
+                    }}
                     placeholder="Your password"
                   />
 
@@ -1141,15 +1643,14 @@ export default function App() {
                   )}
 
                   <button
-                    className="modal-action"
                     style={styles.authButton}
                     disabled={authLoading}
                   >
                     {authLoading
                       ? "Please wait..."
                       : authMode === "login"
-                      ? "Login"
-                      : "Create account"}
+                        ? "Login"
+                        : "Create account"}
                   </button>
                 </form>
 
@@ -1177,7 +1678,13 @@ export default function App() {
       {/* CHECKOUT */}
       {checkoutOpen && (
         <div style={styles.overlay}>
-          <div style={styles.checkoutModal}>
+          <div
+            className="modal"
+            style={{
+              ...styles.checkoutModal,
+              ...theme.surface
+            }}
+          >
             <button
               style={styles.modalClose}
               onClick={() => setCheckoutOpen(false)}
@@ -1185,10 +1692,21 @@ export default function App() {
               ×
             </button>
 
-            <span style={styles.kicker}>SHINDARA CHECKOUT</span>
-            <h2 style={styles.modalTitle}>Delivery details</h2>
+            <span style={styles.kicker}>
+              SHINDARA CHECKOUT
+            </span>
 
-            <p style={styles.modalText}>
+            <h2 style={{
+              ...styles.modalTitle,
+              color:theme.heading
+            }}>
+              Delivery details
+            </h2>
+
+            <p style={{
+              ...styles.modalText,
+              color:theme.muted
+            }}>
               Total: <strong>{money(cartTotal)}</strong>
             </p>
 
@@ -1196,84 +1714,135 @@ export default function App() {
               <label style={styles.label}>Full name</label>
               <input
                 value={checkout.customer_name}
-                onChange={(e) =>
+                onChange={e =>
                   setCheckout({
                     ...checkout,
-                    customer_name: e.target.value,
+                    customer_name:e.target.value
                   })
                 }
-                style={styles.input}
-                placeholder="Full name"
+                style={{
+                  ...styles.input,
+                  ...theme.input
+                }}
               />
 
               <label style={styles.label}>Phone</label>
               <input
                 value={checkout.customer_phone}
-                onChange={(e) =>
+                onChange={e =>
                   setCheckout({
                     ...checkout,
-                    customer_phone: e.target.value,
+                    customer_phone:e.target.value
                   })
                 }
-                style={styles.input}
-                placeholder="Phone number"
+                style={{
+                  ...styles.input,
+                  ...theme.input
+                }}
               />
 
               <label style={styles.label}>Email</label>
               <input
                 value={checkout.customer_email}
-                onChange={(e) =>
+                onChange={e =>
                   setCheckout({
                     ...checkout,
-                    customer_email: e.target.value,
+                    customer_email:e.target.value
                   })
                 }
-                style={styles.input}
-                placeholder="Email"
+                style={{
+                  ...styles.input,
+                  ...theme.input
+                }}
               />
 
-              <label style={styles.label}>Delivery address</label>
+              <label style={styles.label}>
+                Delivery address
+              </label>
+
               <textarea
                 value={checkout.delivery_address}
-                onChange={(e) =>
+                onChange={e =>
                   setCheckout({
                     ...checkout,
-                    delivery_address: e.target.value,
+                    delivery_address:e.target.value
                   })
                 }
-                style={styles.textarea}
+                style={{
+                  ...styles.textarea,
+                  ...theme.input
+                }}
                 placeholder="House number, street..."
               />
 
-              <div style={styles.twoInputs}>
+              <div
+                className="two-inputs"
+                style={styles.twoInputs}
+              >
                 <div>
-                  <label style={styles.label}>City</label>
-                  <input
-                    value={checkout.delivery_city}
-                    onChange={(e) =>
+                  <label style={styles.label}>
+                    State
+                  </label>
+
+                  <select
+                    value={checkout.delivery_state}
+                    onChange={e =>
                       setCheckout({
                         ...checkout,
-                        delivery_city: e.target.value,
+                        delivery_state:e.target.value,
+                        delivery_city:""
                       })
                     }
-                    style={styles.input}
-                    placeholder="City"
-                  />
+                    style={{
+                      ...styles.input,
+                      ...theme.input
+                    }}
+                  >
+                    <option value="">
+                      Select state
+                    </option>
+
+                    {Object.keys(cleanStates).map(state => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
-                  <label style={styles.label}>State</label>
-                  <input
-                    value={checkout.delivery_state}
-                    onChange={(e) =>
+                  <label style={styles.label}>
+                    City
+                  </label>
+
+                  <select
+                    value={checkout.delivery_city}
+                    disabled={!checkout.delivery_state}
+                    onChange={e =>
                       setCheckout({
                         ...checkout,
-                        delivery_state: e.target.value,
+                        delivery_city:e.target.value
                       })
                     }
-                    style={styles.input}
-                    placeholder="State"
-                  />
+                    style={{
+                      ...styles.input,
+                      ...theme.input
+                    }}
+                  >
+                    <option value="">
+                      {checkout.delivery_state
+                        ? "Select city"
+                        : "Select state first"}
+                    </option>
+
+                    {(cleanStates[
+                      checkout.delivery_state
+                    ] || []).map(city => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1284,7 +1853,6 @@ export default function App() {
               )}
 
               <button
-                className="checkout-button"
                 style={styles.checkoutButton}
                 disabled={placingOrder}
               >
@@ -1304,8 +1872,12 @@ export default function App() {
           onClick={() => setOrdersOpen(false)}
         >
           <div
-            style={styles.ordersModal}
-            onClick={(e) => e.stopPropagation()}
+            className="modal"
+            style={{
+              ...styles.ordersModal,
+              ...theme.surface
+            }}
+            onClick={e => e.stopPropagation()}
           >
             <button
               style={styles.modalClose}
@@ -1314,22 +1886,38 @@ export default function App() {
               ×
             </button>
 
-            <span style={styles.kicker}>SHINDARA</span>
-            <h2 style={styles.modalTitle}>Your orders</h2>
+            <span style={styles.kicker}>
+              SHINDARA
+            </span>
+
+            <h2 style={{
+              ...styles.modalTitle,
+              color:theme.heading
+            }}>
+              Your orders
+            </h2>
 
             {orders.length === 0 ? (
               <div style={styles.emptyCart}>
-                <div style={styles.emptyCartIcon}>📦</div>
+                <div style={styles.emptyCartIcon}>
+                  📦
+                </div>
                 <h3>No orders yet</h3>
-                <p>Your completed orders will appear here.</p>
+                <p>Your orders will appear here.</p>
               </div>
             ) : (
               <div style={styles.ordersList}>
-                {orders.map((order) => (
-                  <div style={styles.orderCard} key={order.id}>
+                {orders.map(order => (
+                  <div
+                    key={order.id}
+                    style={{
+                      ...styles.orderCard,
+                      ...theme.card
+                    }}
+                  >
                     <div>
                       <strong>
-                        Order #{String(order.id).slice(0, 8)}
+                        Order #{String(order.id).slice(0,8)}
                       </strong>
 
                       <span style={styles.orderDate}>
@@ -1340,7 +1928,9 @@ export default function App() {
                     </div>
 
                     <div style={styles.orderRight}>
-                      <strong>{money(order.total)}</strong>
+                      <strong>
+                        {money(order.total)}
+                      </strong>
 
                       <span style={styles.status}>
                         {order.status || "pending"}
@@ -1357,891 +1947,893 @@ export default function App() {
   );
 }
 
-/* =========================
-   HELPERS
-========================= */
-
 function categoryIcon(name) {
-  const value = String(name).toLowerCase();
+  const v = String(name).toLowerCase();
 
-  if (value.includes("case")) return "◈";
-  if (value.includes("charger")) return "⚡";
-  if (value.includes("audio")) return "◉";
-  if (value.includes("power")) return "◒";
-  if (value.includes("watch")) return "⌚";
-  if (value.includes("gadget")) return "✦";
-  if (value.includes("cable")) return "⌁";
-  if (value.includes("ear")) return "◉";
+  if (v.includes("case")) return "◈";
+  if (v.includes("charger")) return "⚡";
+  if (v.includes("audio")) return "◉";
+  if (v.includes("power")) return "◒";
+  if (v.includes("watch")) return "⌚";
+  if (v.includes("cable")) return "⌁";
+  if (v.includes("ear")) return "◉";
+  if (v.includes("screen")) return "▣";
+  if (v.includes("gadget")) return "✦";
 
   return "✦";
 }
 
-/* =========================
-   INLINE DESIGN
-========================= */
+const lightTheme = {
+  app:{background:"#fff",color:"#211b29"},
+  header:{background:"#fff"},
+  hero:{background:"#fff"},
+  surface:{background:"#fff",color:"#211b29"},
+  card:{background:"#fff",color:"#211b29"},
+  input:{
+    background:"#faf9fd",
+    color:"#211b29",
+    borderColor:"rgba(54,29,78,.12)"
+  },
+  heading:"#17131d",
+  muted:"#777080",
+  border:"rgba(54,29,78,.1)",
+  image:{background:"#faf9fd"},
+  button:{background:"#fff",color:"#211b29"}
+};
+
+const darkTheme = {
+  app:{background:"#09070d",color:"#f8f4ff"},
+  header:{background:"#0d0913"},
+  hero:{background:"#09070d"},
+  surface:{background:"#15101d",color:"#f8f4ff"},
+  card:{
+    background:"#15101d",
+    color:"#f8f4ff",
+    borderColor:"rgba(255,255,255,.09)"
+  },
+  input:{
+    background:"#21182b",
+    color:"#fff",
+    borderColor:"rgba(255,255,255,.13)"
+  },
+  heading:"#fff",
+  muted:"#b5aaba",
+  border:"rgba(255,255,255,.1)",
+  image:{background:"#18121f"},
+  button:{
+    background:"#18121f",
+    color:"#fff",
+    borderColor:"rgba(255,255,255,.12)"
+  }
+};
 
 const styles = {
-  app: {
-    minHeight: "100vh",
-    overflowX: "hidden",
-  },
-
-  loading: {
-    minHeight: "100vh",
-    background: "#12091d",
-    color: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    fontFamily: "system-ui, sans-serif",
-  },
-
-  loadingLogo: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    background: "linear-gradient(135deg,#7c3aed,#4c1d95)",
-    display: "grid",
-    placeItems: "center",
-    fontSize: 30,
-    fontWeight: 900,
-    marginBottom: 10,
-  },
-
-  announcement: {
-    height: 32,
-    overflow: "hidden",
-    background: "#32105f",
-    color: "#fff",
-    display: "flex",
-    alignItems: "center",
-    fontSize: 9,
-    fontWeight: 800,
-    letterSpacing: 2,
-  },
-
-  marquee: {
-    width: "100%",
-    textAlign: "center",
-    whiteSpace: "nowrap",
-  },
-
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 20,
-    padding: "14px 6%",
-  },
-
-  logoButton: {
-    border: 0,
-    background: "transparent",
-    padding: 0,
-    cursor: "pointer",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-  },
-
-  logoMain: {
-    fontSize: 17,
-    fontWeight: 900,
-    letterSpacing: -0.8,
-  },
-
-  logoSub: {
-    color: "#6d28d9",
-    fontSize: 8,
-    fontWeight: 900,
-    letterSpacing: 2,
-  },
-
-  nav: {
-    display: "flex",
-    gap: 22,
-  },
-
-  navButton: {
-    border: 0,
-    background: "transparent",
-    color: "#625a6d",
-    fontWeight: 650,
-    fontSize: 12,
-    cursor: "pointer",
-  },
-
-  headerActions: {
-    display: "flex",
-    gap: 8,
-  },
-
-  accountButton: {
-    border: "1px solid rgba(54,29,78,.12)",
-    background: "#fff",
-    color: "#211b29",
-    borderRadius: 999,
-    padding: "9px 14px",
-    fontWeight: 750,
-    fontSize: 11,
-    cursor: "pointer",
-  },
-
-  cartButton: {
-    border: 0,
-    background: "#6d28d9",
-    color: "#fff",
-    borderRadius: 999,
-    padding: "9px 14px",
-    fontWeight: 800,
-    fontSize: 11,
-    cursor: "pointer",
-  },
-
-  hero: {
-    minHeight: "650px",
-    padding: "90px 7%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 50,
-    position: "relative",
-    overflow: "hidden",
-  },
-
-  heroGlow: {
-    position: "absolute",
-    width: 520,
-    height: 520,
-    right: -160,
-    top: 50,
-    borderRadius: "50%",
-    background:
-      "radial-gradient(circle,rgba(109,40,217,.19),transparent 65%)",
-    pointerEvents: "none",
-  },
-
-  heroContent: {
-    position: "relative",
-    zIndex: 2,
-    maxWidth: 760,
-  },
-
-  eyebrow: {
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: 3,
-    color: "#6d28d9",
-    marginBottom: 18,
-  },
-
-  heroTitle: {
-    margin: 0,
-    fontSize: "clamp(50px,8vw,94px)",
-    lineHeight: 0.94,
-    letterSpacing: -5,
-    fontWeight: 900,
-    color: "#17131d",
-  },
-
-  heroText: {
-    maxWidth: 590,
-    color: "#777080",
-    fontSize: 16,
-    lineHeight: 1.7,
-    margin: "28px 0",
-  },
-
-  shopButton: {
-    border: 0,
-    background: "#6d28d9",
-    color: "#fff",
-    padding: "15px 22px",
-    borderRadius: 12,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-
-  heroCard: {
-    position: "relative",
-    zIndex: 2,
-    width: 310,
-    minHeight: 370,
-    borderRadius: 32,
-    padding: 32,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "flex-end",
-    color: "#fff",
-    background:
-      "linear-gradient(145deg,#7c3aed 0%,#4c1d95 55%,#24123e 100%)",
-    boxShadow: "0 35px 70px rgba(76,29,149,.25)",
-  },
-
-  heroCardSmall: {
-    fontSize: 9,
-    letterSpacing: 2,
-    fontWeight: 800,
-    opacity: 0.7,
-    marginBottom: "auto",
-  },
-
-  heroCardLine: {
-    width: 45,
-    height: 2,
-    background: "#d8b4fe",
-    margin: "20px 0",
-  },
-
-  heroCardText: {
-    fontSize: 12,
-    lineHeight: 1.6,
-    opacity: 0.72,
-  },
-
-  section: {
-    padding: "85px 7%",
-  },
-
-  shopSection: {
-    paddingTop: 40,
-    paddingBottom: 90,
-  },
-
-  sectionHeader: {
-    marginBottom: 35,
-  },
-
-  shopTop: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "end",
-    gap: 25,
-    marginBottom: 25,
-  },
-
-  kicker: {
-    color: "#6d28d9",
-    fontSize: 9,
-    fontWeight: 900,
-    letterSpacing: 2.5,
-  },
-
-  sectionTitle: {
-    margin: "8px 0 0",
-    fontSize: "clamp(31px,5vw,50px)",
-    lineHeight: 1,
-    letterSpacing: -2,
-    fontWeight: 900,
-    color: "#17131d",
-  },
-
-  categoryGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(145px,1fr))",
-    gap: 14,
-  },
-
-  categoryCard: {
-    position: "relative",
-    minHeight: 145,
-    border: "1px solid rgba(54,29,78,.1)",
-    background: "#fff",
-    borderRadius: 20,
-    cursor: "pointer",
-    padding: 20,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    textAlign: "left",
-  },
-
-  categoryIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 14,
-    background: "#f3edff",
-    color: "#6d28d9",
-    display: "grid",
-    placeItems: "center",
-    fontSize: 21,
-  },
-
-  categoryArrow: {
-    position: "absolute",
-    right: 18,
-    bottom: 18,
-    color: "#a99fb0",
-  },
-
-  searchWrap: {
-    minWidth: 260,
-    height: 46,
-    border: "1px solid rgba(54,29,78,.1)",
-    background: "#fff",
-    borderRadius: 999,
-    padding: "0 15px",
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  searchInput: {
-    width: "100%",
-    border: 0,
-    outline: 0,
-    background: "transparent",
-    color: "#211b29",
-    fontSize: 12,
-  },
-
-  filters: {
-    display: "flex",
-    gap: 8,
-    overflowX: "auto",
-    paddingBottom: 18,
-  },
-
-  filter: {
-    whiteSpace: "nowrap",
-    border: "1px solid rgba(54,29,78,.1)",
-    background: "#fff",
-    color: "#716978",
-    borderRadius: 999,
-    padding: "9px 14px",
-    fontSize: 10,
-    fontWeight: 750,
-    cursor: "pointer",
-  },
-
-  filterActive: {
-    background: "#6d28d9",
-    color: "#fff",
-    borderColor: "#6d28d9",
-  },
-
-  productGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit,minmax(210px,1fr))",
-    gap: 18,
-  },
-
-  productCard: {
-    overflow: "hidden",
-  },
-
-  productImage: {
-    position: "relative",
-    height: 260,
-    display: "grid",
-    placeItems: "center",
-    overflow: "hidden",
-  },
-
-  productImg: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    padding: 18,
-  },
-
-  noImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 22,
-    display: "grid",
-    placeItems: "center",
-    background: "#6d28d9",
-    color: "#fff",
-    fontSize: 30,
-    fontWeight: 900,
-  },
-
-  outStock: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    background: "#24123e",
-    color: "#fff",
-    borderRadius: 999,
-    padding: "6px 9px",
-    fontSize: 8,
-    fontWeight: 800,
-  },
-
-  productInfo: {
-    padding: 17,
-  },
-
-  productCategory: {
-    fontSize: 8,
-    fontWeight: 900,
-    letterSpacing: 1.5,
-    color: "#6d28d9",
-  },
-
-  productName: {
-    fontSize: 15,
-    margin: "8px 0",
-    lineHeight: 1.3,
-  },
-
-  productDescription: {
-    color: "#817887",
-    fontSize: 11,
-    lineHeight: 1.5,
-    minHeight: 34,
-  },
+  app:{
+    minHeight:"100vh",
+    overflowX:"hidden",
+    fontFamily:"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
+    transition:"background .25s,color .25s"
+  },
+
+  loading:{
+    minHeight:"100vh",
+    color:"#fff",
+    display:"flex",
+    flexDirection:"column",
+    alignItems:"center",
+    justifyContent:"center",
+    gap:10
+  },
+
+  loadingLogo:{
+    width:64,height:64,borderRadius:20,
+    background:"linear-gradient(135deg,#7c3aed,#4c1d95)",
+    display:"grid",placeItems:"center",
+    fontSize:30,fontWeight:900
+  },
+
+  announcement:{
+    height:32,
+    overflow:"hidden",
+    background:"#32105f",
+    color:"#fff",
+    display:"flex",
+    alignItems:"center",
+    fontSize:9,
+    fontWeight:800,
+    letterSpacing:2
+  },
+
+  header:{
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"space-between",
+    gap:20,
+    padding:"14px 6%",
+    position:"sticky",
+    top:0,
+    zIndex:100,
+    borderBottom:"1px solid rgba(54,29,78,.06)"
+  },
+
+  logoButton:{
+    border:0,
+    background:"transparent",
+    padding:0,
+    cursor:"pointer",
+    display:"flex",
+    flexDirection:"column",
+    alignItems:"flex-start"
+  },
+
+  logoMain:{
+    fontSize:17,
+    fontWeight:900,
+    letterSpacing:-.8
+  },
+
+  logoSub:{
+    color:"#6d28d9",
+    fontSize:8,
+    fontWeight:900,
+    letterSpacing:2
+  },
+
+  nav:{display:"flex",gap:22},
+
+  navButton:{
+    border:0,
+    background:"transparent",
+    fontWeight:650,
+    fontSize:12,
+    cursor:"pointer"
+  },
+
+  headerActions:{
+    display:"flex",
+    gap:8
+  },
+
+  accountButton:{
+    borderRadius:999,
+    padding:"9px 14px",
+    fontWeight:750,
+    fontSize:11,
+    cursor:"pointer"
+  },
+
+  cartButton:{
+    border:0,
+    background:"#6d28d9",
+    color:"#fff",
+    borderRadius:999,
+    padding:"9px 14px",
+    fontWeight:800,
+    fontSize:11,
+    cursor:"pointer"
+  },
+
+  hero:{
+    minHeight:650,
+    padding:"90px 7%",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"space-between",
+    gap:50,
+    position:"relative",
+    overflow:"hidden"
+  },
+
+  heroGlow:{
+    position:"absolute",
+    width:520,height:520,
+    right:-160,top:50,
+    borderRadius:"50%",
+    background:"radial-gradient(circle,rgba(109,40,217,.19),transparent 65%)"
+  },
+
+  heroContent:{
+    position:"relative",
+    zIndex:2,
+    maxWidth:760
+  },
+
+  eyebrow:{
+    fontSize:10,
+    fontWeight:900,
+    letterSpacing:3,
+    color:"#6d28d9",
+    marginBottom:18
+  },
+
+  heroTitle:{
+    margin:0,
+    fontSize:"clamp(50px,8vw,94px)",
+    lineHeight:.94,
+    letterSpacing:-5,
+    fontWeight:900
+  },
+
+  heroText:{
+    maxWidth:590,
+    fontSize:16,
+    lineHeight:1.7,
+    margin:"28px 0"
+  },
+
+  shopButton:{
+    border:0,
+    background:"#6d28d9",
+    color:"#fff",
+    padding:"15px 22px",
+    borderRadius:12,
+    fontWeight:800,
+    cursor:"pointer"
+  },
+
+  heroCard:{
+    position:"relative",
+    zIndex:2,
+    width:310,
+    minHeight:370,
+    borderRadius:32,
+    padding:32,
+    display:"flex",
+    flexDirection:"column",
+    justifyContent:"flex-end",
+    color:"#fff",
+    background:"linear-gradient(145deg,#7c3aed,#4c1d95 55%,#24123e)",
+    boxShadow:"0 35px 70px rgba(76,29,149,.25)"
+  },
+
+  heroCardSmall:{
+    fontSize:9,
+    letterSpacing:2,
+    fontWeight:800,
+    opacity:.7,
+    marginBottom:"auto"
+  },
+
+  heroCardLine:{
+    width:45,height:2,
+    background:"#d8b4fe",
+    margin:"20px 0"
+  },
+
+  heroCardText:{
+    fontSize:12,
+    lineHeight:1.6,
+    opacity:.72
+  },
+
+  section:{
+    padding:"75px 7%"
+  },
+
+  shopSection:{
+    paddingTop:30,
+    paddingBottom:90
+  },
+
+  kicker:{
+    color:"#6d28d9",
+    fontSize:9,
+    fontWeight:900,
+    letterSpacing:2.5
+  },
+
+  sectionTitle:{
+    margin:"8px 0 30px",
+    fontSize:"clamp(31px,5vw,50px)",
+    lineHeight:1,
+    letterSpacing:-2,
+    fontWeight:900
+  },
+
+  categoryGrid:{
+    display:"grid",
+    gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",
+    gap:14
+  },
+
+  categoryCard:{
+    position:"relative",
+    minHeight:145,
+    border:"1px solid rgba(54,29,78,.1)",
+    borderRadius:20,
+    cursor:"pointer",
+    padding:20,
+    display:"flex",
+    flexDirection:"column",
+    alignItems:"flex-start",
+    justifyContent:"space-between",
+    textAlign:"left"
+  },
+
+  categoryIcon:{
+    width:45,height:45,
+    borderRadius:14,
+    background:"#f3edff",
+    color:"#6d28d9",
+    display:"grid",
+    placeItems:"center",
+    fontSize:21
+  },
+
+  categoryArrow:{
+    position:"absolute",
+    right:18,bottom:18,
+    color:"#a99fb0"
+  },
+
+  shopTop:{
+    display:"flex",
+    justifyContent:"space-between",
+    alignItems:"end",
+    gap:25,
+    marginBottom:20
+  },
+
+  searchWrap:{
+    minWidth:260,
+    height:46,
+    border:"1px solid rgba(54,29,78,.1)",
+    borderRadius:999,
+    padding:"0 15px",
+    display:"flex",
+    alignItems:"center",
+    gap:8
+  },
+
+  searchInput:{
+    width:"100%",
+    border:0,
+    outline:0,
+    background:"transparent",
+    fontSize:12
+  },
+
+  filters:{
+    display:"flex",
+    gap:8,
+    overflowX:"auto",
+    paddingBottom:18
+  },
+
+  filter:{
+    whiteSpace:"nowrap",
+    border:"1px solid rgba(54,29,78,.1)",
+    borderRadius:999,
+    padding:"9px 14px",
+    fontSize:10,
+    fontWeight:750,
+    cursor:"pointer"
+  },
+
+  filterActive:{
+    background:"#6d28d9",
+    color:"#fff",
+    borderColor:"#6d28d9"
+  },
+
+  productGrid:{
+    display:"grid",
+    gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",
+    gap:18
+  },
+
+  productCard:{overflow:"hidden"},
+
+  productImage:{
+    position:"relative",
+    height:260,
+    display:"grid",
+    placeItems:"center",
+    overflow:"hidden",
+    borderRadius:20
+  },
+
+  productImg:{
+    width:"100%",
+    height:"100%",
+    objectFit:"contain",
+    padding:18
+  },
+
+  noImage:{
+    width:70,height:70,
+    borderRadius:22,
+    display:"grid",
+    placeItems:"center",
+    background:"#6d28d9",
+    color:"#fff",
+    fontSize:30,
+    fontWeight:900
+  },
+
+  outStock:{
+    position:"absolute",
+    top:12,left:12,
+    background:"#24123e",
+    color:"#fff",
+    borderRadius:999,
+    padding:"6px 9px",
+    fontSize:8,
+    fontWeight:800
+  },
+
+  productInfo:{padding:"15px 3px"},
+
+  productCategory:{
+    fontSize:8,
+    fontWeight:900,
+    letterSpacing:1.5,
+    color:"#6d28d9"
+  },
+
+  productName:{
+    fontSize:15,
+    margin:"8px 0",
+    lineHeight:1.3
+  },
+
+  productDescription:{
+    fontSize:11,
+    lineHeight:1.5,
+    minHeight:34
+  },
+
+  productBottom:{
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"space-between",
+    gap:8,
+    marginTop:15
+  },
+
+  price:{
+    color:"#6d28d9",
+    fontSize:16,
+    whiteSpace:"nowrap"
+  },
+
+  addButton:{
+    border:0,
+    background:"#6d28d9",
+    color:"#fff",
+    borderRadius:10,
+    padding:"10px 12px",
+    fontSize:9,
+    fontWeight:800,
+    cursor:"pointer"
+  },
+
+  emptyProducts:{
+    padding:"70px 20px",
+    textAlign:"center",
+    borderRadius:25
+  },
+
+  emptyIcon:{
+    fontSize:35,
+    color:"#6d28d9"
+  },
 
-  productBottom: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    marginTop: 15,
-  },
-
-  price: {
-    color: "#4c1d95",
-    fontSize: 16,
-    whiteSpace: "nowrap",
-  },
-
-  addButton: {
-    border: 0,
-    background: "#6d28d9",
-    color: "#fff",
-    borderRadius: 10,
-    padding: "10px 12px",
-    fontSize: 9,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-
-  emptyProducts: {
-    padding: "80px 20px",
-    textAlign: "center",
-    borderRadius: 25,
-    background: "#fff",
-  },
-
-  emptyIcon: {
-    fontSize: 35,
-    color: "#6d28d9",
-  },
-
-  trust: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3,1fr)",
-    gap: 15,
-    padding: "65px 7%",
-  },
-
-  trustItem: {
-    padding: 28,
-    borderRadius: 22,
-    background:
-      "rgba(255,255,255,.07)",
-    border:
-      "1px solid rgba(255,255,255,.1)",
-  },
-
-  trustIcon: {
-    color: "#d8b4fe",
-    fontSize: 25,
-  },
-
-  footer: {
-    padding: "60px 7% 25px",
-    background: "#160d24",
-    color: "#fff",
-  },
-
-  footerLogo: {
-    fontSize: 17,
-    fontWeight: 900,
-    letterSpacing: -0.5,
-  },
-
-  footerText: {
-    color: "rgba(255,255,255,.55)",
-    maxWidth: 400,
-    fontSize: 12,
-    lineHeight: 1.6,
-  },
-
-  footerLinks: {
-    display: "flex",
-    gap: 10,
-    margin: "30px 0",
-  },
-
-  footerButton: {
-    border: "1px solid rgba(255,255,255,.12)",
-    background: "rgba(255,255,255,.05)",
-    color: "#fff",
-    borderRadius: 10,
-    padding: "10px 13px",
-    cursor: "pointer",
-  },
-
-  footerBottom: {
-    borderTop: "1px solid rgba(255,255,255,.08)",
-    paddingTop: 20,
-    color: "rgba(255,255,255,.4)",
-    fontSize: 10,
-  },
-
-  notice: {
-    position: "fixed",
-    zIndex: 1000,
-    left: "50%",
-    bottom: 25,
-    transform: "translateX(-50%)",
-    background: "#24123e",
-    color: "#fff",
-    padding: "13px 18px",
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: 700,
-    boxShadow: "0 15px 40px rgba(0,0,0,.2)",
-    maxWidth: "90%",
-    textAlign: "center",
-  },
-
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 500,
-    background: "rgba(18,8,28,.68)",
-    backdropFilter: "blur(12px)",
-    display: "flex",
-    justifyContent: "flex-end",
-  },
-
-  drawer: {
-    width: "min(520px,100%)",
-    height: "100%",
-    background: "#fff",
-    padding: 25,
-    overflowY: "auto",
-  },
-
-  drawerHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "start",
-    marginBottom: 25,
-  },
-
-  drawerTitle: {
-    margin: "7px 0 0",
-    fontSize: 35,
-    letterSpacing: -1.5,
-  },
-
-  close: {
-    border: 0,
-    background: "#f3edff",
-    color: "#4c1d95",
-    width: 40,
-    height: 40,
-    borderRadius: "50%",
-    fontSize: 24,
-    cursor: "pointer",
-  },
-
-  emptyCart: {
-    padding: "80px 20px",
-    textAlign: "center",
-    color: "#777080",
-  },
-
-  emptyCartIcon: {
-    fontSize: 40,
-    marginBottom: 10,
-  },
-
-  cartList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-
-  cartItem: {
-    display: "grid",
-    gridTemplateColumns: "65px 1fr auto",
-    gap: 12,
-    alignItems: "center",
-    padding: "12px 0",
-    borderBottom: "1px solid rgba(54,29,78,.08)",
-  },
-
-  cartImage: {
-    width: 65,
-    height: 65,
-    borderRadius: 15,
-    background: "#f3edff",
-    display: "grid",
-    placeItems: "center",
-    color: "#6d28d9",
-    fontWeight: 900,
-  },
-
-  cartImg: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    borderRadius: 15,
-  },
-
-  cartInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 5,
-    minWidth: 0,
-  },
-
-  quantity: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 5,
-  },
-
-  quantityButton: {},
-
-  remove: {
-    border: 0,
-    background: "transparent",
-    color: "#9b2c70",
-    fontSize: 9,
-    cursor: "pointer",
-    marginLeft: 5,
-  },
-
-  cartSummary: {
-    marginTop: 25,
-    paddingTop: 20,
-    borderTop: "1px solid rgba(54,29,78,.1)",
-  },
-
-  checkoutButton: {
-    width: "100%",
-    border: 0,
-    background: "#6d28d9",
-    color: "#fff",
-    padding: "15px",
-    borderRadius: 12,
-    fontWeight: 800,
-    cursor: "pointer",
-    marginTop: 18,
-  },
-
-  modal: {
-    width: "min(460px,calc(100% - 30px))",
-    maxHeight: "90vh",
-    overflowY: "auto",
-    margin: "auto",
-    background: "#fff",
-    borderRadius: 25,
-    padding: 28,
-    position: "relative",
-  },
-
-  checkoutModal: {
-    width: "min(560px,calc(100% - 25px))",
-    maxHeight: "92vh",
-    overflowY: "auto",
-    margin: "auto",
-    background: "#fff",
-    borderRadius: 25,
-    padding: 28,
-    position: "relative",
-  },
-
-  ordersModal: {
-    width: "min(650px,calc(100% - 25px))",
-    maxHeight: "85vh",
-    overflowY: "auto",
-    margin: "auto",
-    background: "#fff",
-    borderRadius: 25,
-    padding: 28,
-    position: "relative",
-  },
-
-  modalClose: {
-    position: "absolute",
-    top: 18,
-    right: 18,
-    width: 38,
-    height: 38,
-    border: 0,
-    borderRadius: "50%",
-    background: "#f3edff",
-    color: "#4c1d95",
-    fontSize: 22,
-    cursor: "pointer",
-  },
-
-  modalTitle: {
-    margin: "8px 0",
-    fontSize: 34,
-    lineHeight: 1,
-    letterSpacing: -1.5,
-  },
-
-  modalText: {
-    color: "#777080",
-    fontSize: 12,
-    lineHeight: 1.6,
-    marginBottom: 22,
-  },
-
-  label: {
-    display: "block",
-    color: "#4b4252",
-    fontSize: 10,
-    fontWeight: 800,
-    margin: "13px 0 6px",
-  },
-
-  input: {
-    width: "100%",
-    height: 45,
-    padding: "0 13px",
-    border: "1px solid rgba(54,29,78,.12)",
-    borderRadius: 11,
-    outline: 0,
-    background: "#faf9fd",
-    color: "#211b29",
-  },
-
-  textarea: {
-    width: "100%",
-    minHeight: 85,
-    padding: 13,
-    border: "1px solid rgba(54,29,78,.12)",
-    borderRadius: 11,
-    outline: 0,
-    resize: "vertical",
-    background: "#faf9fd",
-    color: "#211b29",
-  },
-
-  twoInputs: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 10,
-  },
-
-  authButton: {
-    width: "100%",
-    marginTop: 18,
-    border: 0,
-    borderRadius: 12,
-    padding: "14px",
-    background: "#6d28d9",
-    color: "#fff",
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-
-  authMessage: {
-    marginTop: 12,
-    padding: 11,
-    borderRadius: 10,
-    background: "#fff0f6",
-    color: "#9b2c70",
-    fontSize: 11,
-    lineHeight: 1.5,
-  },
-
-  switchAuth: {
-    display: "block",
-    width: "100%",
-    marginTop: 16,
-    border: 0,
-    background: "transparent",
-    color: "#6d28d9",
-    fontSize: 11,
-    fontWeight: 750,
-    cursor: "pointer",
-  },
-
-  accountCards: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 10,
-    margin: "25px 0",
-  },
-
-  accountCard: {
-    textAlign: "left",
-    border: "1px solid rgba(54,29,78,.1)",
-    background: "#faf9fd",
-    borderRadius: 15,
-    padding: 15,
-    display: "flex",
-    flexDirection: "column",
-    gap: 7,
-    cursor: "pointer",
-  },
-
-  logout: {
-    width: "100%",
-    border: "1px solid rgba(155,44,112,.2)",
-    background: "#fff",
-    color: "#9b2c70",
-    borderRadius: 12,
-    padding: 13,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-
-  ordersList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-    marginTop: 25,
-  },
-
-  orderCard: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 15,
-    padding: 15,
-    borderRadius: 15,
-    background: "#faf9fd",
-    border: "1px solid rgba(54,29,78,.08)",
-  },
-
-  orderDate: {
-    display: "block",
-    marginTop: 5,
-    color: "#89808e",
-    fontSize: 9,
-  },
-
-  orderRight: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "end",
-    gap: 6,
-  },
-
-  status: {
-    background: "#f3edff",
-    color: "#6d28d9",
-    borderRadius: 999,
-    padding: "5px 8px",
-    fontSize: 8,
-    fontWeight: 800,
+  trust:{
+    display:"grid",
+    gridTemplateColumns:"repeat(3,1fr)",
+    gap:15,
+    padding:"65px 7%",
+    background:"#24123e"
   },
+
+  trustItem:{
+    padding:28,
+    borderRadius:22,
+    background:"rgba(255,255,255,.07)",
+    border:"1px solid rgba(255,255,255,.1)",
+    color:"#fff"
+  },
+
+  trustIcon:{
+    color:"#d8b4fe",
+    fontSize:25
+  },
+
+  footer:{
+    padding:"60px 7% 25px",
+    background:"#160d24",
+    color:"#fff"
+  },
+
+  footerLogo:{
+    fontSize:17,
+    fontWeight:900
+  },
+
+  footerText:{
+    color:"rgba(255,255,255,.55)",
+    maxWidth:400,
+    fontSize:12,
+    lineHeight:1.6
+  },
+
+  footerLinks:{
+    display:"flex",
+    gap:10,
+    margin:"30px 0"
+  },
+
+  footerButton:{
+    border:"1px solid rgba(255,255,255,.12)",
+    background:"rgba(255,255,255,.05)",
+    color:"#fff",
+    borderRadius:10,
+    padding:"10px 13px",
+    cursor:"pointer"
+  },
+
+  footerBottom:{
+    borderTop:"1px solid rgba(255,255,255,.08)",
+    paddingTop:20,
+    color:"rgba(255,255,255,.4)",
+    fontSize:10
+  },
+
+  notice:{
+    position:"fixed",
+    zIndex:1000,
+    left:"50%",
+    bottom:25,
+    transform:"translateX(-50%)",
+    background:"#24123e",
+    color:"#fff",
+    padding:"13px 18px",
+    borderRadius:999,
+    fontSize:11,
+    fontWeight:700,
+    maxWidth:"90%",
+    textAlign:"center"
+  },
+
+  overlay:{
+    position:"fixed",
+    inset:0,
+    zIndex:500,
+    background:"rgba(18,8,28,.68)",
+    backdropFilter:"blur(12px)",
+    display:"flex",
+    justifyContent:"flex-end"
+  },
+
+  drawer:{
+    width:"min(520px,100%)",
+    height:"100%",
+    padding:25,
+    overflowY:"auto"
+  },
+
+  drawerHeader:{
+    display:"flex",
+    justifyContent:"space-between",
+    alignItems:"start",
+    marginBottom:25
+  },
+
+  drawerTitle:{
+    margin:"7px 0",
+    fontSize:35
+  },
+
+  close:{
+    border:0,
+    background:"#f3edff",
+    color:"#4c1d95",
+    width:40,height:40,
+    borderRadius:"50%",
+    fontSize:24,
+    cursor:"pointer"
+  },
+
+  emptyCart:{
+    padding:"70px 20px",
+    textAlign:"center",
+    color:"#8a8090"
+  },
+
+  emptyCartIcon:{
+    fontSize:40,
+    marginBottom:10
+  },
+
+  cartList:{
+    display:"flex",
+    flexDirection:"column",
+    gap:12
+  },
+
+  cartItem:{
+    display:"grid",
+    gridTemplateColumns:"65px 1fr auto",
+    gap:12,
+    alignItems:"center",
+    padding:"12px 0",
+    borderBottom:"1px solid"
+  },
+
+  cartImage:{
+    width:65,height:65,
+    borderRadius:15,
+    background:"#f3edff",
+    display:"grid",
+    placeItems:"center",
+    color:"#6d28d9",
+    fontWeight:900
+  },
+
+  cartImg:{
+    width:"100%",
+    height:"100%",
+    objectFit:"contain",
+    borderRadius:15
+  },
+
+  cartInfo:{
+    display:"flex",
+    flexDirection:"column",
+    gap:5,
+    minWidth:0
+  },
+
+  quantity:{
+    display:"flex",
+    alignItems:"center",
+    gap:8,
+    marginTop:5
+  },
+
+  remove:{
+    border:0,
+    background:"transparent",
+    color:"#c02675",
+    fontSize:9,
+    cursor:"pointer",
+    marginLeft:5
+  },
+
+  cartSummary:{
+    marginTop:25,
+    paddingTop:20,
+    borderTop:"1px solid rgba(54,29,78,.1)"
+  },
+
+  checkoutButton:{
+    width:"100%",
+    border:0,
+    background:"#6d28d9",
+    color:"#fff",
+    padding:15,
+    borderRadius:12,
+    fontWeight:800,
+    cursor:"pointer",
+    marginTop:18
+  },
+
+  modal:{
+    width:"min(460px,calc(100% - 30px))",
+    maxHeight:"92vh",
+    overflowY:"auto",
+    margin:"auto",
+    borderRadius:25,
+    padding:28,
+    position:"relative"
+  },
+
+  checkoutModal:{
+    width:"min(560px,calc(100% - 25px))",
+    maxHeight:"92vh",
+    overflowY:"auto",
+    margin:"auto",
+    borderRadius:25,
+    padding:28,
+    position:"relative"
+  },
+
+  ordersModal:{
+    width:"min(650px,calc(100% - 25px))",
+    maxHeight:"85vh",
+    overflowY:"auto",
+    margin:"auto",
+    borderRadius:25,
+    padding:28,
+    position:"relative"
+  },
+
+  modalClose:{
+    position:"absolute",
+    top:18,right:18,
+    width:38,height:38,
+    border:0,
+    borderRadius:"50%",
+    background:"#f3edff",
+    color:"#4c1d95",
+    fontSize:22,
+    cursor:"pointer"
+  },
+
+  modalTitle:{
+    margin:"8px 0",
+    fontSize:34,
+    lineHeight:1
+  },
+
+  modalText:{
+    fontSize:12,
+    lineHeight:1.6,
+    marginBottom:22
+  },
+
+  label:{
+    display:"block",
+    color:"#6d6470",
+    fontSize:10,
+    fontWeight:800,
+    margin:"13px 0 6px"
+  },
+
+  input:{
+    width:"100%",
+    height:45,
+    padding:"0 13px",
+    border:"1px solid",
+    borderRadius:11,
+    outline:0
+  },
+
+  textarea:{
+    width:"100%",
+    minHeight:85,
+    padding:13,
+    border:"1px solid",
+    borderRadius:11,
+    outline:0,
+    resize:"vertical"
+  },
+
+  twoInputs:{
+    display:"grid",
+    gridTemplateColumns:"1fr 1fr",
+    gap:10
+  },
+
+  authButton:{
+    width:"100%",
+    marginTop:18,
+    border:0,
+    borderRadius:12,
+    padding:14,
+    background:"#6d28d9",
+    color:"#fff",
+    fontWeight:800,
+    cursor:"pointer"
+  },
+
+  googleButton:{
+    width:"100%",
+    border:"1px solid rgba(54,29,78,.14)",
+    background:"#fff",
+    color:"#211b29",
+    borderRadius:12,
+    padding:13,
+    fontWeight:800,
+    cursor:"pointer",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
+    gap:10
+  },
+
+  googleG:{
+    fontSize:18,
+    fontWeight:900
+  },
+
+  or:{
+    display:"flex",
+    alignItems:"center",
+    gap:10,
+    color:"#918795",
+    fontSize:9,
+    margin:"18px 0"
+  },
+
+  authMessage:{
+    marginTop:12,
+    padding:11,
+    borderRadius:10,
+    background:"#fff0f6",
+    color:"#9b2c70",
+    fontSize:11,
+    lineHeight:1.5
+  },
+
+  switchAuth:{
+    display:"block",
+    width:"100%",
+    marginTop:16,
+    border:0,
+    background:"transparent",
+    color:"#6d28d9",
+    fontSize:11,
+    fontWeight:750,
+    cursor:"pointer"
+  },
+
+  accountCards:{
+    display:"grid",
+    gridTemplateColumns:"1fr 1fr",
+    gap:10,
+    margin:"25px 0"
+  },
+
+  accountCard:{
+    textAlign:"left",
+    border:"1px solid rgba(54,29,78,.1)",
+    borderRadius:15,
+    padding:15,
+    display:"flex",
+    flexDirection:"column",
+    gap:7,
+    cursor:"pointer"
+  },
+
+  logout:{
+    width:"100%",
+    border:"1px solid rgba(155,44,112,.2)",
+    background:"transparent",
+    color:"#c02675",
+    borderRadius:12,
+    padding:13,
+    fontWeight:800,
+    cursor:"pointer"
+  },
+
+  ordersList:{
+    display:"flex",
+    flexDirection:"column",
+    gap:10,
+    marginTop:25
+  },
+
+  orderCard:{
+    display:"flex",
+    justifyContent:"space-between",
+    gap:15,
+    padding:15,
+    borderRadius:15,
+    border:"1px solid rgba(54,29,78,.08)"
+  },
+
+  orderDate:{
+    display:"block",
+    marginTop:5,
+    color:"#89808e",
+    fontSize:9
+  },
+
+  orderRight:{
+    display:"flex",
+    flexDirection:"column",
+    alignItems:"end",
+    gap:6
+  },
+
+  status:{
+    background:"#f3edff",
+    color:"#6d28d9",
+    borderRadius:999,
+    padding:"5px 8px",
+    fontSize:8,
+    fontWeight:800
+  }
 };
