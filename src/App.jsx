@@ -4,8 +4,11 @@ import "./shindara-redesign.css";
 
 /* =========================================================
    SHINDARA PHONEFLAIR
-   MAIN STORE APP
+   PAYSTACK + SUPABASE
    ========================================================= */
+
+const PAYSTACK_PUBLIC_KEY =
+  "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
 const money = n =>
   `₦${Number(n || 0).toLocaleString("en-NG", {
@@ -13,18 +16,7 @@ const money = n =>
   })}`;
 
 /* =========================================================
-   SOCIAL LINKS
-   CHANGE ONLY THE INSTAGRAM/TIKTOK LINKS IF NEEDED
-   ========================================================= */
-
-const SOCIAL_LINKS = {
-  whatsapp: "http://wa.me/+2348118294548",
-  instagram: "https://www.instagram.com/shindaraphoneflair?igsi=MWVxenc3MDJoNzdlZw==",
-  tiktok: "https://www.tiktok.com/@shindara.communication?_r=1&_t=ZS-99ErYcIyleS",
-};
-
-/* =========================================================
-   NIGERIA STATES + CITIES / MAJOR TOWNS
+   NIGERIA STATES + CITIES
    ========================================================= */
 
 const states = {
@@ -37,510 +29,392 @@ const states = {
     "Ohafia",
     "Osisioma",
     "Umuahia",
-    "Ukwa",
-    "Ugwunagbo",
+    "Umu Nneochi",
   ],
 
   Adamawa: [
-    "Yola",
+    "Fufore",
+    "Ganye",
+    "Girei",
+    "Gombi",
+    "Hong",
     "Jimeta",
     "Mubi",
     "Numan",
-    "Ganye",
-    "Gombi",
-    "Hong",
-    "Michika",
-    "Maiha",
     "Song",
-    "Girei",
-    "Fufore",
+    "Yola",
   ],
 
-  "Akwa Ibom": [
-    "Uyo",
-    "Eket",
-    "Ikot Ekpene",
-    "Oron",
+  Akwa_Ibom: [
     "Abak",
+    "Eket",
     "Etinan",
+    "Ikot Ekpene",
     "Ikot Abasi",
+    "Ibeno",
     "Itu",
-    "Mkpat Enin",
-    "Nsit Ibom",
-    "Onna",
-    "Essene",
+    "Oron",
+    "Uyo",
   ],
 
   Anambra: [
     "Awka",
-    "Onitsha",
-    "Nnewi",
-    "Ekwulobia",
     "Ihiala",
-    "Obosi",
-    "Ogidi",
-    "Otuocha",
-    "Umunze",
+    "Nnewi",
     "Nkpor",
-    "Agulu",
-    "Abagana",
+    "Onitsha",
+    "Otuocha",
+    "Ogidi",
+    "Ekwulobia",
   ],
 
   Bauchi: [
-    "Bauchi",
     "Azare",
-    "Jama'are",
-    "Misau",
-    "Ningi",
+    "Bauchi",
     "Dass",
     "Gamawa",
+    "Jama'are",
     "Katagum",
+    "Misau",
+    "Ningi",
     "Toro",
-    "Darazo",
   ],
 
   Bayelsa: [
-    "Yenagoa",
     "Brass",
+    "Ekeremor",
+    "Nembe",
     "Ogbia",
     "Sagbama",
-    "Nembe",
-    "Kaiama",
-    "Amassoma",
-    "Ekeremor",
-    "Opokuma",
+    "Yenagoa",
   ],
 
   Benue: [
-    "Makurdi",
-    "Gboko",
-    "Otukpo",
-    "Katsina-Ala",
-    "Vandeikya",
     "Adikpo",
-    "Aliade",
-    "Oju",
-    "Okpoga",
-    "Buruku",
+    "Gbajimba",
+    "Gboko",
+    "Katsina-Ala",
+    "Makurdi",
+    "Otukpo",
+    "Vandeikya",
   ],
 
   Borno: [
-    "Maiduguri",
+    "Bama",
     "Biu",
     "Dikwa",
     "Gamboru",
-    "Bama",
+    "Jere",
+    "Maiduguri",
     "Monguno",
-    "Ngala",
-    "Damasak",
-    "Konduga",
-    "Mafa",
   ],
 
-  "Cross River": [
-    "Calabar",
-    "Ugep",
-    "Ikom",
-    "Ogoja",
-    "Obudu",
-    "Obubra",
+  Cross_River: [
     "Akamkpa",
-    "Etung",
-    "Yakurr",
-    "Bekwarra",
+    "Calabar",
+    "Ikom",
+    "Obudu",
+    "Ogoja",
+    "Ugep",
   ],
 
   Delta: [
     "Asaba",
-    "Warri",
+    "Agbor",
+    "Effurun",
+    "Ozoro",
     "Sapele",
     "Ughelli",
-    "Agbor",
-    "Abraka",
-    "Ozoro",
-    "Koko",
-    "Burutu",
-    "Oleh",
-    "Effurun",
-    "Udu",
+    "Warri",
   ],
 
   Ebonyi: [
     "Abakaliki",
     "Afikpo",
-    "Onueke",
-    "Ishiagu",
     "Ezza",
     "Ikwo",
-    "Ivo",
-    "Ohaukwu",
-    "Uburu",
+    "Ishieke",
+    "Onueke",
   ],
 
   Edo: [
-    "Benin City",
     "Auchi",
+    "Benin City",
     "Ekpoma",
-    "Uromi",
     "Igarra",
     "Irrua",
     "Sabongida-Ora",
-    "Fugar",
-    "Ubiaja",
-    "Afuze",
   ],
 
   Ekiti: [
     "Ado-Ekiti",
+    "Aramoko",
+    "Emure",
     "Ikere",
     "Ikole",
-    "Ilawe",
     "Ijero",
+    "Ilawe",
     "Oye",
-    "Emure",
-    "Aramoko",
-    "Ise",
-    "Otun",
   ],
 
   Enugu: [
+    "Agbani",
     "Enugu",
     "Nsukka",
-    "Agbani",
-    "Awgu",
     "Oji River",
     "Udi",
     "9th Mile",
-    "Obollo-Afor",
-    "Ezeagu",
-    "Nkanu",
   ],
 
   Gombe: [
+    "Akko",
+    "Billiri",
+    "Deba",
     "Gombe",
     "Kaltungo",
-    "Billiri",
-    "Bajoga",
-    "Dukku",
-    "Funakaye",
     "Nafada",
-    "Deba",
-    "Akko",
   ],
 
   Imo: [
-    "Owerri",
-    "Orlu",
+    "Ehime Mbano",
+    "Ihitte Uboma",
     "Okigwe",
+    "Orlu",
+    "Owerri",
     "Mbaise",
     "Oguta",
-    "Ideato",
-    "Nkwerre",
-    "Ohaji",
-    "Ehime Mbano",
-    "Isu",
   ],
 
   Jigawa: [
+    "Birnin Kudu",
     "Dutse",
-    "Hadejia",
     "Gumel",
+    "Hadejia",
     "Kazaure",
     "Ringim",
-    "Birnin Kudu",
-    "Gwaram",
-    "Kafin Hausa",
-    "Malam Madori",
   ],
 
   Kaduna: [
-    "Kaduna",
-    "Zaria",
-    "Kafanchan",
-    "Kagoro",
     "Birnin Gwari",
-    "Ikara",
+    "Kaduna",
+    "Kafanchan",
+    "Kagarko",
     "Kachia",
-    "Kajuru",
-    "Saminaka",
-    "Makarfi",
+    "Zaria",
   ],
 
   Kano: [
-    "Kano",
-    "Wudil",
-    "Gaya",
     "Bichi",
-    "Rano",
     "Dambatta",
+    "Gaya",
+    "Kano",
     "Kura",
-    "Karaye",
-    "Gezawa",
-    "Tudun Wada",
+    "Rano",
+    "Wudil",
   ],
 
   Katsina: [
-    "Katsina",
-    "Funtua",
     "Daura",
-    "Malumfashi",
-    "Dutsin-Ma",
-    "Jibia",
+    "Funtua",
     "Kankara",
-    "Kafur",
+    "Katsina",
+    "Malumfashi",
     "Mani",
-    "Bakori",
   ],
 
   Kebbi: [
-    "Birnin Kebbi",
     "Argungu",
-    "Yauri",
+    "Birnin Kebbi",
+    "Bunza",
     "Jega",
     "Kebbe",
-    "Zuru",
-    "Bunza",
-    "Dakingari",
-    "Koko",
+    "Yauri",
   ],
 
   Kogi: [
+    "Ankpa",
+    "Anyigba",
+    "Idah",
+    "Kabba",
     "Lokoja",
     "Okene",
-    "Kabba",
-    "Idah",
-    "Anyigba",
-    "Dekina",
-    "Ankpa",
-    "Ajaokuta",
-    "Bassa",
-    "Egbe",
   ],
 
   Kwara: [
     "Ilorin",
-    "Offa",
     "Jebba",
-    "Malete",
-    "Lafiagi",
-    "Pategi",
-    "Omu-Aran",
     "Kaiama",
-    "Bacita",
-    "Share",
+    "Lafiagi",
+    "Malete",
+    "Offa",
+    "Omu-Aran",
+    "Pategi",
   ],
 
   Lagos: [
-    "Ikeja",
-    "Lekki",
-    "Victoria Island",
-    "Yaba",
-    "Surulere",
+    "Agege",
     "Ajah",
-    "Ikorodu",
+    "Alimosho",
     "Badagry",
     "Epe",
-    "Agege",
-    "Alimosho",
-    "Festac",
+    "Ibeju-Lekki",
+    "Ikeja",
+    "Ikorodu",
+    "Isolo",
+    "Lekki",
+    "Lagos Island",
+    "Maryland",
     "Mushin",
     "Oshodi",
-    "Apapa",
-    "Maryland",
-    "Magodo",
-    "Gbagada",
-    "Ketu",
-    "Lagos Island",
+    "Surulere",
+    "Victoria Island",
+    "Yaba",
   ],
 
   Nasarawa: [
-    "Lafia",
-    "Keffi",
-    "Karu",
     "Akwanga",
+    "Keffi",
+    "Lafia",
     "Nasarawa",
-    "Doma",
-    "Kokona",
+    "Obi",
     "Wamba",
-    "Keana",
-    "Toto",
   ],
 
   Niger: [
-    "Minna",
-    "Suleja",
     "Bida",
-    "Kontagora",
-    "Mokwa",
-    "Borgu",
-    "New Bussa",
-    "Lapai",
-    "Paikoro",
+    "Bosso",
     "Chanchaga",
+    "Kontagora",
+    "Minna",
+    "Mokwa",
+    "Suleja",
   ],
 
   Ogun: [
     "Abeokuta",
+    "Agbara",
+    "Ayetoro",
     "Ijebu Ode",
+    "Ijebu-East",
+    "Ijebu-South",
+    "Ijebu-North"'
+    "Ilaro",
+    "Ifo",
     "Sagamu",
     "Ota",
-    "Ilaro",
-    "Agbara",
-    "Ifo",
-    "Ayetoro",
-    "Ijebu Igbo",
     "Owode",
-    "Remo",
-    "Mowe",
-    "Obafemi Owode",
   ],
 
   Ondo: [
+    "Akoko",
     "Akure",
+    "Ikare",
+    "Okitipupa",
     "Ondo",
     "Owo",
-    "Ikare",
     "Ore",
-    "Igbokoda",
-    "Okitipupa",
-    "Idanre",
-    "Ile Oluji",
-    "Ifon",
   ],
 
   Osun: [
-    "Osogbo",
-    "Ile-Ife",
-    "Ilesa",
     "Ede",
-    "Ikire",
-    "Iwo",
-    "Ila Orangun",
-    "Ila",
     "Ejigbo",
+    "Ife",
+    "Ijesa",
+    "Ila Orangun",
+    "Ilesa",
+    "Ikire",
     "Ikirun",
-    "Modakeke",
-    "Ipetumodu",
+    "Osogbo",
   ],
 
   Oyo: [
     "Ibadan",
-    "Ogbomoso",
-    "Oyo",
     "Iseyin",
-    "Eruwa",
-    "Saki",
-    "Igboho",
     "Kishi",
-    "Moniya",
-    "Fiditi",
-    "Ibarapa",
-    "Lalupon",
+    "Ogbomoso",
+    "Okeho",
+    "Oyo",
+    "Saki",
+    "Eruwa",
   ],
 
   Plateau: [
-    "Jos",
-    "Bukuru",
     "Barkin Ladi",
+    "Bassa",
+    "Jos",
+    "Jos South",
+    "Langtang",
     "Pankshin",
     "Shendam",
-    "Mangu",
-    "Bassa",
-    "Langtang",
-    "Wase",
-    "Riyom",
   ],
 
   Rivers: [
-    "Port Harcourt",
+    "Ahoada",
     "Bonny",
     "Eleme",
     "Obio-Akpor",
     "Okrika",
-    "Degema",
-    "Ahoada",
-    "Bori",
     "Omoku",
-    "Abonnema",
+    "Port Harcourt",
     "Oyigbo",
-    "Ikwerre",
   ],
 
   Sokoto: [
+    "Binji",
+    "Gwadabawa",
+    "Illela",
     "Sokoto",
     "Tambuwal",
-    "Gwadabawa",
-    "Wurno",
-    "Illela",
-    "Goronyo",
-    "Rabah",
-    "Yabo",
-    "Binji",
+    "Wamakko",
   ],
 
   Taraba: [
-    "Jalingo",
-    "Wukari",
-    "Gembu",
+    "Ardo-Kola",
     "Bali",
-    "Takum",
-    "Serti",
-    "Zing",
-    "Mutum Biyu",
-    "Karim Lamido",
+    "Gembu",
+    "Jalingo",
+    "Mayo-Belwa",
+    "Wukari",
   ],
 
   Yobe: [
     "Damaturu",
-    "Potiskum",
-    "Gashua",
-    "Nguru",
     "Geidam",
-    "Bade",
-    "Bursari",
-    "Fika",
     "Gujba",
+    "Nguru",
+    "Potiskum",
+    "Yunusari",
   ],
 
   Zamfara: [
+    "Anka",
     "Gusau",
     "Kaura Namoda",
+    "Maradun",
     "Talata Mafara",
-    "Anka",
-    "Bungudu",
     "Tsafe",
-    "Maru",
-    "Zurmi",
-    "Bukkuyum",
   ],
 
-  "Federal Capital Territory": [
+  FCT: [
     "Abuja",
-    "Garki",
-    "Wuse",
-    "Maitama",
     "Asokoro",
-    "Gwarinpa",
-    "Kubwa",
-    "Jabi",
-    "Karu",
-    "Nyanya",
-    "Lugbe",
-    "Kuje",
     "Bwari",
-    "Gwagwalada",
-    "Abaji",
-    "Dutse Alhaji",
-    "Lokogoma",
-    "Galadimawa",
-    "Katampe",
-    "Life Camp",
+    "Garki",
+    "Gwarinpa",
+    "Jabi",
+    "Kubwa",
+    "Maitama",
+    "Nyanya",
+    "Wuse",
   ],
 };
 
-/* =========================================================
-   EMPTY CHECKOUT
-   ========================================================= */
+const cleanStates = Object.fromEntries(
+  Object.entries(states).map(([key, cities]) => [
+    key.replaceAll("_", " "),
+    cities,
+  ])
+);
 
 const emptyCheckout = {
   customer_name: "",
@@ -552,16 +426,46 @@ const emptyCheckout = {
 };
 
 /* =========================================================
-   MAIN APP
+   PAYSTACK SCRIPT
+   ========================================================= */
+
+const loadPaystack = () =>
+  new Promise((resolve, reject) => {
+    if (window.PaystackPop) {
+      resolve(true);
+      return;
+    }
+
+    const existing = document.querySelector(
+      'script[src="https://js.paystack.co/v2/inline.js"]'
+    );
+
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true));
+      existing.addEventListener("error", reject);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://js.paystack.co/v2/inline.js";
+    script.async = true;
+
+    script.onload = () => resolve(true);
+    script.onerror = () =>
+      reject(new Error("Paystack could not load."));
+
+    document.body.appendChild(script);
+  });
+
+/* =========================================================
+   APP
    ========================================================= */
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
 
@@ -590,49 +494,54 @@ export default function App() {
   const [editPhone, setEditPhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
-  const [checkout, setCheckout] = useState(emptyCheckout);
-  const [checkoutMessage, setCheckoutMessage] = useState("");
+  const [checkout, setCheckout] =
+    useState(emptyCheckout);
+
+  const [checkoutMessage, setCheckoutMessage] =
+    useState("");
 
   const [notice, setNotice] = useState("");
+
   const [dark, setDark] = useState(false);
 
-  /* =======================================================
+  /* =========================================================
      NOTICE
-     ======================================================= */
+     ========================================================= */
 
   const showNotice = msg => {
     setNotice(msg);
-
-    setTimeout(() => {
-      setNotice("");
-    }, 2800);
+    setTimeout(() => setNotice(""), 3000);
   };
 
-  /* =======================================================
-     DARK MODE
-     ======================================================= */
+  /* =========================================================
+     THEME
+     ========================================================= */
 
   useEffect(() => {
     const media = window.matchMedia(
       "(prefers-color-scheme: dark)"
     );
 
-    const change = () => {
+    const change = () =>
       setDark(media.matches);
-    };
 
     change();
 
-    media.addEventListener?.("change", change);
+    media.addEventListener?.(
+      "change",
+      change
+    );
 
-    return () => {
-      media.removeEventListener?.("change", change);
-    };
+    return () =>
+      media.removeEventListener?.(
+        "change",
+        change
+      );
   }, []);
 
-  /* =======================================================
-     INITIAL LOAD + AUTH
-     ======================================================= */
+  /* =========================================================
+     AUTH + INITIAL LOAD
+     ========================================================= */
 
   useEffect(() => {
     let mounted = true;
@@ -664,19 +573,20 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setUser(session?.user || null);
+    } =
+      supabase.auth.onAuthStateChange(
+        async (_event, session) => {
+          setUser(session?.user || null);
 
-        if (session?.user) {
-          await loadUser(session.user);
-        } else {
-          setProfile(null);
-          setCart([]);
-          setOrders([]);
+          if (session?.user) {
+            await loadUser(session.user);
+          } else {
+            setProfile(null);
+            setCart([]);
+            setOrders([]);
+          }
         }
-      }
-    );
+      );
 
     return () => {
       mounted = false;
@@ -684,9 +594,9 @@ export default function App() {
     };
   }, []);
 
-  /* =======================================================
+  /* =========================================================
      USER
-     ======================================================= */
+     ========================================================= */
 
   const loadUser = async currentUser => {
     if (!currentUser) return;
@@ -716,13 +626,10 @@ export default function App() {
 
     setCheckout(old => ({
       ...old,
-
       customer_name:
         name || old.customer_name,
-
       customer_phone:
         userPhone || old.customer_phone,
-
       customer_email:
         currentUser.email ||
         old.customer_email,
@@ -734,9 +641,9 @@ export default function App() {
     ]);
   };
 
-  /* =======================================================
+  /* =========================================================
      PRODUCTS
-     ======================================================= */
+     ========================================================= */
 
   const loadProducts = async () => {
     const {
@@ -767,9 +674,9 @@ export default function App() {
     }
   };
 
-  /* =======================================================
+  /* =========================================================
      CART
-     ======================================================= */
+     ========================================================= */
 
   const loadCart = async userId => {
     if (!userId) {
@@ -820,11 +727,9 @@ export default function App() {
     if (!user) {
       setAccountOpen(true);
       setAuthMode("login");
-
       setAuthMessage(
         "Please login or create an account before shopping."
       );
-
       return;
     }
 
@@ -832,12 +737,12 @@ export default function App() {
       showNotice(
         "This product is currently out of stock."
       );
-
       return;
     }
 
     const existing = cart.find(
-      item => item.product_id === product.id
+      item =>
+        item.product_id === product.id
     );
 
     if (existing) {
@@ -851,7 +756,6 @@ export default function App() {
         showNotice(
           "You have reached the available stock."
         );
-
         return;
       }
 
@@ -866,17 +770,13 @@ export default function App() {
         showNotice(
           "Could not update your cart."
         );
-
         return;
       }
 
       setCart(old =>
         old.map(item =>
           item.id === existing.id
-            ? {
-                ...item,
-                quantity,
-              }
+            ? { ...item, quantity }
             : item
         )
       );
@@ -898,14 +798,10 @@ export default function App() {
         showNotice(
           "Could not add this item."
         );
-
         return;
       }
 
-      setCart(old => [
-        ...old,
-        data,
-      ]);
+      setCart(old => [...old, data]);
     }
 
     showNotice(
@@ -919,10 +815,10 @@ export default function App() {
   ) => {
     if (!user) return;
 
-    const product =
-      products.find(
-        p => p.id === item.product_id
-      );
+    const product = products.find(
+      p =>
+        p.id === item.product_id
+    );
 
     if (!product) return;
 
@@ -941,7 +837,6 @@ export default function App() {
       showNotice(
         "No more stock is available."
       );
-
       return;
     }
 
@@ -956,10 +851,7 @@ export default function App() {
       setCart(old =>
         old.map(x =>
           x.id === item.id
-            ? {
-                ...x,
-                quantity,
-              }
+            ? { ...x, quantity }
             : x
         )
       );
@@ -1000,14 +892,12 @@ export default function App() {
           return {
             ...item,
             product,
-
             subtotal:
               Number(product.price) *
               Number(item.quantity),
           };
         })
         .filter(Boolean),
-
     [cart, products]
   );
 
@@ -1025,9 +915,9 @@ export default function App() {
       0
     );
 
-  /* =======================================================
+  /* =========================================================
      AUTH
-     ======================================================= */
+     ========================================================= */
 
   const login = async () => {
     setAuthLoading(true);
@@ -1036,16 +926,16 @@ export default function App() {
     const {
       data,
       error,
-    } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (error) {
-      setAuthMessage(
-        error.message
+    } =
+      await supabase.auth.signInWithPassword(
+        {
+          email: email.trim(),
+          password,
+        }
       );
 
+    if (error) {
+      setAuthMessage(error.message);
       setAuthLoading(false);
       return;
     }
@@ -1056,7 +946,6 @@ export default function App() {
 
     setPassword("");
     setEmail("");
-
     setAccountOpen(false);
     setAuthLoading(false);
 
@@ -1078,16 +967,6 @@ export default function App() {
       setAuthMessage(
         "Please complete all fields."
       );
-
-      setAuthLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setAuthMessage(
-        "Password must be at least 6 characters."
-      );
-
       setAuthLoading(false);
       return;
     }
@@ -1099,12 +978,10 @@ export default function App() {
       await supabase.auth.signUp({
         email: email.trim(),
         password,
-
         options: {
           data: {
             full_name:
               fullName.trim(),
-
             phone:
               phone.trim(),
           },
@@ -1112,10 +989,7 @@ export default function App() {
       });
 
     if (error) {
-      setAuthMessage(
-        error.message
-      );
-
+      setAuthMessage(error.message);
       setAuthLoading(false);
       return;
     }
@@ -1133,15 +1007,8 @@ export default function App() {
         });
 
       if (data.session) {
-        await loadUser(
-          data.user
-        );
-
+        await loadUser(data.user);
         setAccountOpen(false);
-
-        showNotice(
-          "Account created successfully 🎉"
-        );
       } else {
         setAuthMessage(
           "Account created. Check your email to confirm your account."
@@ -1157,12 +1024,9 @@ export default function App() {
     setAuthLoading(true);
     setAuthMessage("");
 
-    const {
-      error,
-    } =
+    const { error } =
       await supabase.auth.signInWithOAuth({
         provider: "google",
-
         options: {
           redirectTo:
             window.location.origin,
@@ -1170,10 +1034,7 @@ export default function App() {
       });
 
     if (error) {
-      setAuthMessage(
-        error.message
-      );
-
+      setAuthMessage(error.message);
       setAuthLoading(false);
     }
   };
@@ -1184,7 +1045,6 @@ export default function App() {
     setCart([]);
     setOrders([]);
     setProfile(null);
-
     setAccountOpen(false);
     setCartOpen(false);
 
@@ -1196,16 +1056,14 @@ export default function App() {
   const submitAuth = async e => {
     e.preventDefault();
 
-    if (authMode === "signup") {
-      await signup();
-    } else {
-      await login();
-    }
+    authMode === "signup"
+      ? await signup()
+      : await login();
   };
 
-  /* =======================================================
+  /* =========================================================
      PROFILE
-     ======================================================= */
+     ========================================================= */
 
   const saveProfile = async () => {
     if (!user) return;
@@ -1217,15 +1075,12 @@ export default function App() {
       showNotice(
         "Please enter your name and phone."
       );
-
       return;
     }
 
     setSavingProfile(true);
 
-    const {
-      error,
-    } =
+    const { error } =
       await supabase
         .from("profiles")
         .upsert({
@@ -1243,29 +1098,22 @@ export default function App() {
       showNotice(
         "Could not save your profile."
       );
-
       return;
     }
 
     setProfile(old => ({
       ...(old || {}),
-
       full_name:
         editName.trim(),
-
       phone:
         editPhone.trim(),
-
-      email:
-        user.email,
+      email: user.email,
     }));
 
     setCheckout(old => ({
       ...old,
-
       customer_name:
         editName.trim(),
-
       customer_phone:
         editPhone.trim(),
     }));
@@ -1275,9 +1123,9 @@ export default function App() {
     );
   };
 
-  /* =======================================================
+  /* =========================================================
      CATEGORIES
-     ======================================================= */
+     ========================================================= */
 
   const categoryNames = useMemo(() => {
     const names =
@@ -1307,10 +1155,7 @@ export default function App() {
           .toLowerCase()
           .includes("smartphone")
     );
-  }, [
-    categories,
-    products,
-  ]);
+  }, [categories, products]);
 
   const filteredProducts =
     useMemo(() => {
@@ -1349,19 +1194,17 @@ export default function App() {
       category,
     ]);
 
-  /* =======================================================
+  /* =========================================================
      CHECKOUT
-     ======================================================= */
+     ========================================================= */
 
   const openCheckout = () => {
     if (!user) {
       setCartOpen(false);
       setAccountOpen(true);
-
       setAuthMessage(
         "Please login before checkout."
       );
-
       return;
     }
 
@@ -1369,7 +1212,6 @@ export default function App() {
       showNotice(
         "Your cart is empty."
       );
-
       return;
     }
 
@@ -1378,268 +1220,451 @@ export default function App() {
     setCheckoutOpen(true);
   };
 
-  /* =======================================================
-     PLACE ORDER
-     
-     IMPORTANT:
-     Cart is NOT deleted here.
-     Payment stays pending until admin/payment
-     verification is completed.
-     ======================================================= */
+  /* =========================================================
+     PAYSTACK PAYMENT
+     ========================================================= */
 
-  const placeOrder = async e => {
-    e.preventDefault();
+  const startPaystackPayment =
+    async e => {
+      e.preventDefault();
 
-    if (!user) {
-      setCheckoutMessage(
-        "Please login first."
-      );
-
-      return;
-    }
-
-    if (!cartProducts.length) {
-      setCheckoutMessage(
-        "Your cart is empty."
-      );
-
-      return;
-    }
-
-    if (
-      !checkout.customer_name.trim() ||
-      !checkout.customer_phone.trim() ||
-      !checkout.delivery_address.trim() ||
-      !checkout.delivery_city ||
-      !checkout.delivery_state
-    ) {
-      setCheckoutMessage(
-        "Please complete your delivery information."
-      );
-
-      return;
-    }
-
-    setPlacingOrder(true);
-    setCheckoutMessage("");
-
-    /* Verify stock again before creating order */
-    const freshProducts =
-      await Promise.all(
-        cartProducts.map(
-          async item => {
-            const {
-              data,
-            } =
-              await supabase
-                .from("products")
-                .select(
-                  "id,name,price,stock,image_url"
-                )
-                .eq(
-                  "id",
-                  item.product.id
-                )
-                .single();
-
-            return {
-              cartItem: item,
-              fresh: data,
-            };
-          }
-        )
-      );
-
-    for (const row of freshProducts) {
-      if (!row.fresh) {
+      if (!user) {
         setCheckoutMessage(
-          `Product "${row.cartItem.product.name}" is no longer available.`
+          "Please login first."
         );
+        return;
+      }
 
-        setPlacingOrder(false);
+      if (!cartProducts.length) {
+        setCheckoutMessage(
+          "Your cart is empty."
+        );
         return;
       }
 
       if (
-        Number(row.cartItem.quantity) >
-        Number(row.fresh.stock)
+        !checkout.customer_name.trim() ||
+        !checkout.customer_phone.trim() ||
+        !checkout.delivery_address.trim() ||
+        !checkout.delivery_city ||
+        !checkout.delivery_state
       ) {
         setCheckoutMessage(
-          `Not enough stock for "${row.fresh.name}". Available stock: ${row.fresh.stock}.`
+          "Please complete your delivery information."
+        );
+        return;
+      }
+
+      if (
+        !checkout.customer_email.trim() &&
+        !user.email
+      ) {
+        setCheckoutMessage(
+          "A valid email address is required for payment."
+        );
+        return;
+      }
+
+      setPlacingOrder(true);
+      setCheckoutMessage("");
+
+      try {
+        await loadPaystack();
+
+        if (!window.PaystackPop) {
+          throw new Error(
+            "Paystack could not load."
+          );
+        }
+
+        const reference =
+          `SFP-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)
+            .toUpperCase()}`;
+
+        const amountInKobo =
+          Math.round(
+            cartTotal * 100
+          );
+
+        const popup =
+          new window.PaystackPop();
+
+        popup.newTransaction({
+          key:
+            PAYSTACK_PUBLIC_KEY,
+
+          email:
+            checkout.customer_email.trim() ||
+            user.email,
+
+          amount:
+            amountInKobo,
+
+          currency: "NGN",
+
+          reference,
+
+          firstName:
+            checkout.customer_name
+              .trim()
+              .split(" ")[0] || "",
+
+          phone:
+            checkout.customer_phone.trim(),
+
+          channels: [
+            "card",
+            "bank",
+            "ussd",
+            "qr",
+            "bank_transfer",
+          ],
+
+          metadata: {
+            user_id: user.id,
+            customer_name:
+              checkout.customer_name.trim(),
+            customer_phone:
+              checkout.customer_phone.trim(),
+            delivery_state:
+              checkout.delivery_state,
+            delivery_city:
+              checkout.delivery_city,
+          },
+
+          onLoad: () => {
+            setPlacingOrder(false);
+          },
+
+          onCancel: () => {
+            setPlacingOrder(false);
+            setCheckoutMessage(
+              "Payment was cancelled. Your cart is still saved."
+            );
+          },
+
+          onSuccess:
+            async transaction => {
+              await verifyPaymentAndCreateOrder(
+                transaction.reference ||
+                  reference
+              );
+            },
+        });
+      } catch (error) {
+        console.error(error);
+
+        setPlacingOrder(false);
+
+        setCheckoutMessage(
+          error?.message ||
+            "Unable to start payment."
+        );
+      }
+    };
+
+  /* =========================================================
+     VERIFY PAYMENT
+     ========================================================= */
+
+  const verifyPaymentAndCreateOrder =
+    async reference => {
+      try {
+        setPlacingOrder(true);
+        setCheckoutMessage(
+          "Confirming your payment..."
+        );
+
+        /*
+         * IMPORTANT:
+         * This calls your Supabase Edge Function.
+         *
+         * The Paystack SECRET KEY must be inside
+         * the verify-payment function.
+         */
+        const {
+          data,
+          error,
+        } =
+          await supabase.functions.invoke(
+            "verify-payment",
+            {
+              body: {
+                reference,
+                amount:
+                  Math.round(
+                    cartTotal * 100
+                  ),
+              },
+            }
+          );
+
+        if (error) {
+          console.error(
+            "VERIFY FUNCTION ERROR:",
+            error
+          );
+
+          throw new Error(
+            error.message ||
+              "Payment verification failed."
+          );
+        }
+
+        if (
+          !data ||
+          data.success !== true
+        ) {
+          throw new Error(
+            data?.message ||
+              "Payment could not be verified."
+          );
+        }
+
+        if (
+          data.status &&
+          data.status !== "success"
+        ) {
+          throw new Error(
+            "Paystack payment was not successful."
+          );
+        }
+
+        if (
+          data.amount &&
+          Number(data.amount) !==
+            Math.round(
+              cartTotal * 100
+            )
+        ) {
+          throw new Error(
+            "Payment amount does not match the order total."
+          );
+        }
+
+        setCheckoutMessage(
+          "Payment confirmed. Creating your order..."
+        );
+
+        await createPaidOrder(
+          reference,
+          data
+        );
+      } catch (error) {
+        console.error(error);
+
+        setPlacingOrder(false);
+
+        setCheckoutMessage(
+          error?.message ||
+            "We could not verify your payment. Please contact support if you were charged."
+        );
+      }
+    };
+
+  /* =========================================================
+     CREATE ORDER ONLY AFTER PAYMENT SUCCESS
+     ========================================================= */
+
+  const createPaidOrder =
+    async (
+      paymentReference,
+      verificationData
+    ) => {
+      const deliveryFee = 0;
+
+      const total =
+        cartTotal +
+        deliveryFee;
+
+      const {
+        data: existingOrder,
+      } =
+        await supabase
+          .from("orders")
+          .select("*")
+          .eq(
+            "payment_reference",
+            paymentReference
+          )
+          .maybeSingle();
+
+      if (existingOrder) {
+        setCart([]);
+
+        await loadOrders(user.id);
+
+        setCheckoutOpen(false);
+        setCheckout(
+          emptyCheckout
         );
 
         setPlacingOrder(false);
+        setOrdersOpen(true);
+
+        showNotice(
+          "Payment already processed successfully."
+        );
+
         return;
       }
-    }
 
-    const paymentReference =
-      `SFP-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)
-        .toUpperCase()}`;
+      const {
+        data: order,
+        error: orderError,
+      } =
+        await supabase
+          .from("orders")
+          .insert({
+            user_id: user.id,
 
-    const deliveryFee = 0;
+            customer_name:
+              checkout.customer_name.trim(),
 
-    const total =
-      cartTotal +
-      deliveryFee;
+            customer_phone:
+              checkout.customer_phone.trim(),
 
-    const {
-      data: order,
-      error: orderError,
-    } =
-      await supabase
-        .from("orders")
-        .insert({
-          user_id: user.id,
+            customer_email:
+              checkout.customer_email.trim() ||
+              user.email ||
+              null,
 
-          customer_name:
-            checkout.customer_name.trim(),
+            delivery_address:
+              checkout.delivery_address.trim(),
 
-          customer_phone:
-            checkout.customer_phone.trim(),
+            delivery_city:
+              checkout.delivery_city,
 
-          customer_email:
-            checkout.customer_email.trim() ||
-            user.email ||
-            null,
+            delivery_state:
+              checkout.delivery_state,
 
-          delivery_address:
-            checkout.delivery_address.trim(),
+            total,
 
-          delivery_city:
-            checkout.delivery_city,
+            delivery_fee:
+              deliveryFee,
 
-          delivery_state:
-            checkout.delivery_state,
+            status:
+              "paid",
 
-          total,
+            payment_reference:
+              paymentReference,
 
-          delivery_fee:
-            deliveryFee,
+            payment_status:
+              "paid",
 
-          status:
-            "pending",
+            payment_method:
+              "paystack",
+          })
+          .select()
+          .single();
 
-          payment_reference:
-            paymentReference,
+      if (orderError || !order) {
+        throw new Error(
+          orderError?.message ||
+            "Payment succeeded but the order could not be created. Please contact support."
+        );
+      }
 
-          payment_status:
-            "pending",
-        })
-        .select()
-        .single();
+      const items =
+        cartProducts.map(
+          item => ({
+            order_id:
+              order.id,
 
-    if (
-      orderError ||
-      !order
-    ) {
-      setCheckoutMessage(
-        orderError?.message ||
-          "Unable to create your order."
+            product_id:
+              item.product.id,
+
+            product_name:
+              item.product.name,
+
+            price:
+              Number(
+                item.product.price
+              ),
+
+            quantity:
+              Number(
+                item.quantity
+              ),
+
+            image_url:
+              item.product.image_url ||
+              null,
+          })
+        );
+
+      const {
+        error: itemsError,
+      } =
+        await supabase
+          .from("order_items")
+          .insert(items);
+
+      if (itemsError) {
+        throw new Error(
+          itemsError.message
+        );
+      }
+
+      /*
+       * Cart is cleared ONLY after:
+       * 1. Paystack verification succeeds
+       * 2. Order is created
+       * 3. Order items are created
+       */
+      const {
+        error: cartError,
+      } =
+        await supabase
+          .from("cart_items")
+          .delete()
+          .eq(
+            "user_id",
+            user.id
+          );
+
+      if (cartError) {
+        console.warn(
+          "Cart clear warning:",
+          cartError
+        );
+      }
+
+      setCart([]);
+
+      await loadOrders(user.id);
+
+      setCheckoutOpen(false);
+
+      setCheckout(
+        emptyCheckout
       );
 
       setPlacingOrder(false);
-      return;
-    }
 
-    const items =
-      cartProducts.map(
-        item => ({
-          order_id:
-            order.id,
+      setOrdersOpen(true);
 
-          product_id:
-            item.product.id,
-
-          product_name:
-            item.product.name,
-
-          price:
-            Number(
-              item.product.price
-            ),
-
-          quantity:
-            Number(
-              item.quantity
-            ),
-
-          image_url:
-            item.product
-              .image_url ||
-            null,
-        })
+      showNotice(
+        `Payment successful 🎉 Order ${String(
+          order.id
+        ).slice(0, 8)} has been placed.`
       );
+    };
 
-    const {
-      error: itemsError,
-    } =
-      await supabase
-        .from("order_items")
-        .insert(items);
-
-    if (itemsError) {
-      /* Try to remove the incomplete order */
-      await supabase
-        .from("orders")
-        .delete()
-        .eq("id", order.id)
-        .eq("user_id", user.id);
-
-      setCheckoutMessage(
-        itemsError.message
-      );
-
-      setPlacingOrder(false);
-      return;
-    }
-
-    /*
-      IMPORTANT:
-      DO NOT DELETE cart here.
-      The customer has NOT paid yet.
-    */
-
-    await loadOrders(user.id);
-
-    setCheckoutOpen(false);
-
-    setCheckout({
-      ...emptyCheckout,
-
-      customer_name:
-        checkout.customer_name,
-
-      customer_phone:
-        checkout.customer_phone,
-
-      customer_email:
-        checkout.customer_email,
-    });
-
-    setPlacingOrder(false);
-    setOrdersOpen(true);
-
-    showNotice(
-      `Order received • ${paymentReference}`
-    );
-  };
-
-  /* =======================================================
-     LOADING SCREEN
-     ======================================================= */
+  /* =========================================================
+     LOADING
+     ========================================================= */
 
   if (loading) {
     return (
       <div
         style={{
           ...styles.loading,
-          background:
-            dark
-              ? "#08050d"
-              : "#12091d",
+          background: dark
+            ? "#08050d"
+            : "#12091d",
         }}
       >
         <div
@@ -1666,9 +1691,9 @@ export default function App() {
       ? darkTheme
       : lightTheme;
 
-  /* =======================================================
-     MAIN UI
-     ======================================================= */
+  /* =========================================================
+     UI
+     ========================================================= */
 
   return (
     <div
@@ -1698,29 +1723,6 @@ export default function App() {
         @keyframes shindaraMove{
           from{transform:translateX(0)}
           to{transform:translateX(-50%)}
-        }
-
-        .social-links{
-          display:flex;
-          gap:8px;
-          flex-wrap:wrap;
-          margin-top:18px;
-        }
-
-        .social-link{
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          min-width:38px;
-          height:38px;
-          padding:0 12px;
-          border-radius:999px;
-          text-decoration:none;
-          color:#fff;
-          background:rgba(255,255,255,.08);
-          border:1px solid rgba(255,255,255,.12);
-          font-size:10px;
-          font-weight:800;
         }
 
         .mobile-menu{
@@ -1841,35 +1843,31 @@ export default function App() {
         }
       `}</style>
 
-      {/* ===================================================
+      {/* =====================================================
           ANNOUNCEMENT
-          =================================================== */}
+          ===================================================== */}
 
-      <div
-        style={
-          styles.announcement
-        }
-      >
+      <div style={styles.announcement}>
         <div className="shindara-marquee">
           <span>
             PREMIUM PHONE ACCESSORIES •
-            CHARGERS • POWER BANKS •
-            AUDIO • CABLES • CASES •
-            GADGETS • SCREEN PROTECTORS •
+            CHARGERS • POWER BANKS • AUDIO •
+            CABLES • CASES • GADGETS •
+            SCREEN PROTECTORS •
           </span>
 
           <span>
             PREMIUM PHONE ACCESSORIES •
-            CHARGERS • POWER BANKS •
-            AUDIO • CABLES • CASES •
-            GADGETS • SCREEN PROTECTORS •
+            CHARGERS • POWER BANKS • AUDIO •
+            CABLES • CASES • GADGETS •
+            SCREEN PROTECTORS •
           </span>
         </div>
       </div>
 
-      {/* ===================================================
+      {/* =====================================================
           HEADER
-          =================================================== */}
+          ===================================================== */}
 
       <header
         className="shindara-header"
@@ -1924,16 +1922,13 @@ export default function App() {
               }}
               onClick={() => {
                 const id =
-                  item ===
-                  "Home"
+                  item === "Home"
                     ? null
                     : item.toLowerCase();
 
                 id
                   ? document
-                      .getElementById(
-                        id
-                      )
+                      .getElementById(id)
                       ?.scrollIntoView({
                         behavior:
                           "smooth",
@@ -1956,6 +1951,7 @@ export default function App() {
           }
         >
           <button
+            className="account-button"
             style={{
               ...styles.accountButton,
               ...theme.button,
@@ -1964,7 +1960,6 @@ export default function App() {
               setAccountOpen(
                 true
               );
-
               setAuthMessage("");
             }}
           >
@@ -1974,6 +1969,7 @@ export default function App() {
           </button>
 
           <button
+            className="cart-button"
             style={
               styles.cartButton
             }
@@ -1994,17 +1990,16 @@ export default function App() {
             }}
           >
             Cart
-            {user &&
-            cartCount
+            {user && cartCount
               ? ` (${cartCount})`
               : ""}
           </button>
         </div>
       </header>
 
-      {/* ===================================================
+      {/* =====================================================
           HERO
-          =================================================== */}
+          ===================================================== */}
 
       <section
         className="hero"
@@ -2118,9 +2113,9 @@ export default function App() {
         </div>
       </section>
 
-      {/* ===================================================
+      {/* =====================================================
           CATEGORIES
-          =================================================== */}
+          ===================================================== */}
 
       <section
         id="categories"
@@ -2128,9 +2123,7 @@ export default function App() {
         style={styles.section}
       >
         <span
-          style={
-            styles.kicker
-          }
+          style={styles.kicker}
         >
           EXPLORE
         </span>
@@ -2152,7 +2145,7 @@ export default function App() {
           }
         >
           {categoryNames
-            .slice(0, 12)
+            .slice(0, 9)
             .map(name => (
               <button
                 key={name}
@@ -2199,9 +2192,9 @@ export default function App() {
         </div>
       </section>
 
-      {/* ===================================================
+      {/* =====================================================
           SHOP
-          =================================================== */}
+          ===================================================== */}
 
       <section
         id="shop"
@@ -2212,9 +2205,7 @@ export default function App() {
       >
         <div
           className="shop-top"
-          style={
-            styles.shopTop
-          }
+          style={styles.shopTop}
         >
           <div>
             <span
@@ -2243,9 +2234,7 @@ export default function App() {
               ...theme.input,
             }}
           >
-            <span>
-              ⌕
-            </span>
+            <span>⌕</span>
 
             <input
               value={search}
@@ -2265,24 +2254,19 @@ export default function App() {
         </div>
 
         <div
-          style={
-            styles.filters
-          }
+          style={styles.filters}
         >
           {categoryNames
-            .slice(0, 12)
+            .slice(0, 8)
             .map(name => (
               <button
                 key={name}
                 onClick={() =>
-                  setCategory(
-                    name
-                  )
+                  setCategory(name)
                 }
                 style={{
                   ...styles.filter,
                   ...theme.button,
-
                   ...(category ===
                   name
                     ? styles.filterActive
@@ -2330,7 +2314,9 @@ export default function App() {
               .slice(0, 12)
               .map(product => (
                 <article
-                  key={product.id}
+                  key={
+                    product.id
+                  }
                   style={
                     styles.productCard
                   }
@@ -2459,15 +2445,13 @@ export default function App() {
         )}
       </section>
 
-      {/* ===================================================
+      {/* =====================================================
           TRUST
-          =================================================== */}
+          ===================================================== */}
 
       <section
         className="trust"
-        style={
-          styles.trust
-        }
+        style={styles.trust}
       >
         {[
           [
@@ -2486,11 +2470,7 @@ export default function App() {
             "We're here whenever you need help with your order.",
           ],
         ].map(
-          ([
-            icon,
-            title,
-            text,
-          ]) => (
+          ([icon, title, text]) => (
             <div
               key={title}
               style={
@@ -2505,26 +2485,20 @@ export default function App() {
                 {icon}
               </span>
 
-              <h3>
-                {title}
-              </h3>
+              <h3>{title}</h3>
 
-              <p>
-                {text}
-              </p>
+              <p>{text}</p>
             </div>
           )
         )}
       </section>
 
-      {/* ===================================================
+      {/* =====================================================
           FOOTER
-          =================================================== */}
+          ===================================================== */}
 
       <footer
-        style={
-          styles.footer
-        }
+        style={styles.footer}
       >
         <div
           style={
@@ -2542,43 +2516,6 @@ export default function App() {
           Premium phone accessories
           and everyday technology.
         </p>
-
-        <div
-          className="social-links"
-        >
-          <a
-            className="social-link"
-            href={
-              SOCIAL_LINKS.whatsapp
-            }
-            target="_blank"
-            rel="noreferrer"
-          >
-            WhatsApp
-          </a>
-
-          <a
-            className="social-link"
-            href={
-              SOCIAL_LINKS.instagram
-            }
-            target="_blank"
-            rel="noreferrer"
-          >
-            Instagram
-          </a>
-
-          <a
-            className="social-link"
-            href={
-              SOCIAL_LINKS.tiktok
-            }
-            target="_blank"
-            rel="noreferrer"
-          >
-            TikTok
-          </a>
-        </div>
 
         <div
           style={
@@ -2620,29 +2557,6 @@ export default function App() {
           >
             My cart
           </button>
-
-          <button
-            style={
-              styles.footerButton
-            }
-            onClick={() => {
-              if (!user) {
-                setAccountOpen(
-                  true
-                );
-
-                setAuthMessage(
-                  "Please login to view your orders."
-                );
-              } else {
-                setOrdersOpen(
-                  true
-                );
-              }
-            }}
-          >
-            My orders
-          </button>
         </div>
 
         <div
@@ -2655,10 +2569,6 @@ export default function App() {
         </div>
       </footer>
 
-      {/* ===================================================
-          NOTICE
-          =================================================== */}
-
       {notice && (
         <div
           style={
@@ -2669,9 +2579,9 @@ export default function App() {
         </div>
       )}
 
-      {/* ===================================================
-          CART DRAWER
-          =================================================== */}
+      {/* =====================================================
+          CART
+          ===================================================== */}
 
       {cartOpen && user && (
         <div
@@ -2759,8 +2669,9 @@ export default function App() {
                 </h3>
 
                 <p>
-                  Add something beautiful
-                  to get started.
+                  Add something
+                  beautiful to get
+                  started.
                 </p>
               </div>
             ) : (
@@ -2779,9 +2690,7 @@ export default function App() {
                           borderColor:
                             theme.border,
                         }}
-                        key={
-                          item.id
-                        }
+                        key={item.id}
                       >
                         <div
                           style={
@@ -2911,8 +2820,7 @@ export default function App() {
                 >
                   <div
                     style={{
-                      display:
-                        "flex",
+                      display: "flex",
                       justifyContent:
                         "space-between",
                       color:
@@ -2938,7 +2846,8 @@ export default function App() {
                       openCheckout
                     }
                   >
-                    Continue to checkout →
+                    Continue to
+                    checkout →
                   </button>
                 </div>
               </>
@@ -2947,9 +2856,9 @@ export default function App() {
         </div>
       )}
 
-      {/* ===================================================
+      {/* =====================================================
           ACCOUNT
-          =================================================== */}
+          ===================================================== */}
 
       {accountOpen && (
         <div
@@ -3088,7 +2997,6 @@ export default function App() {
                       setAccountOpen(
                         false
                       );
-
                       setCartOpen(
                         true
                       );
@@ -3098,7 +3006,6 @@ export default function App() {
                     <span>
                       My cart
                     </span>
-
                     <small>
                       {cartCount} items
                     </small>
@@ -3113,7 +3020,6 @@ export default function App() {
                       setAccountOpen(
                         false
                       );
-
                       setOrdersOpen(
                         true
                       );
@@ -3123,9 +3029,9 @@ export default function App() {
                     <span>
                       My orders
                     </span>
-
                     <small>
-                      {orders.length} orders
+                      {orders.length}{" "}
+                      orders
                     </small>
                   </button>
                 </div>
@@ -3195,7 +3101,8 @@ export default function App() {
                     G
                   </span>
 
-                  Continue with Google
+                  Continue with
+                  Google
                 </button>
 
                 <div
@@ -3250,7 +3157,6 @@ export default function App() {
                       </label>
 
                       <input
-                        type="tel"
                         value={
                           phone
                         }
@@ -3279,9 +3185,7 @@ export default function App() {
 
                   <input
                     type="email"
-                    value={
-                      email
-                    }
+                    value={email}
                     onChange={e =>
                       setEmail(
                         e.target
@@ -3305,9 +3209,7 @@ export default function App() {
 
                   <input
                     type="password"
-                    value={
-                      password
-                    }
+                    value={password}
                     onChange={e =>
                       setPassword(
                         e.target
@@ -3376,9 +3278,9 @@ export default function App() {
         </div>
       )}
 
-      {/* ===================================================
+      {/* =====================================================
           CHECKOUT
-          =================================================== */}
+          ===================================================== */}
 
       {checkoutOpen && (
         <div
@@ -3431,41 +3333,15 @@ export default function App() {
                   theme.muted,
               }}
             >
-              Order total:{" "}
+              Total:{" "}
               <strong>
-                {money(
-                  cartTotal
-                )}
+                {money(cartTotal)}
               </strong>
             </p>
 
-            <div
-              style={{
-                padding: 12,
-                marginBottom: 15,
-                borderRadius: 12,
-                background:
-                  dark
-                    ? "#24182f"
-                    : "#f7f0ff",
-                color:
-                  theme.heading,
-                fontSize: 11,
-                lineHeight: 1.6,
-              }}
-            >
-              <strong>
-                Payment status: Pending
-              </strong>
-              <br />
-              Your order will remain
-              pending until payment
-              is verified.
-            </div>
-
             <form
               onSubmit={
-                placeOrder
+                startPaystackPayment
               }
             >
               <label
@@ -3477,7 +3353,6 @@ export default function App() {
               </label>
 
               <input
-                required
                 value={
                   checkout.customer_name
                 }
@@ -3485,8 +3360,7 @@ export default function App() {
                   setCheckout({
                     ...checkout,
                     customer_name:
-                      e.target
-                        .value,
+                      e.target.value,
                   })
                 }
                 style={{
@@ -3504,8 +3378,6 @@ export default function App() {
               </label>
 
               <input
-                required
-                type="tel"
                 value={
                   checkout.customer_phone
                 }
@@ -3513,8 +3385,7 @@ export default function App() {
                   setCheckout({
                     ...checkout,
                     customer_phone:
-                      e.target
-                        .value,
+                      e.target.value,
                   })
                 }
                 style={{
@@ -3540,8 +3411,7 @@ export default function App() {
                   setCheckout({
                     ...checkout,
                     customer_email:
-                      e.target
-                        .value,
+                      e.target.value,
                   })
                 }
                 style={{
@@ -3559,7 +3429,6 @@ export default function App() {
               </label>
 
               <textarea
-                required
                 value={
                   checkout.delivery_address
                 }
@@ -3567,15 +3436,14 @@ export default function App() {
                   setCheckout({
                     ...checkout,
                     delivery_address:
-                      e.target
-                        .value,
+                      e.target.value,
                   })
                 }
                 style={{
                   ...styles.textarea,
                   ...theme.input,
                 }}
-                placeholder="House number, street, landmark..."
+                placeholder="House number, street..."
               />
 
               <div
@@ -3594,18 +3462,15 @@ export default function App() {
                   </label>
 
                   <select
-                    required
                     value={
                       checkout.delivery_state
                     }
                     onChange={e =>
                       setCheckout({
                         ...checkout,
-
                         delivery_state:
                           e.target
                             .value,
-
                         delivery_city:
                           "",
                       })
@@ -3620,23 +3485,15 @@ export default function App() {
                     </option>
 
                     {Object.keys(
-                      states
-                    )
-                      .sort()
-                      .map(
-                        state => (
-                          <option
-                            key={
-                              state
-                            }
-                            value={
-                              state
-                            }
-                          >
-                            {state}
-                          </option>
-                        )
-                      )}
+                      cleanStates
+                    ).map(state => (
+                      <option
+                        key={state}
+                        value={state}
+                      >
+                        {state}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -3650,7 +3507,6 @@ export default function App() {
                   </label>
 
                   <select
-                    required
                     value={
                       checkout.delivery_city
                     }
@@ -3660,7 +3516,6 @@ export default function App() {
                     onChange={e =>
                       setCheckout({
                         ...checkout,
-
                         delivery_city:
                           e.target
                             .value,
@@ -3678,19 +3533,15 @@ export default function App() {
                     </option>
 
                     {(
-                      states[
+                      cleanStates[
                         checkout
                           .delivery_state
                       ] || []
                     ).map(
                       city => (
                         <option
-                          key={
-                            city
-                          }
-                          value={
-                            city
-                          }
+                          key={city}
+                          value={city}
                         >
                           {city}
                         </option>
@@ -3719,19 +3570,19 @@ export default function App() {
                 }
               >
                 {placingOrder
-                  ? "Creating order..."
-                  : `Place order • ${money(
+                  ? "Processing payment..."
+                  : `Pay ${money(
                       cartTotal
-                    )}`}
+                    )} with Paystack →`}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* ===================================================
+      {/* =====================================================
           ORDERS
-          =================================================== */}
+          ===================================================== */}
 
       {ordersOpen && (
         <div
@@ -3845,20 +3696,19 @@ export default function App() {
                           {new Date(
                             order.created_at
                           ).toLocaleDateString(
-                            "en-NG",
-                            {
-                              day: "numeric",
-                              month:
-                                "short",
-                              year: "numeric",
-                            }
+                            "en-NG"
                           )}
                         </span>
 
                         {order.payment_reference && (
                           <span
                             style={{
-                              ...styles.orderDate,
+                              display:
+                                "block",
+                              marginTop:
+                                5,
+                              fontSize:
+                                8,
                               color:
                                 theme.muted,
                             }}
@@ -3890,16 +3740,8 @@ export default function App() {
                           {order.payment_status ===
                           "paid"
                             ? "PAID"
-                            : "PAYMENT PENDING"}
-                        </span>
-
-                        <span
-                          style={
-                            styles.status
-                          }
-                        >
-                          {order.status ||
-                            "pending"}
+                            : order.status ||
+                              "pending"}
                         </span>
                       </div>
                     </div>
@@ -3915,67 +3757,39 @@ export default function App() {
 }
 
 /* =========================================================
-   CATEGORY ICONS
+   CATEGORY ICON
    ========================================================= */
 
 function categoryIcon(name) {
   const v =
     String(name).toLowerCase();
 
-  if (
-    v.includes("case")
-  )
+  if (v.includes("case"))
     return "◈";
 
-  if (
-    v.includes("charger")
-  )
+  if (v.includes("charger"))
     return "⚡";
 
-  if (
-    v.includes("audio")
-  )
+  if (v.includes("audio"))
     return "◉";
 
-  if (
-    v.includes("power")
-  )
+  if (v.includes("power"))
     return "◒";
 
-  if (
-    v.includes("watch")
-  )
+  if (v.includes("watch"))
     return "⌚";
 
-  if (
-    v.includes("cable")
-  )
+  if (v.includes("cable"))
     return "⌁";
 
-  if (
-    v.includes("ear")
-  )
+  if (v.includes("ear"))
     return "◉";
 
-  if (
-    v.includes("screen")
-  )
+  if (v.includes("screen"))
     return "▣";
 
-  if (
-    v.includes("gadget")
-  )
+  if (v.includes("gadget"))
     return "✦";
-
-  if (
-    v.includes("phone")
-  )
-    return "▱";
-
-  if (
-    v.includes("tablet")
-  )
-    return "▣";
 
   return "✦";
 }
@@ -4016,7 +3830,6 @@ const lightTheme = {
   },
 
   heading: "#17131d",
-
   muted: "#777080",
 
   border:
@@ -4066,7 +3879,6 @@ const darkTheme = {
   },
 
   heading: "#fff",
-
   muted: "#b5aaba",
 
   border:
@@ -4584,7 +4396,6 @@ const styles = {
     display: "flex",
     gap: 10,
     margin: "30px 0",
-    flexWrap: "wrap",
   },
 
   footerButton: {
@@ -4638,8 +4449,7 @@ const styles = {
   },
 
   drawer: {
-    width:
-      "min(520px,100%)",
+    width: "min(520px,100%)",
     height: "100%",
     padding: 25,
     overflowY: "auto",
