@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "./Supabaseclient";
+import { supabase } from "./Supabaseclient.js";
 import "./shindara-redesign.css";
 
 const money = (n) =>
