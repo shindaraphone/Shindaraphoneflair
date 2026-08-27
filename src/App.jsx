@@ -297,7 +297,7 @@ const states = {
     "Ijebu Ode",
     "Ijebu East",
     "Ijebu South",
-    "Ijebu North"'
+    "Ijebu North",
     "Ilaro",
     "Ifo",
     "Sagamu",
