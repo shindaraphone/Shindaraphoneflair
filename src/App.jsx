@@ -3791,7 +3791,287 @@ setAccountOpen(false);
         </div>
       )}
     </div>
-  );
+/* SHINDARA PHONEFLAIR — PREMIUM PURPLE REDESIGN */
+if (typeof document !== "undefined" && !document.getElementById("shindara-premium-redesign")) {
+  const style = document.createElement("style");
+  style.id = "shindara-premium-redesign";
+  style.textContent = `
+    :root {
+      --sf-purple: #6D28D9;
+      --sf-purple-dark: #4C1D95;
+      --sf-purple-soft: #F3EEFF;
+      --sf-text: #18131F;
+      --sf-muted: #766F80;
+      --sf-border: rgba(70, 35, 100, .10);
+    }
+
+    body {
+      background: #FBFAFF !important;
+      color: var(--sf-text) !important;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+        "Helvetica Neue", Arial, sans-serif !important;
+    }
+
+    .app {
+      background:
+        radial-gradient(circle at 80% 5%, rgba(109,40,217,.10), transparent 28%),
+        linear-gradient(180deg, #FBFAFF 0%, #FFFFFF 55%, #FAF8FF 100%) !important;
+    }
+
+    .announcement-bar {
+      background: var(--sf-purple-dark) !important;
+      color: white !important;
+      border: 0 !important;
+    }
+
+    .header {
+      background: rgba(251,250,255,.92) !important;
+      border-bottom: 1px solid var(--sf-border) !important;
+      box-shadow: 0 8px 30px rgba(50,20,80,.05) !important;
+      backdrop-filter: blur(18px) !important;
+    }
+
+    .logo {
+      color: #18131F !important;
+      font-weight: 800 !important;
+      letter-spacing: -1px !important;
+    }
+
+    .logo span {
+      color: var(--sf-purple) !important;
+    }
+
+    .nav a {
+      color: #625A6C !important;
+      transition: .2s ease !important;
+    }
+
+    .nav a:hover {
+      color: var(--sf-purple) !important;
+    }
+
+    .account-button {
+      border: 1px solid var(--sf-border) !important;
+      background: white !important;
+      border-radius: 999px !important;
+      color: var(--sf-text) !important;
+    }
+
+    .cart-button {
+      background: var(--sf-purple) !important;
+      border-color: var(--sf-purple) !important;
+      color: white !important;
+      border-radius: 999px !important;
+      box-shadow: 0 10px 25px rgba(109,40,217,.25) !important;
+    }
+
+    .hero {
+      background:
+        radial-gradient(circle at 75% 30%, rgba(109,40,217,.17), transparent 32%),
+        linear-gradient(135deg,#FBFAFF,#FFFFFF) !important;
+    }
+
+    .eyebrow {
+      color: var(--sf-purple) !important;
+      font-weight: 800 !important;
+      letter-spacing: 2px !important;
+    }
+
+    .hero h1 {
+      color: #18131F !important;
+      letter-spacing: -4px !important;
+      line-height: .96 !important;
+      font-weight: 800 !important;
+    }
+
+    .hero-text {
+      color: var(--sf-muted) !important;
+      line-height: 1.7 !important;
+    }
+
+    .shop-button {
+      background: var(--sf-purple) !important;
+      color: white !important;
+      border-radius: 12px !important;
+      box-shadow: 0 15px 35px rgba(109,40,217,.28) !important;
+    }
+
+    .shop-button:hover {
+      background: var(--sf-purple-dark) !important;
+      transform: translateY(-2px) !important;
+    }
+
+    .section h2 {
+      color: #18131F !important;
+      font-weight: 800 !important;
+      letter-spacing: -1.5px !important;
+    }
+
+    .category-card {
+      background: white !important;
+      border: 1px solid var(--sf-border) !important;
+      border-radius: 20px !important;
+      box-shadow: 0 8px 28px rgba(50,20,80,.05) !important;
+      transition: .25s ease !important;
+    }
+
+    .category-card:hover {
+      transform: translateY(-5px) !important;
+      border-color: rgba(109,40,217,.25) !important;
+      box-shadow: 0 18px 40px rgba(109,40,217,.12) !important;
+    }
+
+    .category-card strong {
+      color: #28212F !important;
+    }
+
+    .product-card {
+      background: white !important;
+      border: 1px solid var(--sf-border) !important;
+      border-radius: 22px !important;
+      overflow: hidden !important;
+      box-shadow: 0 8px 30px rgba(50,20,80,.05) !important;
+      transition: .28s ease !important;
+    }
+
+    .product-card:hover {
+      transform: translateY(-6px) !important;
+      box-shadow: 0 22px 48px rgba(109,40,217,.13) !important;
+    }
+
+    .product-image {
+      background: linear-gradient(145deg,#F5F0FF,#FAF9FC) !important;
+    }
+
+    .product-info {
+      padding: 18px !important;
+    }
+
+    .product-category {
+      color: var(--sf-purple) !important;
+    }
+
+    .product-info h3 {
+      color: #1D1725 !important;
+      font-weight: 700 !important;
+    }
+
+    .price {
+      color: var(--sf-purple-dark) !important;
+      font-weight: 800 !important;
+    }
+
+    .add-button,
+    .checkout-button,
+    .modal-action {
+      background: var(--sf-purple) !important;
+      color: white !important;
+      border-radius: 12px !important;
+      border: 0 !important;
+    }
+
+    .add-button:hover,
+    .checkout-button:hover,
+    .modal-action:hover {
+      background: var(--sf-purple-dark) !important;
+    }
+
+    .trust-section {
+      background: linear-gradient(135deg,#24123E,#4C1D95) !important;
+      color: white !important;
+    }
+
+    footer {
+      background: #160D24 !important;
+      color: white !important;
+    }
+
+    .whatsapp-floating {
+      box-shadow: 0 12px 30px rgba(0,0,0,.18) !important;
+    }
+
+    @media (max-width: 768px) {
+      .hero {
+        padding: 70px 20px !important;
+      }
+
+      .hero h1 {
+        font-size: clamp(42px,12vw,64px) !important;
+        letter-spacing: -3px !important;
+      }
+
+      .section {
+        padding: 58px 16px !important;
+      }
+
+      .product-grid {
+        gap: 10px !important;
+      }
+
+      .product-card {
+        border-radius: 17px !important;
+      }
+
+      .product-image {
+        height: 190px !important;
+      }
+
+      .category-card {
+        border-radius: 16px !important;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #0C0911 !important;
+        color: #F7F2FF !important;
+      }
+
+      .app {
+        background: #0C0911 !important;
+      }
+
+      .header {
+        background: rgba(12,9,17,.92) !important;
+        border-color: rgba(255,255,255,.08) !important;
+      }
+
+      .logo,
+      .hero h1,
+      .section h2,
+      .product-info h3 {
+        color: #F7F2FF !important;
+      }
+
+      .nav a {
+        color: #B8AFC2 !important;
+      }
+
+      .hero {
+        background: #0C0911 !important;
+      }
+
+      .hero-text {
+        color: #B8AFC2 !important;
+      }
+
+      .category-card,
+      .product-card {
+        background: #15111B !important;
+        border-color: rgba(255,255,255,.08) !important;
+      }
+
+      .category-card strong {
+        color: #F7F2FF !important;
+      }
+
+      .product-image {
+        background: #1D1726 !important;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
 }
 
 export default App;
