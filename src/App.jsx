@@ -3792,6 +3792,7 @@ setAccountOpen(false);
       )}
     </div>
   document.head.appendChild(style);
+  );
 }
 
 export default App;
