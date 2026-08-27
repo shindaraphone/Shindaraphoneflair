@@ -718,82 +718,69 @@ function App() {
     setAuthMessage("");
 
     try {
-      if (authMode === "signup") {
-        const cleanName =
-          fullName.trim();
+  if (authMode === "signup") {
+    const cleanName = fullName.trim();
+    const cleanPhone = phone.trim();
+    const cleanEmail = email.trim();
 
-        const cleanPhone =
-          phone.trim();
+    if (!cleanName) {
+      setAuthMessage("Please enter your full name.");
+      return;
+    }
 
-        const cleanEmail =
-          email.trim();
+    if (!cleanPhone) {
+      setAuthMessage("Please enter your phone number.");
+      return;
+    }
 
-        if (!cleanName) {
-          setAuthMessage(
-            "Please enter your full name."
-          );
-          return;
-        }
+    if (!cleanEmail) {
+      setAuthMessage("Please enter your email address.");
+      return;
+    }
 
-        if (!cleanPhone) {
-          setAuthMessage(
-            "Please enter your phone number."
-          );
-          return;
-        }
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: {
+        data: {
+          full_name: cleanName,
+          phone: cleanPhone,
+        },
+      },
+    });
 
-        if (!cleanEmail) {
-          setAuthMessage(
-            "Please enter your email address."
-          );
-          return;
-        }
+    if (error) throw error;
 
-        const { data, error } =
-          await supabase.auth.signUp({
-            email: cleanEmail,
-            password,
-            options: {
-              data: {
-                full_name: cleanName,
-                phone: cleanPhone,
-              },
-            },
-          });
+    setPassword("");
 
-        if (error) throw error;
+    if (!data.session) {
+      setAuthMessage(
+        "Account created successfully! Please check your email to confirm your account."
+      );
+    } else {
+      setCustomerName(cleanName);
+      setCustomerPhone(cleanPhone);
+      setFullName("");
+      setEmail("");
+      setPhone("");
+      setAccountOpen(false);
+    }
 
-        setEmail("");
-setPassword("");
-setAccountOpen(false);
+    return;
+  }
 
-          if (profileError) {
-            console.error(
-              "Profile save:",
-              profileError
-            );
-          }
-        }
+  const { data, error } =
+    await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
 
-        setPassword("");
+  if (error) throw error;
 
-        if (!data.session) {
-          setAuthMessage(
-            "Account created successfully! Please check your email to confirm your account."
-          );
-        } else {
-          setCustomerName(cleanName);
-          setCustomerPhone(cleanPhone);
-
-          setFullName("");
-          setEmail("");
-          setPhone("");
-
-          setAccountOpen(false);
-        }
-
-        return;
-      }
+  if (data?.user) {
+    await loadProfile(data.user.id);
+    await loadCart(data.user.id);
+  }
 
       const { data, error } =
         await supabase.auth.signInWithPassword({
