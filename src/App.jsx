@@ -3647,6 +3647,6 @@ label select:focus {
   }
 
   .product-image {
-    height: 240px;
-  }
+    @media (max-width: 380px) {
+  ...
 }
