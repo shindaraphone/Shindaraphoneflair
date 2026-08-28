@@ -418,7 +418,7 @@ const categoryNames = [
   "Audio",
   "Smart Watches",
   "Screen Protectors",
-  "Other Accessories",
+  "Gadgets",
 ];
 
 export default function App() {
