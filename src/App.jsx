@@ -947,35 +947,20 @@ export default function App() {
     if (!user) {
       setCartOpen(false);
       setAccountOpen(true);
-      setAuthMessage("Please login before checkout.");
+      setAuthMessage(
+        "Please login before checkout."
+      );
       return;
     }
 
     if (!cartProducts.length) {
-      showNotice("Your cart is empty.");
+      showNotice(
+        "Your cart is empty."
+      );
       return;
     }
 
     setCheckoutMessage("");
-
-    setCheckout(prev => ({
-      ...prev,
-      customer_name:
-        prev.customer_name ||
-        profile?.full_name ||
-        user.user_metadata?.full_name ||
-        "",
-      customer_phone:
-        prev.customer_phone ||
-        profile?.phone ||
-        user.user_metadata?.phone ||
-        "",
-      customer_email:
-        prev.customer_email ||
-        user.email ||
-        "",
-    }));
-
     setCartOpen(false);
     setCheckoutOpen(true);
   };
