@@ -1006,232 +1006,156 @@ export default function App() {
   };
 
   /* =========================================================
-   PAYSTACK PAYMENT
-   ========================================================= */
+     PAYSTACK
+  ========================================================= */
 
-const loadPaystack = () => {
-  return new Promise((resolve, reject) => {
-    if (window.PaystackPop) {
-      resolve(window.PaystackPop);
+  const loadPaystack = () =>
+    new Promise((resolve) => {
+      if (window.PaystackPop) {
+        resolve(true);
+        return;
+      }
+
+      const existing =
+        document.querySelector(
+          'script[src="https://js.paystack.co/v1/inline.js"]'
+        );
+
+      if (existing) {
+        existing.addEventListener("load", () =>
+          resolve(!!window.PaystackPop)
+        );
+        existing.addEventListener("error", () =>
+          resolve(false)
+        );
+        return;
+      }
+
+      const script = document.createElement("script");
+
+      script.src =
+        "https://js.paystack.co/v1/inline.js";
+
+      script.async = true;
+
+      script.onload = () =>
+        resolve(!!window.PaystackPop);
+
+      script.onerror = () => resolve(false);
+
+      document.body.appendChild(script);
+    });
+
+  const startPayment = async (e) => {
+    e.preventDefault();
+
+    if (busy) return;
+
+    if (!user) {
+      setCheckoutMessage("Please login again.");
       return;
     }
 
-    const existing = document.querySelector(
-      'script[src="https://js.paystack.co/v2/inline.js"]'
-    );
+    if (!cart.length) {
+      setCheckoutMessage("Your cart is empty.");
+      return;
+    }
 
-    if (existing) {
-      existing.addEventListener("load", () => {
-        if (window.PaystackPop) {
-          resolve(window.PaystackPop);
-        } else {
-          reject(new Error("Paystack failed to initialize."));
-        }
+    if (
+      !checkout.customer_name.trim() ||
+      !checkout.customer_phone.trim() ||
+      !checkout.customer_email.trim() ||
+      !checkout.delivery_address.trim() ||
+      !checkout.delivery_state ||
+      !checkout.delivery_city
+    ) {
+      setCheckoutMessage(
+        "Please complete all delivery details."
+      );
+      return;
+    }
+
+    for (const item of cart) {
+      if (
+        !item.product ||
+        Number(item.product.stock || 0) <
+          Number(item.quantity || 0)
+      ) {
+        setCheckoutMessage(
+          `${item.product?.name || "This product"} does not have enough stock.`
+        );
+
+        await loadCart(user);
+        return;
+      }
+    }
+
+    setBusy(true);
+    setCheckoutMessage("");
+
+    try {
+      const paystackLoaded = await loadPaystack();
+
+      if (!paystackLoaded) {
+        setCheckoutMessage(
+          "Payment system could not load. Refresh the page and try again."
+        );
+        setBusy(false);
+        return;
+      }
+
+      const reference =
+        `SHP-${user.id.slice(0, 8)}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 6)}`;
+
+      const { data: duplicate } = await supabase
+        .from("orders")
+        .select("id,payment_reference,payment_status")
+        .eq("payment_reference", reference)
+        .maybeSingle();
+
+      if (duplicate) {
+        setCheckoutMessage(
+          "This payment reference already exists."
+        );
+        setBusy(false);
+        return;
+      }
+
+      const handler = window.PaystackPop.setup({
+        key: PAYSTACK_PUBLIC_KEY,
+        email: checkout.customer_email.trim(),
+        amount: Math.round(cartTotal * 100),
+        currency: "NGN",
+        ref: reference,
+
+        metadata: {
+          user_id: user.id,
+          customer_name:
+            checkout.customer_name.trim(),
+          customer_phone:
+            checkout.customer_phone.trim(),
+        },
+
+        callback: async (response) => {
+          await completePayment(response);
+        },
+
+        onClose: () => {
+          setBusy(false);
+        },
       });
 
-      existing.addEventListener(
-        "error",
-        () => reject(new Error("Unable to load Paystack.")),
-        { once: true }
-      );
-
-      return;
-    }
-
-    const script = document.createElement("script");
-
-    script.src = "https://js.paystack.co/v2/inline.js";
-    script.async = true;
-
-    script.onload = () => {
-      if (window.PaystackPop) {
-        resolve(window.PaystackPop);
-      } else {
-        reject(new Error("Paystack failed to initialize."));
-      }
-    };
-
-    script.onerror = () => {
-      reject(new Error("Unable to load Paystack."));
-    };
-
-    document.body.appendChild(script);
-  });
-};
-
-
-const startPaystackPayment = async e => {
-  e.preventDefault();
-
-  if (placingOrder) return;
-
-  if (!user) {
-    setCheckoutMessage("Please login again.");
-    return;
-  }
-
-  if (!cartProducts || cartProducts.length === 0) {
-    setCheckoutMessage("Your cart is empty.");
-    return;
-  }
-
-  /* ---------------------------------------------
-     VALIDATE CHECKOUT
-     --------------------------------------------- */
-
-  if (
-    !checkout.customer_name?.trim() ||
-    !checkout.customer_phone?.trim() ||
-    !checkout.customer_email?.trim() ||
-    !checkout.delivery_address?.trim() ||
-    !checkout.delivery_state ||
-    !checkout.delivery_city
-  ) {
-    setCheckoutMessage(
-      "Please complete all delivery details before payment."
-    );
-    return;
-  }
-
-  /* ---------------------------------------------
-     CHECK STOCK
-     --------------------------------------------- */
-
-  for (const item of cartProducts) {
-    const stock = Number(item.product?.stock || 0);
-    const quantity = Number(item.quantity || 0);
-
-    if (!item.product || stock < quantity) {
+      handler.openIframe();
+    } catch (error) {
+      console.error(error);
       setCheckoutMessage(
-        `${item.product?.name || "This product"} does not have enough stock.`
-      );
-
-      await loadCart(user);
-      return;
-    }
-  }
-
-  const amount = Number(cartTotal);
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    setCheckoutMessage("Invalid payment amount.");
-    return;
-  }
-
-  setPlacingOrder(true);
-  setCheckoutMessage("");
-
-  try {
-    /* ---------------------------------------------
-       LOAD PAYSTACK
-       --------------------------------------------- */
-
-    const PaystackPop = await loadPaystack();
-
-    if (!PaystackPop) {
-      throw new Error("Paystack payment system is unavailable.");
-    }
-
-    /* ---------------------------------------------
-       CREATE UNIQUE REFERENCE
-       --------------------------------------------- */
-
-    const reference =
-      `SHP-${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 8)
-        .toUpperCase()}`;
-
-    console.log("Starting Paystack:", {
-      reference,
-      amount,
-      email: checkout.customer_email,
-    });
-
-    /* ---------------------------------------------
-       OPEN PAYSTACK
-       --------------------------------------------- */
-
-    const paystack = new PaystackPop();
-
-    paystack.newTransaction({
-
-      key: PAYSTACK_PUBLIC_KEY,
-
-      email: checkout.customer_email.trim(),
-
-      amount: Math.round(amount * 100),
-
-      currency: "NGN",
-
-      reference,
-
-      metadata: {
-        user_id: user.id,
-        customer_name:
-          checkout.customer_name.trim(),
-        customer_phone:
-          checkout.customer_phone.trim(),
-        delivery_address:
-          checkout.delivery_address.trim(),
-        delivery_state:
-          checkout.delivery_state,
-        delivery_city:
-          checkout.delivery_city,
-      },
-
-      onSuccess: async transaction => {
-        console.log(
-          "PAYSTACK PAYMENT SUCCESS:",
-          transaction
-        );
-
-        await completeSuccessfulPayment(
-          transaction
-        );
-      },
-
-      onCancel: () => {
-        console.log("Paystack payment cancelled.");
-
-        setPlacingOrder(false);
-
-        setCheckoutMessage(
-          "Payment cancelled. Your cart has not been cleared."
-        );
-      },
-
-      onError: error => {
-        console.error(
-          "PAYSTACK PAYMENT ERROR:",
-          error
-        );
-
-        setPlacingOrder(false);
-
-        setCheckoutMessage(
-          error?.message ||
-            "Paystack could not start the payment. Please try again."
-        );
-      },
-
-    });
-
-  } catch (error) {
-
-    console.error(
-      "PAYSTACK START ERROR:",
-      error
-    );
-
-    setPlacingOrder(false);
-
-    setCheckoutMessage(
-      error?.message ||
         "Payment could not be started."
-    );
-  }
-};
+      );
+      setBusy(false);
+    }
+  };
 
   /* =========================================================
      COMPLETE PAYMENT
