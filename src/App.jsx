@@ -405,10 +405,9 @@ const states = {
 
 const categories = [
   "All",
-  "Phones",
+  "Gadgets",
   "Phone Cases",
-  "Chargers",
-  "Cables",
+  "Chargers & Cables",
   "Power Banks",
   "Audio",
   "Smart Watches",
