@@ -1,17 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient.js";
-import "./shindara-redesign.css";
-
-/* =========================================================
-   SHINDARA PHONEFLAIR
-   SUPABASE + PAYSTACK
-   COMPLETE CUSTOMER ORDER / TRACKING FLOW
-   ========================================================= */
 
 const PAYSTACK_PUBLIC_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
-const money = value =>
+const money = (value) =>
   `₦${Number(value || 0).toLocaleString("en-NG")}`;
 
 const makeTrackingNumber = () =>
@@ -410,30 +403,38 @@ const states = {
   ],
 };
 
-const categoryNames = [
+const categories = [
   "All",
+  "Phones",
   "Phone Cases",
   "Chargers",
+  "Cables",
   "Power Banks",
   "Audio",
   "Smart Watches",
   "Screen Protectors",
-  "Gadgets",
+];
+
+const trackingSteps = [
+  ["Order placed", "Your order has been received."],
+  ["Payment confirmed", "Payment has been successfully confirmed."],
+  ["Processing", "Your items are being prepared."],
+  ["Shipped", "Your order has left our store."],
+  ["In transit", "Your package is on its way."],
+  ["Out for delivery", "Your package is with the delivery team."],
+  ["Delivered", "Your order has been delivered."],
 ];
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [products, setProducts] = useState([]);
-
-  const [cartProducts, setCartProducts] = useState([]);
+  const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [cartLoading, setCartLoading] = useState(false);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [placingOrder, setPlacingOrder] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
 
   const [cartOpen, setCartOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -469,36 +470,37 @@ export default function App() {
 
   const [checkoutMessage, setCheckoutMessage] = useState("");
 
-  const showNotice = message => {
-    setNotice(message);
+  const notify = (text) => {
+    setNotice(text);
     setTimeout(() => setNotice(""), 3500);
   };
 
   /* =========================================================
-     INITIAL LOAD
-     ========================================================= */
+     INITIALIZATION
+  ========================================================= */
 
   useEffect(() => {
     let mounted = true;
 
-    const init = async () => {
+    const start = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-
-        if (!mounted) return;
-
-        if (data?.session?.user) {
-          setUser(data.session.user);
-          await loadCustomerData(data.session.user);
-        }
-
         await loadProducts();
+
+        const { data } = await supabase.auth.getSession();
+        const currentUser = data?.session?.user || null;
+
+        if (currentUser) {
+          setUser(currentUser);
+          await loadCustomerData(currentUser);
+        }
+      } catch (err) {
+        console.error(err);
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    init();
+    start();
 
     const {
       data: { subscription },
@@ -511,7 +513,7 @@ export default function App() {
         await loadCustomerData(nextUser);
       } else {
         setProfile(null);
-        setCartProducts([]);
+        setCart([]);
         setOrders([]);
       }
     });
@@ -524,7 +526,7 @@ export default function App() {
 
   /* =========================================================
      PRODUCTS
-     ========================================================= */
+  ========================================================= */
 
   const loadProducts = async () => {
     const { data, error } = await supabase
@@ -534,16 +536,16 @@ export default function App() {
 
     if (!error) {
       setProducts(data || []);
+    } else {
+      console.error("Products:", error);
     }
   };
 
   /* =========================================================
      CUSTOMER DATA
-     ========================================================= */
+  ========================================================= */
 
-  const loadCustomerData = async currentUser => {
-    if (!currentUser) return;
-
+  const loadCustomerData = async (currentUser) => {
     await Promise.all([
       loadProfile(currentUser),
       loadCart(currentUser),
@@ -551,25 +553,33 @@ export default function App() {
     ]);
   };
 
-  const loadProfile = async currentUser => {
-    const { data } = await supabase
+  const loadProfile = async (currentUser) => {
+    const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", currentUser.id)
       .maybeSingle();
+
+    if (error) {
+      console.error("Profile:", error);
+      return;
+    }
 
     if (data) {
       setProfile(data);
       setEditName(data.full_name || "");
       setEditPhone(data.phone || "");
 
-      setCheckout(prev => ({
+      setCheckout((prev) => ({
         ...prev,
         customer_name:
           data.full_name ||
           currentUser.user_metadata?.full_name ||
           "",
-        customer_phone: data.phone || "",
+        customer_phone:
+          data.phone ||
+          currentUser.user_metadata?.phone ||
+          "",
         customer_email: currentUser.email || "",
       }));
     }
@@ -577,12 +587,10 @@ export default function App() {
 
   /* =========================================================
      CART
-     ========================================================= */
+  ========================================================= */
 
-  const loadCart = async currentUser => {
+  const loadCart = async (currentUser) => {
     if (!currentUser) return;
-
-    setCartLoading(true);
 
     const { data, error } = await supabase
       .from("cart_items")
@@ -604,57 +612,57 @@ export default function App() {
       .eq("user_id", currentUser.id)
       .order("id", { ascending: true });
 
-    if (!error) {
-      const formatted = (data || [])
-        .filter(item => item.products)
-        .map(item => ({
+    if (error) {
+      console.error("Cart:", error);
+      setCart([]);
+      return;
+    }
+
+    setCart(
+      (data || [])
+        .filter((item) => item.products)
+        .map((item) => ({
           ...item,
           product: item.products,
           subtotal:
             Number(item.products.price || 0) *
             Number(item.quantity || 0),
-        }));
-
-      setCartProducts(formatted);
-    } else {
-      setCartProducts([]);
-    }
-
-    setCartLoading(false);
+        }))
+    );
   };
 
-  const addToCart = async product => {
+  const addToCart = async (product) => {
     if (!user) {
       setAccountOpen(true);
-      setAuthMessage("Please login to add products to your cart.");
+      setAuthMessage("Please login before adding items to your cart.");
       return;
     }
 
-    if (Number(product.stock) <= 0) {
-      showNotice("This product is out of stock.");
+    if (Number(product.stock || 0) <= 0) {
+      notify("This product is out of stock.");
       return;
     }
 
-    const existing = cartProducts.find(
-      item => item.product_id === product.id
+    const existing = cart.find(
+      (item) => item.product_id === product.id
     );
 
     if (existing) {
-      const newQuantity = Number(existing.quantity) + 1;
+      const quantity = Number(existing.quantity) + 1;
 
-      if (newQuantity > Number(product.stock)) {
-        showNotice("You cannot add more than available stock.");
+      if (quantity > Number(product.stock)) {
+        notify("You cannot add more than available stock.");
         return;
       }
 
       const { error } = await supabase
         .from("cart_items")
-        .update({ quantity: newQuantity })
+        .update({ quantity })
         .eq("id", existing.id)
         .eq("user_id", user.id);
 
       if (error) {
-        showNotice("Unable to update cart.");
+        notify("Unable to update cart.");
         return;
       }
     } else {
@@ -667,35 +675,37 @@ export default function App() {
         });
 
       if (error) {
-        showNotice("Unable to add product to cart.");
+        console.error(error);
+        notify("Unable to add product to cart.");
         return;
       }
     }
 
     await loadCart(user);
-    showNotice(`${product.name} added to cart.`);
+    notify(`${product.name} added to cart.`);
   };
 
-  const updateQuantity = async (item, change) => {
-    const nextQuantity = Number(item.quantity) + change;
+  const updateQuantity = async (item, amount) => {
+    if (!user) return;
 
-    if (nextQuantity <= 0) {
+    const next = Number(item.quantity) + amount;
+
+    if (next <= 0) {
       await removeFromCart(item);
       return;
     }
 
     if (
       item.product &&
-      Number(item.product.stock) > 0 &&
-      nextQuantity > Number(item.product.stock)
+      Number(item.product.stock) < next
     ) {
-      showNotice("You cannot exceed available stock.");
+      notify("You cannot exceed available stock.");
       return;
     }
 
     const { error } = await supabase
       .from("cart_items")
-      .update({ quantity: nextQuantity })
+      .update({ quantity: next })
       .eq("id", item.id)
       .eq("user_id", user.id);
 
@@ -704,7 +714,9 @@ export default function App() {
     }
   };
 
-  const removeFromCart = async item => {
+  const removeFromCart = async (item) => {
+    if (!user) return;
+
     const { error } = await supabase
       .from("cart_items")
       .delete()
@@ -713,61 +725,64 @@ export default function App() {
 
     if (!error) {
       await loadCart(user);
-      showNotice("Item removed from cart.");
+      notify("Item removed.");
     }
   };
 
   const clearCart = async () => {
     if (!user) return;
 
-    await supabase
+    const { error } = await supabase
       .from("cart_items")
       .delete()
       .eq("user_id", user.id);
 
-    setCartProducts([]);
+    if (!error) {
+      setCart([]);
+    }
   };
 
   const cartTotal = useMemo(
     () =>
-      cartProducts.reduce(
+      cart.reduce(
         (sum, item) => sum + Number(item.subtotal || 0),
         0
       ),
-    [cartProducts]
+    [cart]
   );
 
   const cartCount = useMemo(
     () =>
-      cartProducts.reduce(
+      cart.reduce(
         (sum, item) => sum + Number(item.quantity || 0),
         0
       ),
-    [cartProducts]
+    [cart]
   );
 
   /* =========================================================
      ORDERS
-     ========================================================= */
+  ========================================================= */
 
-  const loadOrders = async currentUser => {
+  const loadOrders = async (currentUser) => {
     if (!currentUser) return;
 
-    const { data: orderData, error } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .select("*")
       .eq("user_id", currentUser.id)
       .order("created_at", { ascending: false });
 
     if (error) {
+      console.error("Orders:", error);
       setOrders([]);
       return;
     }
 
-    const result = [];
+    const complete = [];
 
-    for (const order of orderData || []) {
-      const { data: items } = await supabase
+    for (const order of data || []) {
+      const { data: items, error: itemError } = await supabase
         .from("order_items")
         .select(`
           id,
@@ -784,81 +799,44 @@ export default function App() {
         `)
         .eq("order_id", order.id);
 
-      result.push({
+      if (itemError) {
+        console.error("Order items:", itemError);
+      }
+
+      complete.push({
         ...order,
-        items: (items || []).map(item => ({
+        items: (items || []).map((item) => ({
           ...item,
           product: item.products,
         })),
       });
     }
 
-    setOrders(result);
-  };
-
-  /* =========================================================
-     PROFILE
-     ========================================================= */
-
-  const saveProfile = async () => {
-    if (!user) return;
-
-    setSavingProfile(true);
-
-    const { error } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          id: user.id,
-          email: user.email,
-          full_name: editName.trim(),
-          phone: editPhone.trim(),
-        },
-        { onConflict: "id" }
-      );
-
-    setSavingProfile(false);
-
-    if (error) {
-      showNotice("Could not save account details.");
-      return;
-    }
-
-    setProfile(prev => ({
-      ...(prev || {}),
-      full_name: editName.trim(),
-      phone: editPhone.trim(),
-    }));
-
-    setCheckout(prev => ({
-      ...prev,
-      customer_name: editName.trim(),
-      customer_phone: editPhone.trim(),
-    }));
-
-    showNotice("Account details saved.");
+    setOrders(complete);
   };
 
   /* =========================================================
      AUTH
-     ========================================================= */
+  ========================================================= */
 
-  const submitAuth = async e => {
+  const submitAuth = async (e) => {
     e.preventDefault();
 
-    setAuthLoading(true);
+    setAuthBusy(true);
     setAuthMessage("");
 
     if (!email.trim() || !password) {
-      setAuthMessage("Please enter your email and password.");
-      setAuthLoading(false);
+      setAuthMessage("Enter your email and password.");
+      setAuthBusy(false);
       return;
     }
 
     if (authMode === "signup") {
       if (!fullName.trim() || !phone.trim()) {
-        setAuthMessage("Please enter your full name and phone number.");
-        setAuthLoading(false);
+        setAuthMessage(
+          "Enter your full name and phone number."
+        );
+        setAuthBusy(false);
         return;
       }
 
@@ -875,11 +853,11 @@ export default function App() {
 
       if (error) {
         setAuthMessage(error.message);
-        setAuthLoading(false);
+        setAuthBusy(false);
         return;
       }
 
-      if (data.user) {
+      if (data?.user) {
         await supabase.from("profiles").upsert(
           {
             id: data.user.id,
@@ -895,10 +873,11 @@ export default function App() {
         "Account created. Check your email if verification is required."
       );
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      const { error } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
       if (error) {
         setAuthMessage(error.message);
@@ -909,39 +888,86 @@ export default function App() {
       }
     }
 
-    setAuthLoading(false);
+    setAuthBusy(false);
   };
 
   const googleLogin = async () => {
-    setAuthLoading(true);
+    setAuthBusy(true);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
+    const { error } =
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
 
     if (error) {
       setAuthMessage(error.message);
-      setAuthLoading(false);
+      setAuthBusy(false);
     }
   };
 
   const logout = async () => {
     await supabase.auth.signOut();
 
+    setUser(null);
+    setProfile(null);
+    setCart([]);
+    setOrders([]);
+
     setAccountOpen(false);
     setCartOpen(false);
     setOrdersOpen(false);
     setTrackingOpen(false);
-    setCartProducts([]);
-    setOrders([]);
+  };
+
+  /* =========================================================
+     PROFILE
+  ========================================================= */
+
+  const saveProfile = async () => {
+    if (!user) return;
+
+    setBusy(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id,
+          email: user.email,
+          full_name: editName.trim(),
+          phone: editPhone.trim(),
+        },
+        { onConflict: "id" }
+      );
+
+    setBusy(false);
+
+    if (error) {
+      notify("Could not save account details.");
+      return;
+    }
+
+    setProfile((old) => ({
+      ...(old || {}),
+      full_name: editName.trim(),
+      phone: editPhone.trim(),
+    }));
+
+    setCheckout((old) => ({
+      ...old,
+      customer_name: editName.trim(),
+      customer_phone: editPhone.trim(),
+    }));
+
+    notify("Account details saved.");
   };
 
   /* =========================================================
      CHECKOUT
-     ========================================================= */
+  ========================================================= */
 
   const openCheckout = () => {
     if (!user) {
@@ -951,27 +977,27 @@ export default function App() {
       return;
     }
 
-    if (!cartProducts.length) {
-      showNotice("Your cart is empty.");
+    if (!cart.length) {
+      notify("Your cart is empty.");
       return;
     }
 
     setCheckoutMessage("");
 
-    setCheckout(prev => ({
-      ...prev,
+    setCheckout((old) => ({
+      ...old,
       customer_name:
-        prev.customer_name ||
+        old.customer_name ||
         profile?.full_name ||
         user.user_metadata?.full_name ||
         "",
       customer_phone:
-        prev.customer_phone ||
+        old.customer_phone ||
         profile?.phone ||
         user.user_metadata?.phone ||
         "",
       customer_email:
-        prev.customer_email ||
+        old.customer_email ||
         user.email ||
         "",
     }));
@@ -982,19 +1008,56 @@ export default function App() {
 
   /* =========================================================
      PAYSTACK
-     ========================================================= */
+  ========================================================= */
 
-  const startPaystackPayment = async e => {
+  const loadPaystack = () =>
+    new Promise((resolve) => {
+      if (window.PaystackPop) {
+        resolve(true);
+        return;
+      }
+
+      const existing =
+        document.querySelector(
+          'script[src="https://js.paystack.co/v1/inline.js"]'
+        );
+
+      if (existing) {
+        existing.addEventListener("load", () =>
+          resolve(!!window.PaystackPop)
+        );
+        existing.addEventListener("error", () =>
+          resolve(false)
+        );
+        return;
+      }
+
+      const script = document.createElement("script");
+
+      script.src =
+        "https://js.paystack.co/v1/inline.js";
+
+      script.async = true;
+
+      script.onload = () =>
+        resolve(!!window.PaystackPop);
+
+      script.onerror = () => resolve(false);
+
+      document.body.appendChild(script);
+    });
+
+  const startPayment = async (e) => {
     e.preventDefault();
 
-    if (placingOrder) return;
+    if (busy) return;
 
     if (!user) {
       setCheckoutMessage("Please login again.");
       return;
     }
 
-    if (!cartProducts.length) {
+    if (!cart.length) {
       setCheckoutMessage("Your cart is empty.");
       return;
     }
@@ -1007,59 +1070,57 @@ export default function App() {
       !checkout.delivery_state ||
       !checkout.delivery_city
     ) {
-      setCheckoutMessage("Please complete all delivery details.");
+      setCheckoutMessage(
+        "Please complete all delivery details."
+      );
       return;
     }
 
-    for (const item of cartProducts) {
+    for (const item of cart) {
       if (
         !item.product ||
-        Number(item.product.stock) < Number(item.quantity)
+        Number(item.product.stock || 0) <
+          Number(item.quantity || 0)
       ) {
         setCheckoutMessage(
-          `${item.product?.name || "A product"} no longer has enough stock.`
+          `${item.product?.name || "This product"} does not have enough stock.`
         );
+
         await loadCart(user);
         return;
       }
     }
 
-    setPlacingOrder(true);
+    setBusy(true);
     setCheckoutMessage("");
 
     try {
-      const reference = `SHP-${user.id.slice(0, 8)}-${Date.now()}`;
+      const paystackLoaded = await loadPaystack();
+
+      if (!paystackLoaded) {
+        setCheckoutMessage(
+          "Payment system could not load. Refresh the page and try again."
+        );
+        setBusy(false);
+        return;
+      }
+
+      const reference =
+        `SHP-${user.id.slice(0, 8)}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 6)}`;
 
       const { data: duplicate } = await supabase
         .from("orders")
-        .select("id,payment_status,payment_reference")
+        .select("id,payment_reference,payment_status")
         .eq("payment_reference", reference)
         .maybeSingle();
 
       if (duplicate) {
-        setPlacingOrder(false);
-        setCheckoutMessage("This payment has already been processed.");
-        return;
-      }
-
-      if (!window.PaystackPop) {
-        const script = document.createElement("script");
-        script.src = "https://js.paystack.co/v1/inline.js";
-        script.async = true;
-
-        document.body.appendChild(script);
-
-        await new Promise(resolve => {
-          script.onload = resolve;
-          script.onerror = resolve;
-        });
-      }
-
-      if (!window.PaystackPop) {
         setCheckoutMessage(
-          "Payment system could not load. Please refresh and try again."
+          "This payment reference already exists."
         );
-        setPlacingOrder(false);
+        setBusy(false);
         return;
       }
 
@@ -1072,172 +1133,160 @@ export default function App() {
 
         metadata: {
           user_id: user.id,
-          customer_name: checkout.customer_name.trim(),
-          customer_phone: checkout.customer_phone.trim(),
+          customer_name:
+            checkout.customer_name.trim(),
+          customer_phone:
+            checkout.customer_phone.trim(),
         },
 
-        callback: async response => {
-          await completeSuccessfulPayment(response);
+        callback: async (response) => {
+          await completePayment(response);
         },
 
         onClose: () => {
-          setPlacingOrder(false);
+          setBusy(false);
         },
       });
 
       handler.openIframe();
     } catch (error) {
       console.error(error);
-      setCheckoutMessage("Payment could not be started.");
-      setPlacingOrder(false);
+      setCheckoutMessage(
+        "Payment could not be started."
+      );
+      setBusy(false);
     }
   };
 
   /* =========================================================
-     PAYMENT SUCCESS
-     ========================================================= */
+     COMPLETE PAYMENT
+  ========================================================= */
 
-  const completeSuccessfulPayment = async paymentResponse => {
+  const completePayment = async (response) => {
     try {
-      const paymentReference =
-        paymentResponse?.reference || "";
+      const reference = response?.reference;
 
-      if (!paymentReference) {
-        setCheckoutMessage("Payment reference was not received.");
-        setPlacingOrder(false);
+      if (!reference) {
+        setCheckoutMessage(
+          "Payment reference was not received."
+        );
+        setBusy(false);
         return;
       }
 
-      /* Prevent duplicate order */
-      const { data: existingOrder } = await supabase
+      /* NEVER create the same order twice */
+      const { data: existing } = await supabase
         .from("orders")
         .select("*")
-        .eq("payment_reference", paymentReference)
+        .eq("payment_reference", reference)
         .maybeSingle();
 
-      if (existingOrder) {
+      if (existing) {
         await clearCart();
         await loadOrders(user);
 
         setCheckoutOpen(false);
-        setPlacingOrder(false);
+        setBusy(false);
 
-        const fullExisting = orders.find(
-          order => order.id === existingOrder.id
-        );
+        setSelectedOrder(existing);
+        setTrackingOpen(true);
 
-        setSelectedOrder(fullExisting || existingOrder);
-        setOrdersOpen(true);
-
-        showNotice("Payment already recorded. Order confirmed.");
+        notify("Payment already recorded.");
         return;
       }
 
       const trackingNumber = makeTrackingNumber();
 
-      /*
-       * Order is created as PAID only after Paystack
-       * returns a successful transaction reference.
-       */
-      const orderPayload = {
+      const payload = {
         user_id: user.id,
-        customer_name: checkout.customer_name.trim(),
-        customer_phone: checkout.customer_phone.trim(),
-        customer_email: checkout.customer_email.trim(),
-        delivery_address: checkout.delivery_address.trim(),
-        delivery_state: checkout.delivery_state,
-        delivery_city: checkout.delivery_city,
+        customer_name:
+          checkout.customer_name.trim(),
+        customer_phone:
+          checkout.customer_phone.trim(),
+        customer_email:
+          checkout.customer_email.trim(),
+        delivery_address:
+          checkout.delivery_address.trim(),
+        delivery_state:
+          checkout.delivery_state,
+        delivery_city:
+          checkout.delivery_city,
         total: cartTotal,
         payment_status: "paid",
-        payment_reference: paymentReference,
+        payment_reference: reference,
         status: "processing",
         tracking_number: trackingNumber,
       };
 
-      let { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert(orderPayload)
-        .select()
-        .single();
+      let { data: order, error } =
+        await supabase
+          .from("orders")
+          .insert(payload)
+          .select()
+          .single();
 
       /*
-       * Fallback for older orders table where tracking_number
-       * has not yet been added.
+       * If the existing orders table does not yet have
+       * tracking_number, save the order without it.
        */
       if (
-        orderError &&
-        String(orderError.message || "")
+        error &&
+        String(error.message || "")
           .toLowerCase()
           .includes("tracking_number")
       ) {
-        const fallbackPayload = {
-          user_id: user.id,
-          customer_name: checkout.customer_name.trim(),
-          customer_phone: checkout.customer_phone.trim(),
-          customer_email: checkout.customer_email.trim(),
-          delivery_address: checkout.delivery_address.trim(),
-          delivery_state: checkout.delivery_state,
-          delivery_city: checkout.delivery_city,
-          total: cartTotal,
-          payment_status: "paid",
-          payment_reference: paymentReference,
-          status: "processing",
-        };
+        const fallback = { ...payload };
+        delete fallback.tracking_number;
 
         const result = await supabase
           .from("orders")
-          .insert(fallbackPayload)
+          .insert(fallback)
           .select()
           .single();
 
         order = result.data;
-        orderError = result.error;
+        error = result.error;
       }
 
-      if (orderError || !order) {
-        console.error(orderError);
+      if (error || !order) {
+        console.error(error);
+
         setCheckoutMessage(
-          "Payment was received, but the order could not be saved. Please contact support with your payment reference: " +
-            paymentReference
+          `Payment was successful but your order could not be saved. Keep this payment reference: ${reference}`
         );
-        setPlacingOrder(false);
+
+        setBusy(false);
         return;
       }
 
-      /* =====================================================
-         SAVE ORDER ITEMS
-         ===================================================== */
-
-      const orderItems = cartProducts.map(item => ({
+      /* SAVE ITEMS */
+      const items = cart.map((item) => ({
         order_id: order.id,
         product_id: item.product_id,
         quantity: Number(item.quantity),
         price: Number(item.product.price),
       }));
 
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItems);
+      const { error: itemError } =
+        await supabase
+          .from("order_items")
+          .insert(items);
 
-      if (itemsError) {
-        console.error(itemsError);
+      if (itemError) {
+        console.error(
+          "Order items error:",
+          itemError
+        );
       }
 
-      /* =====================================================
-         CLEAR CART ONLY AFTER ORDER WAS SUCCESSFULLY CREATED
-         ===================================================== */
-
+      /* CART CLEARS ONLY AFTER ORDER EXISTS */
       await clearCart();
 
-      /* =====================================================
-         UPDATE LOCAL STATE IMMEDIATELY
-         ===================================================== */
-
-      const completeOrder = {
+      const localOrder = {
         ...order,
         tracking_number:
           order.tracking_number || trackingNumber,
-        items: cartProducts.map(item => ({
+        items: cart.map((item) => ({
           product_id: item.product_id,
           quantity: Number(item.quantity),
           price: Number(item.product.price),
@@ -1245,16 +1294,23 @@ export default function App() {
         })),
       };
 
-      setOrders(prev => [completeOrder, ...prev]);
+      setOrders((old) => [
+        localOrder,
+        ...old.filter(
+          (x) => x.id !== localOrder.id
+        ),
+      ]);
 
       setCheckoutOpen(false);
       setCartOpen(false);
-      setPlacingOrder(false);
+      setBusy(false);
 
-      setSelectedOrder(completeOrder);
+      setSelectedOrder(localOrder);
       setTrackingOpen(true);
 
-      showNotice("Payment successful! Your order is confirmed.");
+      notify(
+        "Payment successful! Your order is confirmed."
+      );
 
       await loadOrders(user);
       await loadProducts();
@@ -1262,26 +1318,71 @@ export default function App() {
       console.error(error);
 
       setCheckoutMessage(
-        "Your payment was received. Please contact support with your payment reference."
+        "Payment was received. Keep your payment reference and contact support."
       );
 
-      setPlacingOrder(false);
+      setBusy(false);
     }
   };
 
   /* =========================================================
-     FILTERED PRODUCTS
-     ========================================================= */
+     TRACKING
+  ========================================================= */
+
+  const getTrackingStep = (order) => {
+    if (!order) return 0;
+
+    const payment =
+      String(order.payment_status || "").toLowerCase();
+
+    const status =
+      String(order.status || "").toLowerCase();
+
+    if (status === "delivered") return 7;
+    if (status === "out_for_delivery") return 6;
+    if (
+      status === "in_transit" ||
+      status === "in transit"
+    )
+      return 5;
+    if (status === "shipped") return 4;
+
+    if (
+      payment === "paid" &&
+      ["processing", "confirmed", "paid"].includes(
+        status
+      )
+    )
+      return 3;
+
+    if (payment === "paid") return 2;
+
+    return 1;
+  };
+
+  const openTracking = (order) => {
+    setSelectedOrder(order);
+    setOrdersOpen(false);
+    setTrackingOpen(true);
+  };
+
+  /* =========================================================
+     FILTER
+  ========================================================= */
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    return products.filter(product => {
+    return products.filter((product) => {
+      const productCategory = String(
+        product.category || ""
+      ).toLowerCase();
+
       const matchesCategory =
         category === "All" ||
-        String(product.category || "")
-          .toLowerCase()
-          .includes(category.toLowerCase().replace("phone ", ""));
+        productCategory.includes(
+          category.toLowerCase().replace("phone ", "")
+        );
 
       const matchesSearch =
         !q ||
@@ -1291,229 +1392,102 @@ export default function App() {
         String(product.description || "")
           .toLowerCase()
           .includes(q) ||
-        String(product.category || "")
-          .toLowerCase()
-          .includes(q);
+        productCategory.includes(q);
 
       return matchesCategory && matchesSearch;
     });
   }, [products, category, search]);
 
   /* =========================================================
-     TRACKING
-     ========================================================= */
-
-  const openOrderTracking = order => {
-    setSelectedOrder(order);
-    setOrdersOpen(false);
-    setTrackingOpen(true);
-  };
-
-  const getTrackingStep = order => {
-    const status = String(
-      order?.status || "pending"
-    ).toLowerCase();
-
-    if (
-      order?.payment_status === "paid" &&
-      ["paid", "confirmed", "processing"].includes(status)
-    ) {
-      return 2;
-    }
-
-    if (
-      ["shipped", "in_transit", "out_for_delivery", "delivered"].includes(
-        status
-      )
-    ) {
-      return status === "shipped"
-        ? 3
-        : status === "in_transit"
-        ? 4
-        : status === "out_for_delivery"
-        ? 5
-        : 6;
-    }
-
-    return 1;
-  };
-
-  const trackingSteps = [
-    ["Order placed", "Your order has been received."],
-    ["Payment confirmed", "Payment has been successfully confirmed."],
-    ["Processing", "Your items are being prepared."],
-    ["Shipped", "Your order has left our store."],
-    ["In transit", "Your package is on its way."],
-    ["Out for delivery", "Your package is with the delivery team."],
-    ["Delivered", "Your order has been delivered."],
-  ];
-
-  /* =========================================================
      LOADING
-     ========================================================= */
+  ========================================================= */
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#09070d",
-          color: "#fff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "column",
-          gap: 12,
-          fontFamily: "system-ui",
-        }}
-      >
-        <div
-          style={{
-            width: 65,
-            height: 65,
-            borderRadius: 20,
-            background:
-              "linear-gradient(135deg,#7c3aed,#4c1d95)",
-            display: "grid",
-            placeItems: "center",
-            fontSize: 28,
-            fontWeight: 900,
-          }}
-        >
-          S
+      <>
+        <style>{globalCSS}</style>
+
+        <div className="loading-screen">
+          <div className="loading-logo">S</div>
+          <strong>SHINDARA PHONEFLAIR</strong>
+          <span>Loading store...</span>
         </div>
-        <strong>SHINDARA PHONEFLAIR</strong>
-        <span style={{ opacity: 0.6, fontSize: 12 }}>
-          Loading store...
-        </span>
-      </div>
+      </>
     );
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#fff",
-        color: "#211b29",
-        fontFamily:
-          "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-      }}
-    >
-      {/* =====================================================
-          ANNOUNCEMENT
-          ===================================================== */}
+    <>
+      <style>{globalCSS}</style>
 
-      <div
-        style={{
-          height: 32,
-          background: "#32105f",
-          color: "#fff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 9,
-          fontWeight: 900,
-          letterSpacing: 2,
-        }}
-      >
-        SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS
+      {/* FLOWING ANNOUNCEMENT */}
+      <div className="announcement">
+        <div className="announcement-track">
+          <span>
+            ✦ SHINDARA PHONEFLAIR ✦ PREMIUM TECH
+            ESSENTIALS ✦ FAST DELIVERY ✦ SECURE
+            PAYMENT ✦ SHOP WITH CONFIDENCE ✦
+          </span>
+
+          <span>
+            ✦ SHINDARA PHONEFLAIR ✦ PREMIUM TECH
+            ESSENTIALS ✦ FAST DELIVERY ✦ SECURE
+            PAYMENT ✦ SHOP WITH CONFIDENCE ✦
+          </span>
+        </div>
       </div>
 
-      {/* =====================================================
-          HEADER
-          ===================================================== */}
-
-      <header
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 15,
-          padding: "14px 6%",
-          background: "#fff",
-          borderBottom: "1px solid rgba(54,29,78,.08)",
-        }}
-      >
+      {/* HEADER */}
+      <header className="header">
         <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          style={{
-            border: 0,
-            background: "transparent",
-            cursor: "pointer",
-            textAlign: "left",
-          }}
+          className="logo-button"
+          onClick={() =>
+            window.scrollTo({
+              top: 0,
+              behavior: "smooth",
+            })
+          }
         >
-          <strong
-            style={{
-              display: "block",
-              fontSize: 17,
-              color: "#17131d",
-            }}
-          >
-            SHINDARA
-          </strong>
-          <span
-            style={{
-              color: "#6d28d9",
-              fontSize: 8,
-              fontWeight: 900,
-              letterSpacing: 2,
-            }}
-          >
-            PHONEFLAIR
-          </span>
+          <b>SHINDARA</b>
+          <small>PHONEFLAIR</small>
         </button>
 
-        <nav
-          style={{
-            display: "flex",
-            gap: 18,
-          }}
-        >
+        <nav className="desktop-nav">
           <button
-            style={navButtonStyle}
             onClick={() =>
               document
                 .getElementById("categories")
-                ?.scrollIntoView({ behavior: "smooth" })
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                })
             }
           >
             Categories
           </button>
 
           <button
-            style={navButtonStyle}
             onClick={() =>
               document
                 .getElementById("shop")
-                ?.scrollIntoView({ behavior: "smooth" })
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                })
             }
           >
             Shop
           </button>
         </nav>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="header-actions">
           <button
+            className="account-button"
             onClick={() => setAccountOpen(true)}
-            style={{
-              border: "1px solid rgba(54,29,78,.12)",
-              background: "#fff",
-              borderRadius: 999,
-              padding: "9px 13px",
-              fontWeight: 800,
-              fontSize: 10,
-              cursor: "pointer",
-            }}
           >
             {user ? "Account" : "Login"}
           </button>
 
           <button
+            className="cart-button"
             onClick={() => {
               if (!user) {
                 setAccountOpen(true);
@@ -1524,1091 +1498,364 @@ export default function App() {
                 setCartOpen(true);
               }
             }}
-            style={{
-              border: 0,
-              background: "#6d28d9",
-              color: "#fff",
-              borderRadius: 999,
-              padding: "9px 13px",
-              fontWeight: 900,
-              fontSize: 10,
-              cursor: "pointer",
-            }}
           >
-            🛒 {cartCount}
+            🛒 <span>{cartCount}</span>
           </button>
         </div>
       </header>
 
-      {/* =====================================================
-          HERO
-          ===================================================== */}
-
-      <section
-        style={{
-          minHeight: 620,
-          padding: "80px 7%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 40,
-          background:
-            "radial-gradient(circle at 90% 20%,rgba(109,40,217,.12),transparent 35%),#fff",
-        }}
-      >
-        <div style={{ maxWidth: 760 }}>
-          <div
-            style={{
-              color: "#6d28d9",
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: 3,
-              marginBottom: 18,
-            }}
-          >
+      {/* HERO */}
+      <section className="hero">
+        <div className="hero-copy">
+          <div className="eyebrow">
             SHINDARA PHONEFLAIR
           </div>
 
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "clamp(50px,8vw,94px)",
-              lineHeight: 0.94,
-              letterSpacing: -5,
-              fontWeight: 900,
-              color: "#17131d",
-            }}
-          >
+          <h1>
             Tech essentials.
             <br />
-            Done better.
+            <em>Done better.</em>
           </h1>
 
-          <p
-            style={{
-              maxWidth: 590,
-              fontSize: 16,
-              lineHeight: 1.7,
-              color: "#777080",
-              margin: "28px 0",
-            }}
-          >
-            Premium phone accessories and everyday technology
-            designed to fit your lifestyle.
+          <p>
+            Premium phone accessories and everyday
+            technology designed to fit your lifestyle.
           </p>
 
           <button
+            className="primary-button"
             onClick={() =>
               document
                 .getElementById("shop")
-                ?.scrollIntoView({ behavior: "smooth" })
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                })
             }
-            style={{
-              border: 0,
-              background: "#6d28d9",
-              color: "#fff",
-              padding: "15px 22px",
-              borderRadius: 12,
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
           >
             Shop now →
           </button>
         </div>
 
-        <div
-          style={{
-            width: 310,
-            minHeight: 370,
-            borderRadius: 32,
-            padding: 32,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "flex-end",
-            color: "#fff",
-            background:
-              "linear-gradient(145deg,#7c3aed,#4c1d95 55%,#24123e)",
-            boxShadow: "0 35px 70px rgba(76,29,149,.25)",
-          }}
-        >
-          <span
-            style={{
-              fontSize: 9,
-              letterSpacing: 2,
-              fontWeight: 800,
-              opacity: 0.7,
-              marginBottom: "auto",
-            }}
-          >
-            THE SHINDARA EDIT
-          </span>
-
-          <strong style={{ fontSize: 25 }}>
-            Better accessories.
-          </strong>
-
-          <strong style={{ fontSize: 25 }}>
-            Better everyday.
-          </strong>
-
-          <span
-            style={{
-              width: 45,
-              height: 2,
-              background: "#d8b4fe",
-              margin: "20px 0",
-            }}
-          />
-
-          <span
-            style={{
-              fontSize: 12,
-              lineHeight: 1.6,
-              opacity: 0.72,
-            }}
-          >
-            Curated tech essentials for your phone and your lifestyle.
-          </span>
+        <div className="hero-card">
+          <span>THE SHINDARA EDIT</span>
+          <strong>Better accessories.</strong>
+          <strong>Better everyday.</strong>
+          <div className="hero-line" />
+          <p>
+            Premium technology. Beautifully selected.
+          </p>
         </div>
       </section>
 
-      {/* =====================================================
-          CATEGORIES
-          ===================================================== */}
-
+      {/* CATEGORIES */}
       <section
+        className="categories-section"
         id="categories"
-        style={{
-          padding: "75px 7%",
-        }}
       >
-        <span style={kickerStyle}>EXPLORE</span>
+        <div className="section-heading">
+          <div>
+            <small>EXPLORE</small>
+            <h2>Shop by category</h2>
+          </div>
+        </div>
 
-        <h2 style={sectionTitleStyle}>
-          Shop by category
-        </h2>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit,minmax(145px,1fr))",
-            gap: 14,
-          }}
-        >
-          {categoryNames.slice(0, 9).map(name => (
+        <div className="category-scroll">
+          {categories.map((item) => (
             <button
-              key={name}
+              key={item}
+              className={
+                category === item
+                  ? "category active"
+                  : "category"
+              }
               onClick={() => {
-                setCategory(name);
+                setCategory(item);
+
                 document
                   .getElementById("shop")
-                  ?.scrollIntoView({ behavior: "smooth" });
-              }}
-              style={{
-                minHeight: 145,
-                border: "1px solid rgba(54,29,78,.1)",
-                borderRadius: 20,
-                background: "#fff",
-                cursor: "pointer",
-                padding: 20,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                textAlign: "left",
+                  ?.scrollIntoView({
+                    behavior: "smooth",
+                  });
               }}
             >
-              <span
-                style={{
-                  width: 45,
-                  height: 45,
-                  borderRadius: 14,
-                  background: "#f3edff",
-                  color: "#6d28d9",
-                  display: "grid",
-                  placeItems: "center",
-                  fontSize: 21,
-                }}
-              >
-                {categoryIcon(name)}
-              </span>
-
-              <strong>{name}</strong>
-
-              <span style={{ color: "#a99fb0" }}>→</span>
+              {item}
             </button>
           ))}
         </div>
       </section>
 
-      {/* =====================================================
-          SHOP
-          ===================================================== */}
-
-      <section
-        id="shop"
-        style={{
-          padding: "30px 7% 90px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "end",
-            gap: 25,
-            marginBottom: 20,
-          }}
-        >
+      {/* SHOP */}
+      <section className="shop-section" id="shop">
+        <div className="shop-top">
           <div>
-            <span style={kickerStyle}>SHINDARA STORE</span>
-
-            <h2 style={sectionTitleStyle}>
-              Popular picks
-            </h2>
+            <small>THE COLLECTION</small>
+            <h2>Shop essentials</h2>
           </div>
 
-          <div
-            style={{
-              minWidth: 260,
-              height: 46,
-              border: "1px solid rgba(54,29,78,.1)",
-              borderRadius: 999,
-              padding: "0 15px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span>⌕</span>
-
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search accessories..."
-              style={{
-                width: "100%",
-                border: 0,
-                outline: 0,
-                background: "transparent",
-                fontSize: 12,
-              }}
-            />
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            overflowX: "auto",
-            paddingBottom: 18,
-          }}
-        >
-          {categoryNames.slice(0, 8).map(name => (
-            <button
-              key={name}
-              onClick={() => setCategory(name)}
-              style={{
-                whiteSpace: "nowrap",
-                border:
-                  category === name
-                    ? "1px solid #6d28d9"
-                    : "1px solid rgba(54,29,78,.1)",
-                borderRadius: 999,
-                padding: "9px 14px",
-                fontSize: 10,
-                fontWeight: 800,
-                cursor: "pointer",
-                background:
-                  category === name ? "#6d28d9" : "#fff",
-                color:
-                  category === name ? "#fff" : "#211b29",
-              }}
-            >
-              {name}
-            </button>
-          ))}
+          <input
+            className="search"
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+            placeholder="Search products..."
+          />
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div
-            style={{
-              padding: "70px 20px",
-              textAlign: "center",
-              borderRadius: 25,
-              background: "#faf9fd",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 35,
-                color: "#6d28d9",
-              }}
-            >
-              ⌕
-            </div>
-
+          <div className="empty-products">
             <h3>No products found</h3>
-
-            <p style={{ color: "#777080" }}>
-              Try another search or category.
+            <p>
+              Try another category or search term.
             </p>
           </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit,minmax(210px,1fr))",
-              gap: 18,
-            }}
-          >
-            {filteredProducts.slice(0, 12).map(product => (
-              <article key={product.id}>
-                <div
-                  style={{
-                    position: "relative",
-                    height: 260,
-                    display: "grid",
-                    placeItems: "center",
-                    overflow: "hidden",
-                    borderRadius: 20,
-                    background: "#faf9fd",
-                  }}
+          <div className="product-grid">
+            {filteredProducts.map((product) => {
+              const stock = Number(product.stock || 0);
+
+              return (
+                <article
+                  className="product-card"
+                  key={product.id}
                 >
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        padding: 18,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: 70,
-                        height: 70,
-                        borderRadius: 22,
-                        display: "grid",
-                        placeItems: "center",
-                        background: "#6d28d9",
-                        color: "#fff",
-                        fontSize: 30,
-                        fontWeight: 900,
-                      }}
-                    >
-                      S
-                    </div>
-                  )}
+                  <div className="product-image">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                      />
+                    ) : (
+                      <div className="image-placeholder">
+                        S
+                      </div>
+                    )}
 
-                  {Number(product.stock) <= 0 && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: 12,
-                        left: 12,
-                        background: "#24123e",
-                        color: "#fff",
-                        borderRadius: 999,
-                        padding: "6px 9px",
-                        fontSize: 8,
-                        fontWeight: 800,
-                      }}
-                    >
-                      OUT OF STOCK
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ padding: "15px 3px" }}>
-                  <span
-                    style={{
-                      fontSize: 8,
-                      fontWeight: 900,
-                      letterSpacing: 1.5,
-                      color: "#6d28d9",
-                    }}
-                  >
-                    {product.category || "ACCESSORY"}
-                  </span>
-
-                  <h3
-                    style={{
-                      fontSize: 15,
-                      margin: "8px 0",
-                      color: "#17131d",
-                    }}
-                  >
-                    {product.name}
-                  </h3>
-
-                  <p
-                    style={{
-                      fontSize: 11,
-                      lineHeight: 1.5,
-                      minHeight: 34,
-                      color: "#777080",
-                    }}
-                  >
-                    {product.description ||
-                      "Premium tech essential."}
-                  </p>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 8,
-                      marginTop: 15,
-                    }}
-                  >
-                    <strong
-                      style={{
-                        color: "#6d28d9",
-                        fontSize: 16,
-                      }}
-                    >
-                      {money(product.price)}
-                    </strong>
-
-                    <button
-                      disabled={Number(product.stock) <= 0}
-                      onClick={() => addToCart(product)}
-                      style={{
-                        border: 0,
-                        background:
-                          Number(product.stock) <= 0
-                            ? "#aaa"
-                            : "#6d28d9",
-                        color: "#fff",
-                        borderRadius: 10,
-                        padding: "10px 12px",
-                        fontSize: 9,
-                        fontWeight: 800,
-                        cursor:
-                          Number(product.stock) <= 0
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      {Number(product.stock) <= 0
-                        ? "Sold out"
-                        : "Add to cart"}
-                    </button>
+                    {stock <= 0 && (
+                      <span className="sold-out">
+                        OUT OF STOCK
+                      </span>
+                    )}
                   </div>
-                </div>
-              </article>
-            ))}
+
+                  <div className="product-info">
+                    <small>
+                      {product.category ||
+                        "TECH ESSENTIAL"}
+                    </small>
+
+                    <h3>{product.name}</h3>
+
+                    <p>
+                      {product.description ||
+                        "Premium quality tech essential."}
+                    </p>
+
+                    <div className="product-bottom">
+                      <strong>
+                        {money(product.price)}
+                      </strong>
+
+                      <button
+                        disabled={stock <= 0}
+                        onClick={() =>
+                          addToCart(product)
+                        }
+                      >
+                        {stock <= 0
+                          ? "Sold out"
+                          : "Add to cart"}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
 
-      {/* =====================================================
-          TRUST
-          ===================================================== */}
-
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3,1fr)",
-          gap: 15,
-          padding: "65px 7%",
-          background: "#24123e",
-        }}
-      >
-        {[
-          [
-            "✦",
-            "Reliable delivery",
-            "Your order is handled with care from store to doorstep.",
-          ],
-          [
-            "⌾",
-            "Secure shopping",
-            "Your account and shopping experience stay protected.",
-          ],
-          [
-            "◌",
-            "Customer support",
-            "We're here whenever you need help with your order.",
-          ],
-        ].map(([icon, title, text]) => (
-          <div
-            key={title}
-            style={{
-              padding: 28,
-              borderRadius: 22,
-              background: "rgba(255,255,255,.07)",
-              border:
-                "1px solid rgba(255,255,255,.1)",
-              color: "#fff",
-            }}
-          >
-            <span
-              style={{
-                color: "#d8b4fe",
-                fontSize: 25,
-              }}
-            >
-              {icon}
-            </span>
-
-            <h3>{title}</h3>
-
-            <p style={{ opacity: 0.65 }}>
-              {text}
-            </p>
-          </div>
-        ))}
-      </section>
-
-      {/* =====================================================
-          FOOTER
-          ===================================================== */}
-
-      <footer
-        style={{
-          padding: "60px 7% 25px",
-          background: "#160d24",
-          color: "#fff",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 17,
-            fontWeight: 900,
-          }}
-        >
-          SHINDARA PHONEFLAIR
+      {/* FOOTER */}
+      <footer className="footer">
+        <div>
+          <b>SHINDARA</b>
+          <span>PHONEFLAIR</span>
         </div>
 
-        <p
-          style={{
-            color: "rgba(255,255,255,.55)",
-            maxWidth: 400,
-            fontSize: 12,
-          }}
-        >
-          Premium phone accessories and everyday technology.
+        <p>
+          Premium tech essentials for everyday life.
         </p>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            margin: "30px 0",
-          }}
-        >
-          <button
-            onClick={() => setAccountOpen(true)}
-            style={footerButtonStyle}
-          >
-            My account
-          </button>
-
-          <button
-            onClick={() => {
-              if (!user) {
-                setAccountOpen(true);
-                setAuthMessage(
-                  "Please login to access your cart."
-                );
-              } else {
-                setCartOpen(true);
-              }
-            }}
-            style={footerButtonStyle}
-          >
-            My cart
-          </button>
-        </div>
-
-        <div
-          style={{
-            borderTop:
-              "1px solid rgba(255,255,255,.08)",
-            paddingTop: 20,
-            color: "rgba(255,255,255,.4)",
-            fontSize: 10,
-          }}
-        >
-          © 2026 Shindara Phoneflair
-        </div>
+        <small>
+          © {new Date().getFullYear()} Shindara
+          Phoneflair. All rights reserved.
+        </small>
       </footer>
 
+      {/* NOTICE */}
       {notice && (
-        <div
-          style={{
-            position: "fixed",
-            zIndex: 1000,
-            left: "50%",
-            bottom: 25,
-            transform: "translateX(-50%)",
-            background: "#24123e",
-            color: "#fff",
-            padding: "13px 18px",
-            borderRadius: 999,
-            fontSize: 11,
-            fontWeight: 700,
-            maxWidth: "90%",
-            textAlign: "center",
-          }}
-        >
-          {notice}
+        <div className="notice">
+          ✓ {notice}
         </div>
       )}
 
       {/* =====================================================
-          CART
-          ===================================================== */}
-
-      {cartOpen && user && (
-        <div
-          style={overlayStyle}
-          onClick={() => setCartOpen(false)}
-        >
-          <aside
-            style={{
-              width: "min(520px,100%)",
-              height: "100%",
-              background: "#fff",
-              padding: 25,
-              overflowY: "auto",
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 25,
-              }}
-            >
-              <div>
-                <span style={kickerStyle}>
-                  YOUR SHOPPING
-                </span>
-
-                <h2
-                  style={{
-                    margin: "7px 0",
-                    fontSize: 35,
-                  }}
-                >
-                  Cart
-                </h2>
-              </div>
-
-              <button
-                onClick={() => setCartOpen(false)}
-                style={closeStyle}
-              >
-                ×
-              </button>
-            </div>
-
-            {cartLoading ? (
-              <div style={emptyStyle}>
-                Loading cart...
-              </div>
-            ) : cartProducts.length === 0 ? (
-              <div style={emptyStyle}>
-                <div style={{ fontSize: 40 }}>🛒</div>
-                <h3>Your cart is empty</h3>
-                <p>Add something beautiful to get started.</p>
-              </div>
-            ) : (
-              <>
-                {cartProducts.map(item => (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "65px 1fr auto",
-                      gap: 12,
-                      alignItems: "center",
-                      padding: "12px 0",
-                      borderBottom:
-                        "1px solid #eee",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 65,
-                        height: 65,
-                        borderRadius: 15,
-                        background: "#f3edff",
-                      }}
-                    >
-                      {item.product?.image_url ? (
-                        <img
-                          src={item.product.image_url}
-                          alt={item.product.name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "contain",
-                            borderRadius: 15,
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            height: "100%",
-                            display: "grid",
-                            placeItems: "center",
-                            color: "#6d28d9",
-                            fontWeight: 900,
-                          }}
-                        >
-                          S
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <strong>
-                        {item.product?.name}
-                      </strong>
-
-                      <span
-                        style={{
-                          display: "block",
-                          color: "#777080",
-                          fontSize: 11,
-                          marginTop: 4,
-                        }}
-                      >
-                        {money(item.product?.price)}
-                      </span>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          marginTop: 7,
-                        }}
-                      >
-                        <button
-                          onClick={() =>
-                            updateQuantity(item, -1)
-                          }
-                        >
-                          −
-                        </button>
-
-                        <b>{item.quantity}</b>
-
-                        <button
-                          onClick={() =>
-                            updateQuantity(item, 1)
-                          }
-                        >
-                          +
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            removeFromCart(item)
-                          }
-                          style={{
-                            border: 0,
-                            background: "transparent",
-                            color: "#c02675",
-                            fontSize: 9,
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-
-                    <strong>
-                      {money(item.subtotal)}
-                    </strong>
-                  </div>
-                ))}
-
-                <div
-                  style={{
-                    marginTop: 25,
-                    paddingTop: 20,
-                    borderTop:
-                      "1px solid #eee",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <span>Subtotal</span>
-                    <strong>
-                      {money(cartTotal)}
-                    </strong>
-                  </div>
-
-                  <button
-                    onClick={openCheckout}
-                    style={checkoutButtonStyle}
-                  >
-                    Continue to checkout →
-                  </button>
-                </div>
-              </>
-            )}
-          </aside>
-        </div>
-      )}
-
-      {/* =====================================================
-          ACCOUNT
-          ===================================================== */}
+          ACCOUNT MODAL
+      ===================================================== */}
 
       {accountOpen && (
         <div
-          style={overlayStyle}
+          className="overlay"
           onClick={() => setAccountOpen(false)}
         >
           <div
-            style={modalStyle}
-            onClick={e => e.stopPropagation()}
+            className="modal account-modal"
+            onClick={(e) => e.stopPropagation()}
           >
             <button
+              className="close"
               onClick={() => setAccountOpen(false)}
-              style={modalCloseStyle}
             >
               ×
             </button>
 
             {user ? (
               <>
-                <span style={kickerStyle}>
-                  CUSTOMER ACCOUNT
-                </span>
+                <div className="modal-heading">
+                  <small>MY ACCOUNT</small>
+                  <h2>Hello 👋</h2>
+                  <p>{user.email}</p>
+                </div>
 
-                <h2 style={modalTitleStyle}>
-                  My account
-                </h2>
-
-                <p style={{ color: "#777080" }}>
-                  {user.email}
-                </p>
-
-                <label style={labelStyle}>
+                <label>
                   Full name
+                  <input
+                    value={editName}
+                    onChange={(e) =>
+                      setEditName(e.target.value)
+                    }
+                  />
                 </label>
 
-                <input
-                  value={editName}
-                  onChange={e =>
-                    setEditName(e.target.value)
-                  }
-                  style={inputStyle}
-                />
-
-                <label style={labelStyle}>
+                <label>
                   Phone number
+                  <input
+                    value={editPhone}
+                    onChange={(e) =>
+                      setEditPhone(e.target.value)
+                    }
+                  />
                 </label>
-
-                <input
-                  value={editPhone}
-                  onChange={e =>
-                    setEditPhone(e.target.value)
-                  }
-                  style={inputStyle}
-                />
 
                 <button
+                  className="primary-button full"
                   onClick={saveProfile}
-                  disabled={savingProfile}
-                  style={authButtonStyle}
+                  disabled={busy}
                 >
-                  {savingProfile
+                  {busy
                     ? "Saving..."
                     : "Save account details"}
                 </button>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "1fr 1fr",
-                    gap: 10,
-                    margin: "25px 0",
+                <button
+                  className="secondary-button full"
+                  onClick={() => {
+                    setAccountOpen(false);
+                    setOrdersOpen(true);
                   }}
                 >
-                  <button
-                    style={accountCardStyle}
-                    onClick={() => {
-                      setAccountOpen(false);
-                      setCartOpen(true);
-                    }}
-                  >
-                    🛒
-                    <strong>My cart</strong>
-                    <small>{cartCount} items</small>
-                  </button>
-
-                  <button
-                    style={accountCardStyle}
-                    onClick={() => {
-                      setAccountOpen(false);
-                      setOrdersOpen(true);
-                    }}
-                  >
-                    📦
-                    <strong>My orders</strong>
-                    <small>{orders.length} orders</small>
-                  </button>
-                </div>
+                  My orders
+                </button>
 
                 <button
+                  className="logout-button"
                   onClick={logout}
-                  style={{
-                    width: "100%",
-                    border:
-                      "1px solid rgba(155,44,112,.2)",
-                    background: "transparent",
-                    color: "#c02675",
-                    borderRadius: 12,
-                    padding: 13,
-                    fontWeight: 800,
-                  }}
                 >
                   Log out
                 </button>
               </>
             ) : (
               <>
-                <span style={kickerStyle}>
-                  SHINDARA ACCOUNT
-                </span>
+                <div className="modal-heading">
+                  <small>
+                    SHINDARA PHONEFLAIR
+                  </small>
 
-                <h2 style={modalTitleStyle}>
-                  {authMode === "login"
-                    ? "Welcome back."
-                    : "Create your account."}
-                </h2>
+                  <h2>
+                    {authMode === "login"
+                      ? "Welcome back"
+                      : "Create account"}
+                  </h2>
 
-                <p style={{ color: "#777080" }}>
-                  Login to shop and keep your personal cart saved.
-                </p>
-
-                <button
-                  onClick={googleLogin}
-                  disabled={authLoading}
-                  style={googleButtonStyle}
-                >
-                  <b style={{ fontSize: 18 }}>G</b>
-                  Continue with Google
-                </button>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    color: "#918795",
-                    fontSize: 9,
-                    margin: "18px 0",
-                  }}
-                >
-                  <span style={{ flex: 1, height: 1, background: "#eee" }} />
-                  OR
-                  <span style={{ flex: 1, height: 1, background: "#eee" }} />
+                  <p>
+                    {authMode === "login"
+                      ? "Login to continue shopping."
+                      : "Create an account to shop with us."}
+                  </p>
                 </div>
 
                 <form onSubmit={submitAuth}>
                   {authMode === "signup" && (
                     <>
-                      <label style={labelStyle}>
+                      <label>
                         Full name
+                        <input
+                          value={fullName}
+                          onChange={(e) =>
+                            setFullName(e.target.value)
+                          }
+                          placeholder="Your full name"
+                        />
                       </label>
 
-                      <input
-                        value={fullName}
-                        onChange={e =>
-                          setFullName(e.target.value)
-                        }
-                        placeholder="Your full name"
-                        style={inputStyle}
-                      />
-
-                      <label style={labelStyle}>
+                      <label>
                         Phone number
+                        <input
+                          value={phone}
+                          onChange={(e) =>
+                            setPhone(e.target.value)
+                          }
+                          placeholder="08012345678"
+                        />
                       </label>
-
-                      <input
-                        value={phone}
-                        onChange={e =>
-                          setPhone(e.target.value)
-                        }
-                        placeholder="080..."
-                        style={inputStyle}
-                      />
                     </>
                   )}
 
-                  <label style={labelStyle}>
+                  <label>
                     Email
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) =>
+                        setEmail(e.target.value)
+                      }
+                      placeholder="you@example.com"
+                    />
                   </label>
 
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e =>
-                      setEmail(e.target.value)
-                    }
-                    placeholder="you@example.com"
-                    style={inputStyle}
-                  />
-
-                  <label style={labelStyle}>
+                  <label>
                     Password
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) =>
+                        setPassword(e.target.value)
+                      }
+                      placeholder="Password"
+                    />
                   </label>
-
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={e =>
-                      setPassword(e.target.value)
-                    }
-                    placeholder="Your password"
-                    style={inputStyle}
-                  />
 
                   {authMessage && (
-                    <div
-                      style={{
-                        marginTop: 12,
-                        padding: 11,
-                        borderRadius: 10,
-                        background: "#fff0f6",
-                        color: "#9b2c70",
-                        fontSize: 11,
-                      }}
-                    >
+                    <div className="form-message">
                       {authMessage}
                     </div>
                   )}
 
                   <button
-                    disabled={authLoading}
-                    style={authButtonStyle}
+                    className="primary-button full"
+                    disabled={authBusy}
                   >
-                    {authLoading
+                    {authBusy
                       ? "Please wait..."
                       : authMode === "login"
                       ? "Login"
@@ -2617,27 +1864,26 @@ export default function App() {
                 </form>
 
                 <button
+                  className="google-button"
+                  onClick={googleLogin}
+                  disabled={authBusy}
+                >
+                  Continue with Google
+                </button>
+
+                <button
+                  className="switch-auth"
                   onClick={() => {
-                    setAuthMessage("");
                     setAuthMode(
                       authMode === "login"
                         ? "signup"
                         : "login"
                     );
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    marginTop: 16,
-                    border: 0,
-                    background: "transparent",
-                    color: "#6d28d9",
-                    fontSize: 11,
-                    fontWeight: 750,
+                    setAuthMessage("");
                   }}
                 >
                   {authMode === "login"
-                    ? "New to Shindara? Create an account"
+                    ? "Don't have an account? Sign up"
                     : "Already have an account? Login"}
                 </button>
               </>
@@ -2647,193 +1893,321 @@ export default function App() {
       )}
 
       {/* =====================================================
-          CHECKOUT
-          ===================================================== */}
+          CART
+      ===================================================== */}
 
-      {checkoutOpen && (
-        <div style={overlayStyle}>
-          <div style={checkoutModalStyle}>
+      {cartOpen && (
+        <div
+          className="overlay"
+          onClick={() => setCartOpen(false)}
+        >
+          <div
+            className="modal cart-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => setCheckoutOpen(false)}
-              style={modalCloseStyle}
+              className="close"
+              onClick={() => setCartOpen(false)}
             >
               ×
             </button>
 
-            <span style={kickerStyle}>
-              SHINDARA CHECKOUT
-            </span>
+            <div className="modal-heading">
+              <small>YOUR BAG</small>
+              <h2>Shopping cart</h2>
+              <p>
+                {cartCount} item
+                {cartCount === 1 ? "" : "s"}
+              </p>
+            </div>
 
-            <h2 style={modalTitleStyle}>
-              Delivery details
-            </h2>
+            {!cart.length ? (
+              <div className="empty-cart">
+                <div>🛒</div>
+                <h3>Your cart is empty</h3>
+                <p>
+                  Add products from the shop to
+                  continue.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="cart-items">
+                  {cart.map((item) => (
+                    <div
+                      className="cart-item"
+                      key={item.id}
+                    >
+                      <div className="cart-item-image">
+                        {item.product?.image_url ? (
+                          <img
+                            src={item.product.image_url}
+                            alt={item.product.name}
+                          />
+                        ) : (
+                          "S"
+                        )}
+                      </div>
 
-            <p style={{ color: "#777080" }}>
-              Total: <strong>{money(cartTotal)}</strong>
-            </p>
+                      <div className="cart-item-details">
+                        <b>
+                          {item.product?.name}
+                        </b>
 
-            <form onSubmit={startPaystackPayment}>
-              <label style={labelStyle}>
-                Full name
-              </label>
+                        <span>
+                          {money(
+                            item.product?.price
+                          )}
+                        </span>
 
-              <input
-                value={checkout.customer_name}
-                onChange={e =>
-                  setCheckout({
-                    ...checkout,
-                    customer_name: e.target.value,
-                  })
-                }
-                style={inputStyle}
-              />
+                        <div className="quantity">
+                          <button
+                            onClick={() =>
+                              updateQuantity(
+                                item,
+                                -1
+                              )
+                            }
+                          >
+                            −
+                          </button>
 
-              <label style={labelStyle}>
-                Phone
-              </label>
+                          <b>{item.quantity}</b>
 
-              <input
-                value={checkout.customer_phone}
-                onChange={e =>
-                  setCheckout({
-                    ...checkout,
-                    customer_phone: e.target.value,
-                  })
-                }
-                style={inputStyle}
-              />
+                          <button
+                            onClick={() =>
+                              updateQuantity(
+                                item,
+                                1
+                              )
+                            }
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
 
-              <label style={labelStyle}>
-                Email
-              </label>
+                      <div className="cart-item-right">
+                        <b>
+                          {money(item.subtotal)}
+                        </b>
 
-              <input
-                type="email"
-                value={checkout.customer_email}
-                onChange={e =>
-                  setCheckout({
-                    ...checkout,
-                    customer_email: e.target.value,
-                  })
-                }
-                style={inputStyle}
-              />
+                        <button
+                          className="remove"
+                          onClick={() =>
+                            removeFromCart(item)
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-              <label style={labelStyle}>
-                Delivery address
-              </label>
+                <div className="cart-total">
+                  <span>Total</span>
+                  <strong>
+                    {money(cartTotal)}
+                  </strong>
+                </div>
 
-              <textarea
-                value={checkout.delivery_address}
-                onChange={e =>
-                  setCheckout({
-                    ...checkout,
-                    delivery_address: e.target.value,
-                  })
-                }
-                placeholder="House number, street..."
-                style={{
-                  ...inputStyle,
-                  height: 85,
-                  padding: 13,
-                }}
-              />
+                <button
+                  className="primary-button full"
+                  onClick={openCheckout}
+                >
+                  Proceed to checkout →
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "1fr 1fr",
-                  gap: 10,
-                }}
-              >
-                <div>
-                  <label style={labelStyle}>
-                    State
-                  </label>
+      {/* =====================================================
+          CHECKOUT
+      ===================================================== */}
 
-                  <select
-                    value={checkout.delivery_state}
-                    onChange={e =>
+      {checkoutOpen && (
+        <div className="overlay">
+          <div className="modal checkout-modal">
+            <button
+              className="close"
+              onClick={() => {
+                if (!busy)
+                  setCheckoutOpen(false);
+              }}
+            >
+              ×
+            </button>
+
+            <div className="modal-heading">
+              <small>CHECKOUT</small>
+              <h2>Delivery details</h2>
+              <p>
+                Complete your information before
+                payment.
+              </p>
+            </div>
+
+            <form onSubmit={startPayment}>
+              <div className="checkout-grid">
+                <label>
+                  Full name
+                  <input
+                    value={checkout.customer_name}
+                    onChange={(e) =>
                       setCheckout({
                         ...checkout,
-                        delivery_state: e.target.value,
+                        customer_name:
+                          e.target.value,
+                      })
+                    }
+                    placeholder="Full name"
+                  />
+                </label>
+
+                <label>
+                  Phone number
+                  <input
+                    value={checkout.customer_phone}
+                    onChange={(e) =>
+                      setCheckout({
+                        ...checkout,
+                        customer_phone:
+                          e.target.value,
+                      })
+                    }
+                    placeholder="08012345678"
+                  />
+                </label>
+              </div>
+
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={checkout.customer_email}
+                  onChange={(e) =>
+                    setCheckout({
+                      ...checkout,
+                      customer_email:
+                        e.target.value,
+                    })
+                  }
+                  placeholder="you@example.com"
+                />
+              </label>
+
+              <label>
+                Delivery address
+                <textarea
+                  value={checkout.delivery_address}
+                  onChange={(e) =>
+                    setCheckout({
+                      ...checkout,
+                      delivery_address:
+                        e.target.value,
+                    })
+                  }
+                  placeholder="House number, street, area..."
+                />
+              </label>
+
+              <div className="checkout-grid">
+                <label>
+                  State
+                  <select
+                    value={checkout.delivery_state}
+                    onChange={(e) =>
+                      setCheckout({
+                        ...checkout,
+                        delivery_state:
+                          e.target.value,
                         delivery_city: "",
                       })
                     }
-                    style={inputStyle}
                   >
                     <option value="">
                       Select state
                     </option>
 
-                    {Object.keys(cleanStates).map(state => (
-                      <option key={state} value={state}>
-                        {state.replace("_", " ")}
-                      </option>
-                    ))}
+                    {Object.keys(states).map(
+                      (state) => (
+                        <option
+                          key={state}
+                          value={state}
+                        >
+                          {state}
+                        </option>
+                      )
+                    )}
                   </select>
-                </div>
+                </label>
 
-                <div>
-                  <label style={labelStyle}>
-                    City
-                  </label>
-
+                <label>
+                  City
                   <select
                     value={checkout.delivery_city}
-                    disabled={!checkout.delivery_state}
-                    onChange={e =>
+                    onChange={(e) =>
                       setCheckout({
                         ...checkout,
-                        delivery_city: e.target.value,
+                        delivery_city:
+                          e.target.value,
                       })
                     }
-                    style={inputStyle}
+                    disabled={
+                      !checkout.delivery_state
+                    }
                   >
                     <option value="">
-                      {checkout.delivery_state
-                        ? "Select city"
-                        : "Select state first"}
+                      Select city
                     </option>
 
                     {(
-                      cleanStates[
+                      states[
                         checkout.delivery_state
                       ] || []
-                    ).map(city => (
-                      <option key={city} value={city}>
+                    ).map((city) => (
+                      <option
+                        key={city}
+                        value={city}
+                      >
                         {city}
                       </option>
                     ))}
                   </select>
-                </div>
+                </label>
+              </div>
+
+              <div className="checkout-summary">
+                <span>Items</span>
+                <b>{cartCount}</b>
+
+                <span>Total</span>
+                <strong>
+                  {money(cartTotal)}
+                </strong>
               </div>
 
               {checkoutMessage && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: 11,
-                    borderRadius: 10,
-                    background: "#fff0f6",
-                    color: "#9b2c70",
-                    fontSize: 11,
-                    lineHeight: 1.5,
-                  }}
-                >
+                <div className="form-message">
                   {checkoutMessage}
                 </div>
               )}
 
               <button
-                disabled={placingOrder}
-                style={checkoutButtonStyle}
+                className="primary-button full pay-button"
+                disabled={busy}
               >
-                {placingOrder
+                {busy
                   ? "Processing payment..."
-                  : `Pay ${money(cartTotal)} with Paystack →`}
+                  : `Pay ${money(cartTotal)} securely`}
               </button>
+
+              <small className="secure-note">
+                🔒 Secure payment powered by Paystack
+              </small>
             </form>
           </div>
         </div>
@@ -2841,182 +2215,91 @@ export default function App() {
 
       {/* =====================================================
           ORDERS
-          ===================================================== */}
+      ===================================================== */}
 
       {ordersOpen && (
         <div
-          style={overlayStyle}
+          className="overlay"
           onClick={() => setOrdersOpen(false)}
         >
           <div
-            style={ordersModalStyle}
-            onClick={e => e.stopPropagation()}
+            className="modal orders-modal"
+            onClick={(e) => e.stopPropagation()}
           >
             <button
+              className="close"
               onClick={() => setOrdersOpen(false)}
-              style={modalCloseStyle}
             >
               ×
             </button>
 
-            <span style={kickerStyle}>
-              SHINDARA
-            </span>
+            <div className="modal-heading">
+              <small>MY ACCOUNT</small>
+              <h2>My orders</h2>
+              <p>
+                View your paid and pending orders.
+              </p>
+            </div>
 
-            <h2 style={modalTitleStyle}>
-              Your orders
-            </h2>
-
-            {orders.length === 0 ? (
-              <div style={emptyStyle}>
-                <div style={{ fontSize: 40 }}>📦</div>
+            {!orders.length ? (
+              <div className="empty-cart">
+                <div>📦</div>
                 <h3>No orders yet</h3>
-                <p>Your orders will appear here.</p>
+                <p>
+                  Your orders will appear here after
+                  checkout.
+                </p>
               </div>
             ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                  marginTop: 25,
-                }}
-              >
-                {orders.map(order => (
-                  <div
+              <div className="orders-list">
+                {orders.map((order) => (
+                  <button
+                    className="order-card"
                     key={order.id}
-                    style={{
-                      border:
-                        "1px solid rgba(54,29,78,.1)",
-                      borderRadius: 18,
-                      padding: 16,
-                      background: "#fff",
-                    }}
+                    onClick={() =>
+                      openTracking(order)
+                    }
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent:
-                          "space-between",
-                        gap: 10,
-                      }}
-                    >
-                      <div>
-                        <strong>
-                          Order #
-                          {String(order.id).slice(0, 8)}
-                        </strong>
+                    <div>
+                      <small>
+                        ORDER #{String(
+                          order.id
+                        ).slice(0, 8)}
+                      </small>
 
-                        <span
-                          style={{
-                            display: "block",
-                            marginTop: 5,
-                            color: "#89808e",
-                            fontSize: 9,
-                          }}
-                        >
-                          {order.created_at
-                            ? new Date(
-                                order.created_at
-                              ).toLocaleDateString(
-                                "en-NG",
-                                {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                }
-                              )
-                            : "Date unavailable"}
-                        </span>
-
-                        <span
-                          style={{
-                            display: "block",
-                            marginTop: 5,
-                            color: "#6d28d9",
-                            fontSize: 9,
-                            fontWeight: 800,
-                          }}
-                        >
-                          Tracking:{" "}
-                          {order.tracking_number ||
-                            "Being generated"}
-                        </span>
-                      </div>
-
-                      <div
-                        style={{
-                          textAlign: "right",
-                        }}
-                      >
-                        <strong>
-                          {money(order.total)}
-                        </strong>
-
-                        <span
-                          style={{
-                            display: "block",
-                            marginTop: 6,
-                            background:
-                              order.payment_status ===
-                              "paid"
-                                ? "#e9f8ef"
-                                : "#fff4df",
-                            color:
-                              order.payment_status ===
-                              "paid"
-                                ? "#168447"
-                                : "#a66b00",
-                            borderRadius: 999,
-                            padding:
-                              "5px 8px",
-                            fontSize: 8,
-                            fontWeight: 900,
-                          }}
-                        >
-                          {String(
-                            order.payment_status ||
-                              order.status ||
-                              "pending"
-                          ).toUpperCase()}
-                        </span>
-                      </div>
+                      <b>
+                        {money(order.total)}
+                      </b>
                     </div>
 
-                    {order.payment_reference && (
-                      <div
-                        style={{
-                          marginTop: 12,
-                          fontSize: 9,
-                          color: "#777080",
-                        }}
+                    <div>
+                      <span
+                        className={
+                          order.payment_status ===
+                          "paid"
+                            ? "status paid"
+                            : "status pending"
+                        }
                       >
-                        Payment reference:{" "}
-                        <strong>
-                          {order.payment_reference}
-                        </strong>
-                      </div>
-                    )}
+                        {order.payment_status ||
+                          "pending"}
+                      </span>
 
-                    <button
-                      onClick={() =>
-                        openOrderTracking(order)
-                      }
-                      style={{
-                        width: "100%",
-                        marginTop: 14,
-                        border: 0,
-                        background: "#6d28d9",
-                        color: "#fff",
-                        borderRadius: 11,
-                        padding: 12,
-                        fontWeight: 800,
-                        cursor: "pointer",
-                      }}
-                    >
-                      View full order & track →
-                    </button>
-                  </div>
+                      <small>
+                        {order.created_at
+                          ? new Date(
+                              order.created_at
+                            ).toLocaleDateString(
+                              "en-NG"
+                            )
+                          : ""}
+                      </small>
+                    </div>
+
+                    <div className="order-arrow">
+                      →
+                    </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -3026,169 +2309,88 @@ export default function App() {
 
       {/* =====================================================
           TRACKING
-          ===================================================== */}
+      ===================================================== */}
 
       {trackingOpen && selectedOrder && (
         <div
-          style={overlayStyle}
+          className="overlay"
           onClick={() => setTrackingOpen(false)}
         >
           <div
-            style={{
-              width:
-                "min(700px,calc(100% - 25px))",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              margin: "auto",
-              borderRadius: 25,
-              padding: 28,
-              background: "#fff",
-              position: "relative",
-            }}
-            onClick={e => e.stopPropagation()}
+            className="modal tracking-modal"
+            onClick={(e) => e.stopPropagation()}
           >
             <button
+              className="close"
               onClick={() => setTrackingOpen(false)}
-              style={modalCloseStyle}
             >
               ×
             </button>
 
-            <span style={kickerStyle}>
-              SHINDARA ORDER TRACKING
-            </span>
+            <div className="modal-heading">
+              <small>ORDER TRACKING</small>
 
-            <h2 style={modalTitleStyle}>
-              Track your order
-            </h2>
-
-            <div
-              style={{
-                padding: 18,
-                borderRadius: 18,
-                background: "#f7f3ff",
-                marginTop: 20,
-              }}
-            >
-              <span
-                style={{
-                  display: "block",
-                  color: "#777080",
-                  fontSize: 9,
-                  fontWeight: 800,
-                }}
-              >
-                TRACKING NUMBER
-              </span>
-
-              <strong
-                style={{
-                  display: "block",
-                  marginTop: 5,
-                  color: "#6d28d9",
-                  fontSize: 20,
-                  letterSpacing: 1,
-                }}
-              >
+              <h2>
                 {selectedOrder.tracking_number ||
-                  "Being generated"}
+                  "Tracking number pending"}
+              </h2>
+
+              <p>
+                {selectedOrder.created_at
+                  ? new Date(
+                      selectedOrder.created_at
+                    ).toLocaleString("en-NG")
+                  : ""}
+              </p>
+            </div>
+
+            <div className="tracking-status-box">
+              <span>Payment</span>
+              <strong>
+                {selectedOrder.payment_status ||
+                  "pending"}
+              </strong>
+
+              <span>Reference</span>
+              <strong>
+                {selectedOrder.payment_reference ||
+                  "—"}
+              </strong>
+
+              <span>Order status</span>
+              <strong>
+                {selectedOrder.status ||
+                  "pending"}
               </strong>
             </div>
 
-            {/* TIMELINE */}
-
-            <div
-              style={{
-                marginTop: 30,
-              }}
-            >
+            <div className="timeline">
               {trackingSteps.map(
-                ([title, text], index) => {
+                ([title, description], index) => {
                   const current =
-                    getTrackingStep(selectedOrder);
+                    getTrackingStep(
+                      selectedOrder
+                    );
 
-                  const done = index <= current;
+                  const completed =
+                    index + 1 <= current;
 
                   return (
                     <div
+                      className={
+                        completed
+                          ? "timeline-item completed"
+                          : "timeline-item"
+                      }
                       key={title}
-                      style={{
-                        display: "flex",
-                        gap: 14,
-                        minHeight:
-                          index ===
-                          trackingSteps.length - 1
-                            ? 55
-                            : 75,
-                      }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 27,
-                            height: 27,
-                            borderRadius: "50%",
-                            display: "grid",
-                            placeItems: "center",
-                            background: done
-                              ? "#6d28d9"
-                              : "#eee",
-                            color: done
-                              ? "#fff"
-                              : "#999",
-                            fontSize: 11,
-                            fontWeight: 900,
-                          }}
-                        >
-                          {done ? "✓" : index + 1}
-                        </div>
-
-                        {index <
-                          trackingSteps.length - 1 && (
-                          <div
-                            style={{
-                              width: 2,
-                              flex: 1,
-                              background:
-                                index <
-                                current
-                                  ? "#6d28d9"
-                                  : "#eee",
-                            }}
-                          />
-                        )}
+                      <div className="timeline-dot">
+                        {completed ? "✓" : ""}
                       </div>
 
                       <div>
-                        <strong
-                          style={{
-                            color: done
-                              ? "#17131d"
-                              : "#aaa",
-                          }}
-                        >
-                          {title}
-                        </strong>
-
-                        <p
-                          style={{
-                            margin:
-                              "4px 0 0",
-                            fontSize: 10,
-                            color:
-                              done
-                                ? "#777080"
-                                : "#aaa",
-                          }}
-                        >
-                          {text}
-                        </p>
+                        <b>{title}</b>
+                        <p>{description}</p>
                       </div>
                     </div>
                   );
@@ -3196,514 +2398,1348 @@ export default function App() {
               )}
             </div>
 
-            {/* ORDER DETAILS */}
-
-            <div
-              style={{
-                marginTop: 25,
-                paddingTop: 25,
-                borderTop:
-                  "1px solid #eee",
-              }}
-            >
+            <div className="order-details">
               <h3>Order details</h3>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "1fr 1fr",
-                  gap: 10,
-                  fontSize: 11,
-                }}
-              >
-                <div>
-                  <span
-                    style={{
-                      display: "block",
-                      color: "#999",
-                      fontSize: 8,
-                    }}
+              {(selectedOrder.items || []).map(
+                (item, index) => (
+                  <div
+                    className="detail-item"
+                    key={
+                      item.id ||
+                      `${item.product_id}-${index}`
+                    }
                   >
-                    ORDER DATE
-                  </span>
+                    <div>
+                      <b>
+                        {item.product?.name ||
+                          "Product"}
+                      </b>
 
-                  <strong>
-                    {selectedOrder.created_at
-                      ? new Date(
-                          selectedOrder.created_at
-                        ).toLocaleString(
-                          "en-NG"
-                        )
-                      : "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      display: "block",
-                      color: "#999",
-                      fontSize: 8,
-                    }}
-                  >
-                    PAYMENT
-                  </span>
-
-                  <strong>
-                    {String(
-                      selectedOrder.payment_status ||
-                        "pending"
-                    ).toUpperCase()}
-                  </strong>
-                </div>
-
-                <div
-                  style={{
-                    gridColumn:
-                      "1 / -1",
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "block",
-                      color: "#999",
-                      fontSize: 8,
-                    }}
-                  >
-                    PAYMENT REFERENCE
-                  </span>
-
-                  <strong>
-                    {selectedOrder.payment_reference ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div
-                  style={{
-                    gridColumn:
-                      "1 / -1",
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "block",
-                      color: "#999",
-                      fontSize: 8,
-                    }}
-                  >
-                    DELIVERY ADDRESS
-                  </span>
-
-                  <strong>
-                    {selectedOrder.delivery_address}
-                    {selectedOrder.delivery_city
-                      ? `, ${selectedOrder.delivery_city}`
-                      : ""}
-                    {selectedOrder.delivery_state
-                      ? `, ${String(
-                          selectedOrder.delivery_state
-                        ).replace("_", " ")}`
-                      : ""}
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            {/* ITEMS */}
-
-            <div
-              style={{
-                marginTop: 25,
-                paddingTop: 25,
-                borderTop:
-                  "1px solid #eee",
-              }}
-            >
-              <h3>Items purchased</h3>
-
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                {(selectedOrder.items || []).map(
-                  item => (
-                    <div
-                      key={item.id || item.product_id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "55px 1fr auto",
-                        gap: 12,
-                        alignItems:
-                          "center",
-                        padding:
-                          "10px 0",
-                        borderBottom:
-                          "1px solid #eee",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 55,
-                          height: 55,
-                          borderRadius: 12,
-                          background:
-                            "#f7f3ff",
-                        }}
-                      >
-                        {item.product?.image_url ? (
-                          <img
-                            src={
-                              item.product
-                                .image_url
-                            }
-                            alt={
-                              item.product
-                                .name
-                            }
-                            style={{
-                              width:
-                                "100%",
-                              height:
-                                "100%",
-                              objectFit:
-                                "contain",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              height:
-                                "100%",
-                              display:
-                                "grid",
-                              placeItems:
-                                "center",
-                              color:
-                                "#6d28d9",
-                              fontWeight:
-                                900,
-                            }}
-                          >
-                            S
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <strong>
-                          {item.product?.name ||
-                            "Product"}
-                        </strong>
-
-                        <span
-                          style={{
-                            display:
-                              "block",
-                            marginTop:
-                              4,
-                            color:
-                              "#777080",
-                            fontSize:
-                              10,
-                          }}
-                        >
-                          Quantity:{" "}
-                          {item.quantity}
-                        </span>
-
-                        <span
-                          style={{
-                            display:
-                              "block",
-                            color:
-                              "#777080",
-                            fontSize:
-                              10,
-                          }}
-                        >
-                          Unit price:{" "}
-                          {money(
-                            item.price
-                          )}
-                        </span>
-                      </div>
-
-                      <strong>
-                        {money(
-                          Number(
-                            item.price
-                          ) *
-                            Number(
-                              item.quantity
-                            )
-                        )}
-                      </strong>
+                      <span>
+                        Qty: {item.quantity} ×{" "}
+                        {money(item.price)}
+                      </span>
                     </div>
-                  )
-                )}
-              </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent:
-                    "space-between",
-                  marginTop: 18,
-                  fontSize: 16,
-                }}
-              >
-                <strong>Total</strong>
-
-                <strong
-                  style={{
-                    color: "#6d28d9",
-                  }}
-                >
-                  {money(
-                    selectedOrder.total
-                  )}
-                </strong>
-              </div>
+                    <strong>
+                      {money(
+                        Number(item.price || 0) *
+                          Number(
+                            item.quantity || 0
+                          )
+                      )}
+                    </strong>
+                  </div>
+                )
+              )}
             </div>
 
-            <button
-              onClick={() => {
-                setTrackingOpen(false);
-                setOrdersOpen(true);
-              }}
-              style={{
-                width: "100%",
-                marginTop: 25,
-                border:
-                  "1px solid #6d28d9",
-                background: "#fff",
-                color: "#6d28d9",
-                borderRadius: 12,
-                padding: 13,
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              ← Back to my orders
-            </button>
+            <div className="delivery-box">
+              <h3>Delivery address</h3>
+
+              <p>
+                {selectedOrder.customer_name}
+              </p>
+
+              <p>
+                {selectedOrder.customer_phone}
+              </p>
+
+              <p>
+                {selectedOrder.delivery_address}
+              </p>
+
+              <p>
+                {selectedOrder.delivery_city},{" "}
+                {selectedOrder.delivery_state}
+              </p>
+            </div>
+
+            <div className="tracking-total">
+              <span>Total paid</span>
+              <strong>
+                {money(selectedOrder.total)}
+              </strong>
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-/* =========================================================
-   CATEGORY ICON
-   ========================================================= */
+/* ===========================================================
+   RESPONSIVE CSS
+   Everything needed for mobile is included here so the
+   website cannot get stuck in desktop-only layout.
+=========================================================== */
 
-function categoryIcon(name) {
-  const v = String(name).toLowerCase();
-
-  if (v.includes("case")) return "◈";
-  if (v.includes("charger")) return "⚡";
-  if (v.includes("audio")) return "◉";
-  if (v.includes("power")) return "◒";
-  if (v.includes("watch")) return "⌚";
-  if (v.includes("cable")) return "⌁";
-  if (v.includes("ear")) return "◉";
-  if (v.includes("screen")) return "▣";
-  if (v.includes("phone")) return "▱";
-
-  return "✦";
+const globalCSS = `
+* {
+  box-sizing: border-box;
 }
 
-/* =========================================================
-   UI STYLES
-   ========================================================= */
+html {
+  scroll-behavior: smooth;
+}
 
-const navButtonStyle = {
-  border: 0,
-  background: "transparent",
-  fontWeight: 700,
-  fontSize: 11,
-  cursor: "pointer",
-};
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #211b29;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
 
-const kickerStyle = {
-  color: "#6d28d9",
-  fontSize: 9,
-  fontWeight: 900,
-  letterSpacing: 2.5,
-};
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
 
-const sectionTitleStyle = {
-  margin: "8px 0 30px",
-  fontSize: "clamp(31px,5vw,50px)",
-  lineHeight: 1,
-  letterSpacing: -2,
-  fontWeight: 900,
-  color: "#17131d",
-};
+button {
+  -webkit-tap-highlight-color: transparent;
+}
 
-const footerButtonStyle = {
-  border: "1px solid rgba(255,255,255,.12)",
-  background: "rgba(255,255,255,.05)",
-  color: "#fff",
-  borderRadius: 10,
-  padding: "10px 13px",
-  cursor: "pointer",
-};
+.loading-screen {
+  min-height: 100vh;
+  background: #09070d;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
 
-const overlayStyle = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 500,
-  background: "rgba(18,8,28,.68)",
-  backdropFilter: "blur(12px)",
-  display: "flex",
-  justifyContent: "flex-end",
-};
+.loading-screen span {
+  opacity: .55;
+  font-size: 12px;
+}
 
-const closeStyle = {
-  border: 0,
-  background: "#f3edff",
-  color: "#4c1d95",
-  width: 40,
-  height: 40,
-  borderRadius: "50%",
-  fontSize: 24,
-  cursor: "pointer",
-};
+.loading-logo {
+  width: 65px;
+  height: 65px;
+  border-radius: 20px;
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #4c1d95
+  );
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 900;
+}
 
-const emptyStyle = {
-  padding: "70px 20px",
-  textAlign: "center",
-  color: "#8a8090",
-};
+/* ================= FLOWING TOP ================= */
 
-const modalStyle = {
-  width: "min(460px,calc(100% - 30px))",
-  maxHeight: "92vh",
-  overflowY: "auto",
-  margin: "auto",
-  borderRadius: 25,
-  padding: 28,
-  position: "relative",
-  background: "#fff",
-};
+.announcement {
+  height: 34px;
+  overflow: hidden;
+  background: #32105f;
+  color: white;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
 
-const checkoutModalStyle = {
-  width: "min(560px,calc(100% - 25px))",
-  maxHeight: "92vh",
-  overflowY: "auto",
-  margin: "auto",
-  borderRadius: 25,
-  padding: 28,
-  position: "relative",
-  background: "#fff",
-};
+.announcement-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 18s linear infinite;
+}
 
-const ordersModalStyle = {
-  width: "min(650px,calc(100% - 25px))",
-  maxHeight: "85vh",
-  overflowY: "auto",
-  margin: "auto",
-  borderRadius: 25,
-  padding: 28,
-  position: "relative",
-  background: "#fff",
-};
+.announcement-track span {
+  padding-right: 70px;
+}
 
-const modalCloseStyle = {
-  position: "absolute",
-  top: 18,
-  right: 18,
-  width: 38,
-  height: 38,
-  border: 0,
-  borderRadius: "50%",
-  background: "#f3edff",
-  color: "#4c1d95",
-  fontSize: 22,
-  cursor: "pointer",
-};
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
 
-const modalTitleStyle = {
-  margin: "8px 0",
-  fontSize: 34,
-  lineHeight: 1,
-  color: "#17131d",
-};
+  to {
+    transform: translateX(-50%);
+  }
+}
 
-const labelStyle = {
-  display: "block",
-  color: "#6d6470",
-  fontSize: 10,
-  fontWeight: 800,
-  margin: "13px 0 6px",
-};
+/* ================= HEADER ================= */
 
-const inputStyle = {
-  width: "100%",
-  height: 45,
-  padding: "0 13px",
-  border: "1px solid rgba(54,29,78,.14)",
-  borderRadius: 11,
-  outline: 0,
-  background: "#faf9fd",
-  color: "#211b29",
-  boxSizing: "border-box",
-};
+.header {
+  height: 72px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 0 6%;
+  background: rgba(255,255,255,.94);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(54,29,78,.08);
+}
 
-const authButtonStyle = {
-  width: "100%",
-  marginTop: 18,
-  border: 0,
-  borderRadius: 12,
-  padding: 14,
-  background: "#6d28d9",
-  color: "#fff",
-  fontWeight: 800,
-  cursor: "pointer",
-};
+.logo-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
 
-const googleButtonStyle = {
-  width: "100%",
-  border: "1px solid rgba(54,29,78,.14)",
-  background: "#fff",
-  color: "#211b29",
-  borderRadius: 12,
-  padding: 13,
-  fontWeight: 800,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 10,
-};
+.logo-button b {
+  display: block;
+  color: #17131d;
+  font-size: 17px;
+  letter-spacing: -.5px;
+}
 
-const accountCardStyle = {
-  textAlign: "left",
-  border: "1px solid rgba(54,29,78,.1)",
-  borderRadius: 15,
-  padding: 15,
-  display: "flex",
-  flexDirection: "column",
-  gap: 7,
-  cursor: "pointer",
-  background: "#fff",
-};
+.logo-button small {
+  color: #6d28d9;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
 
-const checkoutButtonStyle = {
-  width: "100%",
-  border: 0,
-  background: "#6d28d9",
-  color: "#fff",
-  padding: 15,
-  borderRadius: 12,
-  fontWeight: 800,
-  cursor: "pointer",
-  marginTop: 18,
-};
+.desktop-nav {
+  display: flex;
+  gap: 25px;
+}
+
+.desktop-nav button {
+  border: 0;
+  background: transparent;
+  color: #4a4350;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.account-button,
+.cart-button {
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.account-button {
+  border: 1px solid rgba(54,29,78,.12);
+  background: white;
+}
+
+.cart-button {
+  border: 0;
+  background: #6d28d9;
+  color: white;
+}
+
+/* ================= HERO ================= */
+
+.hero {
+  min-height: 620px;
+  padding: 80px 7%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 50px;
+  background:
+    radial-gradient(
+      circle at 90% 20%,
+      rgba(109,40,217,.13),
+      transparent 35%
+    ),
+    #fff;
+}
+
+.hero-copy {
+  max-width: 760px;
+}
+
+.eyebrow {
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  margin-bottom: 18px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(50px, 8vw, 94px);
+  line-height: .94;
+  letter-spacing: -5px;
+  font-weight: 900;
+  color: #17131d;
+}
+
+.hero h1 em {
+  color: #6d28d9;
+  font-style: normal;
+}
+
+.hero-copy p {
+  max-width: 590px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #777080;
+  margin: 28px 0;
+}
+
+.primary-button {
+  border: 0;
+  background: #6d28d9;
+  color: white;
+  padding: 15px 22px;
+  border-radius: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform .2s, opacity .2s;
+}
+
+.primary-button:hover {
+  transform: translateY(-2px);
+}
+
+.primary-button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.primary-button.full {
+  width: 100%;
+}
+
+.hero-card {
+  flex: 0 0 310px;
+  min-height: 370px;
+  border-radius: 32px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: white;
+  background:
+    linear-gradient(
+      145deg,
+      #7c3aed,
+      #4c1d95 55%,
+      #24123e
+    );
+  box-shadow:
+    0 35px 70px rgba(76,29,149,.25);
+}
+
+.hero-card > span {
+  margin-bottom: auto;
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: 800;
+  opacity: .7;
+}
+
+.hero-card strong {
+  font-size: 27px;
+  line-height: 1.1;
+}
+
+.hero-line {
+  width: 50px;
+  height: 2px;
+  background: rgba(255,255,255,.7);
+  margin: 20px 0;
+}
+
+.hero-card p {
+  margin: 0;
+  opacity: .7;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ================= SECTIONS ================= */
+
+.categories-section,
+.shop-section {
+  padding: 75px 7%;
+}
+
+.categories-section {
+  background: #faf8fc;
+}
+
+.section-heading small,
+.shop-top small {
+  color: #6d28d9;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.section-heading h2,
+.shop-top h2 {
+  margin: 8px 0 0;
+  font-size: 36px;
+  letter-spacing: -2px;
+}
+
+.category-scroll {
+  margin-top: 30px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 5px;
+}
+
+.category-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.category {
+  flex: 0 0 auto;
+  border: 1px solid rgba(54,29,78,.12);
+  background: white;
+  color: #514858;
+  border-radius: 999px;
+  padding: 12px 17px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.category.active {
+  background: #6d28d9;
+  border-color: #6d28d9;
+  color: white;
+}
+
+.shop-top {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 25px;
+  margin-bottom: 35px;
+}
+
+.search {
+  width: 280px;
+  max-width: 100%;
+  border: 1px solid #e5dfeb;
+  border-radius: 999px;
+  padding: 13px 17px;
+  outline: none;
+}
+
+.search:focus {
+  border-color: #6d28d9;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.product-card {
+  overflow: hidden;
+  border: 1px solid #eee9f1;
+  border-radius: 20px;
+  background: white;
+  transition:
+    transform .2s,
+    box-shadow .2s;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 20px 45px rgba(30,15,45,.09);
+}
+
+.product-image {
+  position: relative;
+  height: 260px;
+  background: #f5f1f8;
+  overflow: hidden;
+}
+
+.product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 45px;
+  font-weight: 900;
+  color: #6d28d9;
+}
+
+.sold-out {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #17131d;
+  color: white;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.product-info {
+  padding: 18px;
+}
+
+.product-info small {
+  color: #6d28d9;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.product-info h3 {
+  margin: 7px 0;
+  font-size: 16px;
+}
+
+.product-info p {
+  color: #837b88;
+  font-size: 11px;
+  line-height: 1.5;
+  min-height: 34px;
+}
+
+.product-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.product-bottom strong {
+  font-size: 15px;
+}
+
+.product-bottom button {
+  border: 0;
+  background: #17131d;
+  color: white;
+  border-radius: 9px;
+  padding: 9px 10px;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.product-bottom button:disabled {
+  opacity: .4;
+}
+
+/* ================= FOOTER ================= */
+
+.footer {
+  background: #17131d;
+  color: white;
+  padding: 55px 7%;
+}
+
+.footer b {
+  display: block;
+  font-size: 20px;
+}
+
+.footer span {
+  color: #a855f7;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.footer p {
+  color: #aaa1b0;
+  font-size: 12px;
+}
+
+.footer small {
+  color: #6f6775;
+}
+
+/* ================= OVERLAY / MODALS ================= */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(12,7,17,.62);
+  backdrop-filter: blur(7px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.modal {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: white;
+  border-radius: 25px;
+  padding: 30px;
+  box-shadow:
+    0 30px 90px rgba(0,0,0,.25);
+}
+
+.close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: #f4f1f6;
+  font-size: 23px;
+  cursor: pointer;
+}
+
+.modal-heading {
+  margin-bottom: 25px;
+  padding-right: 35px;
+}
+
+.modal-heading small {
+  color: #6d28d9;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.modal-heading h2 {
+  margin: 7px 0;
+  font-size: 30px;
+  letter-spacing: -1.5px;
+}
+
+.modal-heading p {
+  margin: 0;
+  color: #817987;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+label {
+  display: block;
+  margin-bottom: 14px;
+  color: #39313e;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+label input,
+label textarea,
+label select {
+  width: 100%;
+  margin-top: 7px;
+  border: 1px solid #e4dfe7;
+  border-radius: 11px;
+  background: white;
+  padding: 13px;
+  outline: none;
+  color: #211b29;
+}
+
+label textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+label input:focus,
+label textarea:focus,
+label select:focus {
+  border-color: #6d28d9;
+}
+
+.secondary-button {
+  margin-top: 10px;
+  border: 1px solid #e4dfe7;
+  background: white;
+  color: #211b29;
+  padding: 13px;
+  border-radius: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.secondary-button.full {
+  width: 100%;
+}
+
+.logout-button {
+  width: 100%;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: #dc2626;
+  padding: 12px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.google-button {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid #e3dfe5;
+  background: white;
+  border-radius: 11px;
+  padding: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.switch-auth {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #6d28d9;
+  margin-top: 17px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.form-message {
+  background: #faf2ff;
+  color: #5b21b6;
+  border: 1px solid #ead7fb;
+  border-radius: 10px;
+  padding: 11px;
+  margin: 12px 0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* ================= CART ================= */
+
+.cart-modal {
+  width: min(650px, 100%);
+}
+
+.cart-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cart-item {
+  display: grid;
+  grid-template-columns: 65px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #eee9f1;
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.cart-item-image {
+  width: 65px;
+  height: 65px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #f4f0f6;
+  display: grid;
+  place-items: center;
+  color: #6d28d9;
+  font-weight: 900;
+}
+
+.cart-item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cart-item-details {
+  min-width: 0;
+}
+
+.cart-item-details b {
+  display: block;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cart-item-details > span {
+  display: block;
+  color: #6d28d9;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.quantity {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 8px;
+  border: 1px solid #e8e2eb;
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.quantity button {
+  border: 0;
+  background: #f4f1f6;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.cart-item-right {
+  text-align: right;
+}
+
+.cart-item-right b {
+  display: block;
+  font-size: 12px;
+}
+
+.remove {
+  border: 0;
+  background: transparent;
+  color: #dc2626;
+  font-size: 8px;
+  font-weight: 900;
+  margin-top: 7px;
+  cursor: pointer;
+}
+
+.cart-total,
+.tracking-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 0;
+  margin-top: 15px;
+  border-top: 1px solid #eee9f1;
+}
+
+.cart-total strong,
+.tracking-total strong {
+  font-size: 20px;
+}
+
+.empty-cart,
+.empty-products {
+  text-align: center;
+  padding: 50px 20px;
+}
+
+.empty-cart > div {
+  font-size: 35px;
+}
+
+.empty-cart h3 {
+  margin: 12px 0 5px;
+}
+
+.empty-cart p,
+.empty-products p {
+  color: #837b88;
+  font-size: 12px;
+}
+
+/* ================= CHECKOUT ================= */
+
+.checkout-modal {
+  width: min(680px, 100%);
+}
+
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.checkout-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin: 20px 0;
+  padding: 18px;
+  background: #faf8fc;
+  border-radius: 15px;
+  font-size: 11px;
+}
+
+.checkout-summary strong {
+  color: #6d28d9;
+  font-size: 20px;
+}
+
+.pay-button {
+  padding: 16px;
+}
+
+.secure-note {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+  color: #8b8390;
+  font-size: 9px;
+}
+
+/* ================= ORDERS ================= */
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.order-card {
+  position: relative;
+  width: 100%;
+  border: 1px solid #eee8f1;
+  background: white;
+  border-radius: 15px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr auto 20px;
+  gap: 10px;
+  align-items: center;
+}
+
+.order-card:hover {
+  border-color: #c8a7e8;
+}
+
+.order-card small {
+  display: block;
+  color: #8b8290;
+  font-size: 8px;
+  margin-bottom: 5px;
+}
+
+.order-card b {
+  display: block;
+  font-size: 14px;
+}
+
+.status {
+  display: inline-block;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.status.paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.order-arrow {
+  font-size: 20px;
+  color: #6d28d9;
+}
+
+/* ================= TRACKING ================= */
+
+.tracking-modal {
+  width: min(650px, 100%);
+}
+
+.tracking-status-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: #faf8fc;
+  border-radius: 15px;
+  padding: 16px;
+  margin-bottom: 25px;
+}
+
+.tracking-status-box span {
+  color: #8b8290;
+  font-size: 9px;
+}
+
+.tracking-status-box strong {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.timeline {
+  margin: 10px 0 25px;
+}
+
+.timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  min-height: 75px;
+}
+
+.timeline-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  width: 2px;
+  left: 16px;
+  top: 34px;
+  bottom: 0;
+  background: #e6e0e9;
+}
+
+.timeline-item.completed:not(:last-child)::after {
+  background: #8b5cf6;
+}
+
+.timeline-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #eee9f2;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+  z-index: 1;
+}
+
+.timeline-item.completed .timeline-dot {
+  background: #6d28d9;
+}
+
+.timeline-item b {
+  font-size: 12px;
+}
+
+.timeline-item p {
+  color: #8b8290;
+  font-size: 10px;
+  margin: 5px 0 0;
+  line-height: 1.5;
+}
+
+.order-details,
+.delivery-box {
+  border-top: 1px solid #eee9f1;
+  padding-top: 20px;
+  margin-top: 20px;
+}
+
+.order-details h3,
+.delivery-box h3 {
+  font-size: 13px;
+  margin-top: 0;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1edf3;
+}
+
+.detail-item b {
+  display: block;
+  font-size: 11px;
+}
+
+.detail-item span {
+  display: block;
+  color: #8b8290;
+  font-size: 9px;
+  margin-top: 4px;
+}
+
+.detail-item > strong {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.delivery-box p {
+  margin: 4px 0;
+  color: #665d6b;
+  font-size: 10px;
+}
+
+.notice {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background: #17131d;
+  color: white;
+  padding: 13px 18px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: 0 15px 40px rgba(0,0,0,.25);
+  max-width: calc(100% - 30px);
+  text-align: center;
+}
+
+/* ===========================================================
+   MOBILE
+=========================================================== */
+
+@media (max-width: 900px) {
+  .header {
+    padding: 0 4%;
+  }
+
+  .desktop-nav {
+    display: none;
+  }
+
+  .hero {
+    min-height: auto;
+    padding: 60px 5%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 35px;
+  }
+
+  .hero h1 {
+    font-size: clamp(47px, 15vw, 75px);
+    letter-spacing: -4px;
+  }
+
+  .hero-card {
+    width: 100%;
+    min-height: 330px;
+    flex-basis: auto;
+  }
+
+  .product-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .product-image {
+    height: 210px;
+  }
+
+  .categories-section,
+  .shop-section {
+    padding: 55px 5%;
+  }
+
+  .shop-top {
+    display: block;
+  }
+
+  .search {
+    width: 100%;
+    margin-top: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .announcement {
+    height: 30px;
+    font-size: 8px;
+  }
+
+  .header {
+    height: 62px;
+  }
+
+  .logo-button b {
+    font-size: 15px;
+  }
+
+  .account-button,
+  .cart-button {
+    padding: 8px 11px;
+  }
+
+  .hero {
+    padding: 50px 5% 45px;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+    letter-spacing: -3px;
+  }
+
+  .hero-copy p {
+    font-size: 14px;
+  }
+
+  .hero-card {
+    min-height: 280px;
+    padding: 25px;
+    border-radius: 25px;
+  }
+
+  .hero-card strong {
+    font-size: 23px;
+  }
+
+  .section-heading h2,
+  .shop-top h2 {
+    font-size: 30px;
+  }
+
+  .product-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .product-image {
+    height: 175px;
+  }
+
+  .product-info {
+    padding: 12px;
+  }
+
+  .product-info h3 {
+    font-size: 13px;
+  }
+
+  .product-info p {
+    font-size: 9px;
+    min-height: 28px;
+  }
+
+  .product-bottom {
+    display: block;
+  }
+
+  .product-bottom strong {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .product-bottom button {
+    width: 100%;
+  }
+
+  .overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 94vh;
+    border-radius: 25px 25px 0 0;
+    padding: 24px 18px;
+  }
+
+  .modal-heading h2 {
+    font-size: 25px;
+  }
+
+  .checkout-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .cart-item {
+    grid-template-columns: 55px 1fr;
+  }
+
+  .cart-item-image {
+    width: 55px;
+    height: 55px;
+  }
+
+  .cart-item-right {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .tracking-status-box {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .order-card {
+    grid-template-columns: 1fr auto;
+  }
+
+  .order-arrow {
+    display: none;
+  }
+
+  .notice {
+    bottom: 15px;
+    border-radius: 14px;
+    width: calc(100% - 30px);
+  }
+}
+
+@media (max-width: 380px) {
+  .header-actions {
+    gap: 4px;
+  }
+
+  .account-button,
+  .cart-button {
+    font-size: 9px;
+    padding: 8px 9px;
+  }
+
+  .hero h1 {
+    font-size: 42px;
+  }
+
+  .product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-image {
+    height: 240px;
+  }
+}
+`;
