@@ -3582,4 +3582,72 @@ label select:focus {
     padding: 24px 18px;
   }
 
-  .modal-heading h
+  .modal-heading h2 {
+    font-size: 25px;
+  }
+
+  .checkout-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .cart-item {
+    grid-template-columns: 55px 1fr;
+  }
+
+  .cart-item-image {
+    width: 55px;
+    height: 55px;
+  }
+
+  .cart-item-right {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .tracking-status-box {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .order-card {
+    grid-template-columns: 1fr auto;
+  }
+
+  .order-arrow {
+    display: none;
+  }
+
+  .notice {
+    bottom: 15px;
+    border-radius: 14px;
+    width: calc(100% - 30px);
+  }
+}
+
+@media (max-width: 380px) {
+  .header-actions {
+    gap: 4px;
+  }
+
+  .account-button,
+  .cart-button {
+    font-size: 9px;
+    padding: 8px 9px;
+  }
+
+  .hero h1 {
+    font-size: 42px;
+  }
+
+  .product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-image {
+    height: 240px;
+  }
+}
+`;
