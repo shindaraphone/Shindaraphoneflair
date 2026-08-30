@@ -1,4 +1,4 @@
-// App.js - Complete Redesigned Version (Copy and paste this entire file)
+// App.js - Complete Redesign with Fixed Payment
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
@@ -24,7 +24,7 @@ const generateTrackingNumber = () =>
     .toUpperCase()}`;
 
 /* =========================================================
-   NIGERIA STATES + CITIES (COMPLETE)
+   NIGERIA LOCATIONS
    ========================================================= */
 const NIGERIA_LOCATIONS = {
   Abia: ["Aba", "Arochukwu", "Bende", "Ikwuano", "Isiala Ngwa", "Isuikwuato", "Obi Ngwa", "Ohafia", "Osisioma", "Umuahia", "Umunneochi"],
@@ -84,37 +84,37 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   
-  const [modal, setModal] = useState(null); // null, 'cart', 'account', 'checkout', 'orders', 'tracking', 'product', 'settings'
+  const [activeModal, setActiveModal] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [notice, setNotice] = useState("");
+  const [notification, setNotification] = useState("");
   
   const [authMode, setAuthMode] = useState("login");
-  const [authMessage, setAuthMessage] = useState("");
+  const [authError, setAuthError] = useState("");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authFullName, setAuthFullName] = useState("");
   const [authPhone, setAuthPhone] = useState("");
   
-  const [checkoutData, setCheckoutData] = useState({
-    customer_name: "",
-    customer_phone: "",
-    customer_email: "",
-    delivery_address: "",
-    delivery_state: "",
-    delivery_city: "",
+  const [checkout, setCheckout] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    state: "",
+    city: "",
   });
-  const [checkoutMessage, setCheckoutMessage] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
   
   const [theme, setTheme] = useState(() => localStorage.getItem("shindara-theme") || "device");
   
   // ===== REFS =====
-  const noticeTimerRef = useRef(null);
-  const paymentCallbackRef = useRef(null);
-  const paymentCloseRef = useRef(null);
+  const notificationTimer = useRef(null);
+  const paystackCallback = useRef(null);
+  const paystackClose = useRef(null);
 
   // ===== COMPUTED =====
   const cartTotal = useMemo(() => 
@@ -127,11 +127,11 @@ export default function App() {
     [cart]
   );
 
-  // ===== NOTICE =====
-  const showNotice = useCallback((message) => {
-    setNotice(message);
-    clearTimeout(noticeTimerRef.current);
-    noticeTimerRef.current = setTimeout(() => setNotice(""), 3500);
+  // ===== NOTIFICATION =====
+  const showNotification = useCallback((message) => {
+    setNotification(message);
+    clearTimeout(notificationTimer.current);
+    notificationTimer.current = setTimeout(() => setNotification(""), 3500);
   }, []);
 
   // ===== THEME =====
@@ -152,11 +152,10 @@ export default function App() {
     setCartLoading(true);
     const { data, error } = await supabase
       .from("cart_items")
-      .select(`id, user_id, product_id, quantity, products:product_id (id, name, price, image_url, description, category, stock)`)
-      .eq("user_id", userId)
-      .order("id");
-    if (!error) {
-      const formatted = (data || [])
+      .select(`*, products:product_id (*)`)
+      .eq("user_id", userId);
+    if (!error && data) {
+      const formatted = data
         .filter(item => item.products)
         .map(item => ({
           ...item,
@@ -170,35 +169,39 @@ export default function App() {
 
   const loadOrders = useCallback(async (userId) => {
     if (!userId) return;
-    const { data: orderData, error } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-    if (!error) {
-      const completeOrders = await Promise.all(
-        (orderData || []).map(async (order) => {
+    if (!error && data) {
+      const withItems = await Promise.all(
+        data.map(async (order) => {
           const { data: items } = await supabase
             .from("order_items")
-            .select(`id, order_id, product_id, quantity, price, products:product_id (id, name, image_url, category, description)`)
+            .select(`*, products:product_id (*)`)
             .eq("order_id", order.id);
-          return { ...order, items: (items || []).map(item => ({ ...item, product: item.products })) };
+          return { ...order, items: items || [] };
         })
       );
-      setOrders(completeOrders);
+      setOrders(withItems);
     }
   }, []);
 
   const loadProfile = useCallback(async (userId) => {
     if (!userId) return;
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
     if (!error && data) {
       setProfile(data);
-      setCheckoutData(prev => ({
+      setCheckout(prev => ({
         ...prev,
-        customer_name: data.full_name || "",
-        customer_phone: data.phone || "",
-        customer_email: data.email || "",
+        name: data.full_name || "",
+        phone: data.phone || "",
+        email: data.email || "",
       }));
     }
   }, []);
@@ -250,13 +253,13 @@ export default function App() {
   // ===== CART OPERATIONS =====
   const addToCart = useCallback(async (product) => {
     if (!user) {
-      setModal("account");
+      setActiveModal("auth");
       setAuthMode("login");
-      showNotice("Please sign in first.");
+      showNotification("Please sign in first.");
       return;
     }
     if (Number(product.stock || 0) <= 0) {
-      showNotice("Out of stock.");
+      showNotification("Out of stock.");
       return;
     }
 
@@ -264,16 +267,22 @@ export default function App() {
     if (existing) {
       const nextQty = Number(existing.quantity) + 1;
       if (nextQty > Number(product.stock)) {
-        showNotice("Cannot exceed available stock.");
+        showNotification("Cannot exceed available stock.");
         return;
       }
-      await supabase.from("cart_items").update({ quantity: nextQty }).eq("id", existing.id).eq("user_id", user.id);
+      await supabase
+        .from("cart_items")
+        .update({ quantity: nextQty })
+        .eq("id", existing.id)
+        .eq("user_id", user.id);
     } else {
-      await supabase.from("cart_items").insert({ user_id: user.id, product_id: product.id, quantity: 1 });
+      await supabase
+        .from("cart_items")
+        .insert({ user_id: user.id, product_id: product.id, quantity: 1 });
     }
     await loadCart(user.id);
-    showNotice(`${product.name} added to cart!`);
-  }, [user, cart, loadCart, showNotice]);
+    showNotification(`${product.name} added to cart!`);
+  }, [user, cart, loadCart, showNotification]);
 
   const updateQuantity = useCallback(async (item, change) => {
     if (!user) return;
@@ -281,23 +290,27 @@ export default function App() {
     if (nextQty <= 0) {
       await supabase.from("cart_items").delete().eq("id", item.id).eq("user_id", user.id);
       await loadCart(user.id);
-      showNotice("Item removed.");
+      showNotification("Item removed.");
       return;
     }
     if (item.product && Number(item.product.stock || 0) < nextQty) {
-      showNotice("Cannot exceed available stock.");
+      showNotification("Cannot exceed available stock.");
       return;
     }
-    await supabase.from("cart_items").update({ quantity: nextQty }).eq("id", item.id).eq("user_id", user.id);
+    await supabase
+      .from("cart_items")
+      .update({ quantity: nextQty })
+      .eq("id", item.id)
+      .eq("user_id", user.id);
     await loadCart(user.id);
-  }, [user, loadCart, showNotice]);
+  }, [user, loadCart, showNotification]);
 
   const removeFromCart = useCallback(async (item) => {
     if (!user) return;
     await supabase.from("cart_items").delete().eq("id", item.id).eq("user_id", user.id);
     await loadCart(user.id);
-    showNotice("Item removed.");
-  }, [user, loadCart, showNotice]);
+    showNotification("Item removed.");
+  }, [user, loadCart, showNotification]);
 
   const clearCart = useCallback(async () => {
     if (!user) return false;
@@ -310,20 +323,20 @@ export default function App() {
   const handleAuth = useCallback(async (e) => {
     e.preventDefault();
     setAuthLoading(true);
-    setAuthMessage("");
+    setAuthError("");
     try {
       if (!authEmail.trim() || !authPassword) {
-        setAuthMessage("Please enter email and password.");
+        setAuthError("Please enter email and password.");
         return;
       }
       if (authPassword.length < 6) {
-        setAuthMessage("Password must be at least 6 characters.");
+        setAuthError("Password must be at least 6 characters.");
         return;
       }
 
       if (authMode === "signup") {
         if (!authFullName.trim() || !authPhone.trim()) {
-          setAuthMessage("Please enter your full name and phone number.");
+          setAuthError("Please enter your full name and phone number.");
           return;
         }
         const { data, error } = await supabase.auth.signUp({
@@ -341,10 +354,10 @@ export default function App() {
           });
         }
         if (data?.session) {
-          setModal(null);
-          showNotice("Account created!");
+          setActiveModal(null);
+          showNotification("Account created!");
         } else {
-          setAuthMessage("Check your email for verification.");
+          setAuthError("Check your email for verification.");
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -353,16 +366,16 @@ export default function App() {
         });
         if (error) throw new Error(error.message);
         if (data?.user) {
-          setModal(null);
-          showNotice("Welcome back!");
+          setActiveModal(null);
+          showNotification("Welcome back!");
         }
       }
     } catch (error) {
-      setAuthMessage(error.message);
+      setAuthError(error.message);
     } finally {
       setAuthLoading(false);
     }
-  }, [authEmail, authPassword, authFullName, authPhone, authMode, showNotice]);
+  }, [authEmail, authPassword, authFullName, authPhone, authMode, showNotification]);
 
   const handleGoogleLogin = useCallback(async () => {
     setAuthLoading(true);
@@ -373,21 +386,21 @@ export default function App() {
       });
       if (error) throw new Error(error.message);
     } catch (error) {
-      setAuthMessage(error.message);
+      setAuthError(error.message);
     } finally {
       setAuthLoading(false);
     }
   }, []);
 
-  const logout = useCallback(async () => {
+  const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
     setCart([]);
     setOrders([]);
-    setModal(null);
-    showNotice("Signed out.");
-  }, [showNotice]);
+    setActiveModal(null);
+    showNotification("Signed out.");
+  }, [showNotification]);
 
   // ===== PAYMENT =====
   const loadPaystack = useCallback(() => {
@@ -396,16 +409,16 @@ export default function App() {
         resolve(true);
         return;
       }
-      const existingScript = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
-      if (existingScript) {
-        const checkInterval = setInterval(() => {
+      const existing = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
+      if (existing) {
+        const interval = setInterval(() => {
           if (window.PaystackPop) {
-            clearInterval(checkInterval);
+            clearInterval(interval);
             resolve(true);
           }
         }, 200);
         setTimeout(() => {
-          clearInterval(checkInterval);
+          clearInterval(interval);
           reject(new Error("Paystack load timeout"));
         }, 10000);
         return;
@@ -419,25 +432,31 @@ export default function App() {
     });
   }, []);
 
-  // Payment callback handler
-  const handlePaymentCallback = useCallback(async (response) => {
-    console.log("Payment callback:", response);
+  // FIXED: Payment callback as a separate function
+  const onPaymentSuccess = useCallback(async (response) => {
+    console.log("Payment successful:", response);
     const ref = response?.reference || response?.trxref || "";
+    
     if (!ref) {
-      setCheckoutMessage("No payment reference received.");
+      setCheckoutError("No payment reference received.");
       setProcessingPayment(false);
       return;
     }
 
     try {
-      // Check duplicate
-      const { data: existing } = await supabase.from("orders").select("*").eq("payment_reference", ref).maybeSingle();
+      // Check for duplicate
+      const { data: existing } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("payment_reference", ref)
+        .maybeSingle();
+      
       if (existing) {
         await loadOrders(user.id);
         await clearCart();
-        setModal(null);
+        setActiveModal(null);
         setProcessingPayment(false);
-        showNotice("Payment already recorded!");
+        showNotification("Payment already recorded!");
         return;
       }
 
@@ -445,12 +464,12 @@ export default function App() {
       const trackingNumber = generateTrackingNumber();
       const orderPayload = {
         user_id: user.id,
-        customer_name: checkoutData.customer_name.trim(),
-        customer_phone: checkoutData.customer_phone.trim(),
-        customer_email: checkoutData.customer_email.trim(),
-        delivery_address: checkoutData.delivery_address.trim(),
-        delivery_state: checkoutData.delivery_state,
-        delivery_city: checkoutData.delivery_city,
+        customer_name: checkout.name.trim(),
+        customer_phone: checkout.phone.trim(),
+        customer_email: checkout.email.trim(),
+        delivery_address: checkout.address.trim(),
+        delivery_state: checkout.state,
+        delivery_city: checkout.city,
         total: Number(cartTotal),
         payment_status: "paid",
         payment_reference: ref,
@@ -458,9 +477,14 @@ export default function App() {
         tracking_number: trackingNumber,
       };
 
-      const { data: order, error: orderError } = await supabase.from("orders").insert(orderPayload).select().single();
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert(orderPayload)
+        .select()
+        .single();
+
       if (orderError || !order) {
-        setCheckoutMessage(`Payment received but order not saved. Reference: ${ref}`);
+        setCheckoutError(`Payment received but order not saved. Reference: ${ref}`);
         setProcessingPayment(false);
         return;
       }
@@ -480,7 +504,10 @@ export default function App() {
           const currentStock = Number(item.product?.stock || 0);
           const qty = Number(item.quantity || 0);
           if (currentStock >= qty) {
-            await supabase.from("products").update({ stock: currentStock - qty }).eq("id", item.product_id);
+            await supabase
+              .from("products")
+              .update({ stock: currentStock - qty })
+              .eq("id", item.product_id);
           }
         } catch (e) { console.warn("Stock update skipped:", e); }
       }
@@ -489,50 +516,56 @@ export default function App() {
       await loadOrders(user.id);
       await loadProducts();
 
-      const { data: freshOrder } = await supabase.from("orders").select("*").eq("id", order.id).single();
+      const { data: freshOrder } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("id", order.id)
+        .single();
+
       setSelectedOrder(freshOrder || order);
-      setModal("tracking");
+      setActiveModal("tracking");
       setProcessingPayment(false);
-      showNotice("Payment successful! 🎉");
+      showNotification("Payment successful! 🎉");
     } catch (error) {
       console.error("Payment completion error:", error);
-      setCheckoutMessage("Error completing payment. Please contact support.");
+      setCheckoutError("Error completing payment. Please contact support.");
       setProcessingPayment(false);
     }
-  }, [user, cart, cartTotal, checkoutData, clearCart, loadOrders, loadProducts, showNotice]);
+  }, [user, cart, cartTotal, checkout, clearCart, loadOrders, loadProducts, showNotification]);
 
-  // Payment close handler
-  const handlePaymentClose = useCallback(() => {
+  // FIXED: Payment close handler
+  const onPaymentClose = useCallback(() => {
     console.log("Payment closed");
     setProcessingPayment(false);
-    setCheckoutMessage("Payment was cancelled.");
+    setCheckoutError("Payment was cancelled.");
   }, []);
 
-  // Setup payment
+  // FIXED: Payment initialization
   const handlePayment = useCallback(async (e) => {
     e.preventDefault();
+    
     if (processingPayment) return;
     if (!user) {
-      setCheckoutMessage("Please sign in.");
+      setCheckoutError("Please sign in.");
       return;
     }
     if (!cart.length) {
-      setCheckoutMessage("Your cart is empty.");
+      setCheckoutError("Your cart is empty.");
       return;
     }
 
     // Validate fields
     const required = [
-      ["customer_name", "full name"],
-      ["customer_phone", "phone number"],
-      ["customer_email", "email"],
-      ["delivery_address", "delivery address"],
-      ["delivery_state", "state"],
-      ["delivery_city", "city"],
+      ["name", "full name"],
+      ["phone", "phone number"],
+      ["email", "email"],
+      ["address", "delivery address"],
+      ["state", "state"],
+      ["city", "city"],
     ];
     for (const [field, label] of required) {
-      if (!String(checkoutData[field] || "").trim()) {
-        setCheckoutMessage(`Please enter your ${label}.`);
+      if (!String(checkout[field] || "").trim()) {
+        setCheckoutError(`Please enter your ${label}.`);
         return;
       }
     }
@@ -540,14 +573,14 @@ export default function App() {
     // Check stock
     for (const item of cart) {
       if (Number(item.product?.stock || 0) < Number(item.quantity || 0)) {
-        setCheckoutMessage(`${item.product?.name || "Product"} is out of stock.`);
+        setCheckoutError(`${item.product?.name || "Product"} is out of stock.`);
         await loadCart(user.id);
         return;
       }
     }
 
     setProcessingPayment(true);
-    setCheckoutMessage("Loading payment...");
+    setCheckoutError("Loading payment...");
 
     try {
       await loadPaystack();
@@ -556,55 +589,60 @@ export default function App() {
       const reference = `SHP-${user.id.slice(0,8)}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
       const amount = Math.round(Number(cartTotal) * 100);
 
-      paymentCallbackRef.current = handlePaymentCallback;
-      paymentCloseRef.current = handlePaymentClose;
+      // Store callbacks in refs
+      paystackCallback.current = onPaymentSuccess;
+      paystackClose.current = onPaymentClose;
 
       const handler = window.PaystackPop.setup({
         key: CONFIG.PAYSTACK_KEY,
-        email: checkoutData.customer_email.trim(),
+        email: checkout.email.trim(),
         amount: amount,
         currency: "NGN",
         ref: reference,
         metadata: {
           custom_fields: [
-            { display_name: "Customer Name", variable_name: "customer_name", value: checkoutData.customer_name.trim() },
-            { display_name: "Customer Phone", variable_name: "customer_phone", value: checkoutData.customer_phone.trim() },
+            { display_name: "Customer Name", variable_name: "customer_name", value: checkout.name.trim() },
+            { display_name: "Customer Phone", variable_name: "customer_phone", value: checkout.phone.trim() },
             { display_name: "User ID", variable_name: "user_id", value: user.id },
           ],
         },
-        callback: paymentCallbackRef.current,
-        onClose: paymentCloseRef.current,
+        callback: paystackCallback.current,
+        onClose: paystackClose.current,
       });
 
       handler.openIframe();
     } catch (error) {
       console.error("Payment error:", error);
-      setCheckoutMessage(error.message || "Payment could not be started.");
+      setCheckoutError(error.message || "Payment could not be started.");
       setProcessingPayment(false);
     }
-  }, [user, cart, cartTotal, checkoutData, processingPayment, loadCart, loadPaystack, handlePaymentCallback, handlePaymentClose]);
+  }, [user, cart, cartTotal, checkout, processingPayment, loadCart, loadPaystack, onPaymentSuccess, onPaymentClose]);
 
   // ===== FILTERS =====
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter(product => {
-      const matchesCategory = category === "All" || 
+      const matchCategory = category === "All" || 
         product.category?.toLowerCase().includes(category.toLowerCase()) ||
         (category === "Audio" && /(airpod|earbud|headphone|speaker)/i.test(product.category || ""));
-      const searchable = [product.name, product.description, product.category].map(v => String(v || "").toLowerCase()).join(" ");
-      return matchesCategory && (!q || searchable.includes(q));
+      const matchSearch = !q || 
+        [product.name, product.description, product.category]
+          .map(v => String(v || "").toLowerCase())
+          .join(" ")
+          .includes(q);
+      return matchCategory && matchSearch;
     });
   }, [products, category, search]);
 
   // ===== HELPERS =====
-  const getProductImage = useCallback((product) => product?.image_url || product?.image || product?.imageUrl || "", []);
+  const getImage = useCallback((product) => product?.image_url || product?.image || product?.imageUrl || "", []);
   const formatDate = useCallback((date) => {
     if (!date) return "—";
     try { return new Date(date).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }); }
     catch { return String(date); }
   }, []);
 
-  const getTrackingStep = useCallback((order) => {
+  const getStep = useCallback((order) => {
     const status = String(order?.status || "pending").toLowerCase();
     const payment = String(order?.payment_status || "pending").toLowerCase();
     if (payment !== "paid") return 0;
@@ -617,15 +655,15 @@ export default function App() {
     return 2;
   }, []);
 
-  const scrollTo = useCallback((id) => {
+  const scrollToSection = useCallback((id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   // ===== MODAL COMPONENT =====
   const Modal = ({ children, onClose }) => (
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <button className="close" onClick={onClose}>×</button>
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-container">
+        <button className="modal-close" onClick={onClose}>✕</button>
         {children}
       </div>
     </div>
@@ -635,9 +673,9 @@ export default function App() {
   if (loading) {
     return (
       <div className="loading-screen">
-        <div className="loading-logo">S</div>
-        <strong>SHINDARA PHONEFLAIR</strong>
-        <span>Loading store...</span>
+        <div className="loading-spinner">S</div>
+        <h2>SHINDARA PHONEFLAIR</h2>
+        <p>Loading store...</p>
       </div>
     );
   }
@@ -646,182 +684,200 @@ export default function App() {
   // RENDER
   // =========================================================
   return (
-    <div className="app-shell">
-      {/* ANNOUNCEMENT */}
-      <div className="announcement">
+    <div className="app">
+      {/* ANNOUNCEMENT BAR */}
+      <div className="announcement-bar">
         <div className="announcement-track">
-          <span>SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY •</span>
-          <span aria-hidden="true">SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY •</span>
+          <span>✦ SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY ✦</span>
+          <span aria-hidden="true">✦ SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY ✦</span>
         </div>
       </div>
 
       {/* HEADER */}
       <header className="header">
-        <button className="logo-button" onClick={() => scrollTo("top")}>
-          <b>SHINDARA</b>
-          <span className="logo-tagline">PHONEFLAIR</span>
+        <button className="brand" onClick={() => scrollToSection("top")}>
+          <strong>SHINDARA</strong>
+          <span>PHONEFLAIR</span>
         </button>
 
-        <nav className="desktop-nav">
-          <button onClick={() => scrollTo("categories")}>Categories</button>
-          <button onClick={() => scrollTo("shop")}>Shop</button>
-          {user && <button onClick={() => setModal("orders")}>Orders</button>}
+        <nav className="nav-links">
+          <button onClick={() => scrollToSection("categories")}>Categories</button>
+          <button onClick={() => scrollToSection("shop")}>Shop</button>
+          {user && <button onClick={() => setActiveModal("orders")}>Orders</button>}
         </nav>
 
         <div className="header-actions">
-          <button className="account-button" onClick={() => {
-            if (user) setModal("settings");
-            else { setAuthMode("login"); setModal("account"); }
-          }}>
-            {user ? "Profile" : "Sign in"}
+          <button 
+            className="btn-profile" 
+            onClick={() => user ? setActiveModal("settings") : (setAuthMode("login"), setActiveModal("auth"))}
+          >
+            {user ? "👤 Profile" : "Sign in"}
           </button>
-          <button className="cart-button" onClick={() => {
-            if (!user) { setModal("account"); showNotice("Sign in to access your cart."); }
-            else setModal("cart");
-          }}>
-            🛒 {cartCount}
+          <button 
+            className="btn-cart" 
+            onClick={() => user ? setActiveModal("cart") : (setActiveModal("auth"), showNotification("Sign in to access your cart."))}
+          >
+            🛒 {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
           </button>
         </div>
       </header>
 
-      {/* HERO */}
-      <main id="top">
-        <section className="hero">
-          <div className="hero-copy">
-            <div className="eyebrow">SHINDARA PHONEFLAIR</div>
-            <h1>Tech essentials. <br /><em>Done better.</em></h1>
-            <p>Premium phones, accessories and everyday technology selected for people who want quality without the unnecessary noise.</p>
-            <button className="primary-button" onClick={() => scrollTo("shop")}>Shop now →</button>
-          </div>
-          <div className="hero-card">
-            <span>THE SHINDARA EDIT</span>
-            <strong>Better accessories.</strong>
-            <strong>Better everyday.</strong>
-            <div className="hero-line" />
-            <p>Discover phone essentials, power, audio and accessories built around your everyday life.</p>
-          </div>
-        </section>
+      {/* HERO SECTION */}
+      <section className="hero-section" id="top">
+        <div className="hero-content">
+          <span className="hero-badge">✦ SHINDARA PHONEFLAIR</span>
+          <h1>Tech essentials.<br /><em>Done better.</em></h1>
+          <p>Premium phones, accessories and everyday technology selected for people who want quality without the unnecessary noise.</p>
+          <button className="btn-primary" onClick={() => scrollToSection("shop")}>
+            Shop now →
+          </button>
+        </div>
+        <div className="hero-card">
+          <span>THE SHINDARA EDIT</span>
+          <h3>Better accessories.</h3>
+          <h3>Better everyday.</h3>
+          <div className="hero-divider" />
+          <p>Discover phone essentials, power, audio and accessories built around your everyday life.</p>
+        </div>
+      </section>
 
-        {/* CATEGORIES */}
-        <section className="categories-section" id="categories">
-          <div className="section-heading">
-            <small>SHOP BY CATEGORY</small>
-            <h2>Find your essentials.</h2>
+      {/* CATEGORIES */}
+      <section className="categories-section" id="categories">
+        <div className="section-header">
+          <span>SHOP BY CATEGORY</span>
+          <h2>Find your essentials.</h2>
+        </div>
+        <div className="categories-scroll">
+          {CATEGORIES.map(item => (
+            <button
+              key={item}
+              className={`category-btn ${category === item ? "active" : ""}`}
+              onClick={() => { setCategory(item); scrollToSection("shop"); }}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* PRODUCTS */}
+      <section className="products-section" id="shop">
+        <div className="products-header">
+          <div>
+            <span>THE COLLECTION</span>
+            <h2>Shop Shindara.</h2>
           </div>
-          <div className="category-scroll">
-            {CATEGORIES.map(item => (
-              <button key={item} className={`category ${category === item ? "active" : ""}`} onClick={() => {
-                setCategory(item);
-                scrollTo("shop");
-              }}>
-                {item}
-              </button>
+          <input
+            className="search-input"
+            type="search"
+            placeholder="Search products..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {filteredProducts.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">⌕</div>
+            <h3>No products found</h3>
+            <p>Try another search or choose a different category.</p>
+          </div>
+        ) : (
+          <div className="products-grid">
+            {filteredProducts.map(product => (
+              <div className="product-card" key={product.id}>
+                <button 
+                  className="product-image-wrapper"
+                  onClick={() => { setSelectedProduct(product); setActiveModal("product"); }}
+                >
+                  {getImage(product) ? (
+                    <img src={getImage(product)} alt={product.name} loading="lazy" />
+                  ) : (
+                    <div className="image-placeholder">S</div>
+                  )}
+                  {Number(product.stock || 0) <= 0 && <span className="badge-soldout">SOLD OUT</span>}
+                </button>
+                <div className="product-details">
+                  <span className="product-category">{product.category || "SHINDARA"}</span>
+                  <h3>{product.name}</h3>
+                  <p>{product.description || "Premium everyday tech essential."}</p>
+                  <div className="product-actions">
+                    <strong>{money(product.price)}</strong>
+                    <button 
+                      disabled={Number(product.stock || 0) <= 0}
+                      onClick={() => addToCart(product)}
+                    >
+                      {Number(product.stock || 0) <= 0 ? "Sold out" : "Add to cart"}
+                    </button>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-        </section>
-
-        {/* SHOP */}
-        <section className="shop-section" id="shop">
-          <div className="shop-top">
-            <div>
-              <small>THE COLLECTION</small>
-              <h2>Shop Shindara.</h2>
-            </div>
-            <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." type="search" />
-          </div>
-
-          {filteredProducts.length === 0 ? (
-            <div className="empty-products">
-              <div style={{ fontSize: 40 }}>⌕</div>
-              <h3>No products found</h3>
-              <p>Try another search or choose a different category.</p>
-            </div>
-          ) : (
-            <div className="product-grid">
-              {filteredProducts.map(product => (
-                <article className="product-card" key={product.id}>
-                  <button type="button" onClick={() => { setSelectedProduct(product); setModal("product"); }} className="product-clickable">
-                    <div className="product-image">
-                      {getProductImage(product) ? (
-                        <img src={getProductImage(product)} alt={product.name} loading="lazy" />
-                      ) : (
-                        <div className="image-placeholder">S</div>
-                      )}
-                      {Number(product.stock || 0) <= 0 && <div className="sold-out">SOLD OUT</div>}
-                    </div>
-                  </button>
-                  <div className="product-info">
-                    <small>{product.category || "SHINDARA"}</small>
-                    <h3>{product.name}</h3>
-                    <p>{product.description || "Premium everyday tech essential."}</p>
-                    <div className="product-bottom">
-                      <strong>{money(product.price)}</strong>
-                      <button disabled={Number(product.stock || 0) <= 0} onClick={() => addToCart(product)}>
-                        {Number(product.stock || 0) <= 0 ? "Sold out" : "Add to cart"}
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </main>
+        )}
+      </section>
 
       {/* FOOTER */}
       <footer className="footer">
-        <b>SHINDARA</b>
-        <span>PHONEFLAIR</span>
-        <p>Premium phone accessories and everyday technology.</p>
-        <small>© {new Date().getFullYear()} Shindara Phoneflair. All rights reserved.</small>
+        <div className="footer-content">
+          <strong>SHINDARA</strong>
+          <span>PHONEFLAIR</span>
+          <p>Premium phone accessories and everyday technology.</p>
+          <small>© {new Date().getFullYear()} Shindara Phoneflair. All rights reserved.</small>
+        </div>
       </footer>
 
       {/* =========================================================
           MODALS
           ========================================================= */}
 
-      {/* PRODUCT PREVIEW */}
-      {modal === "product" && selectedProduct && (
-        <Modal onClose={() => setModal(null)}>
-          <div className="product-preview-image">
-            {getProductImage(selectedProduct) ? (
-              <img src={getProductImage(selectedProduct)} alt={selectedProduct.name} />
+      {/* PRODUCT MODAL */}
+      {activeModal === "product" && selectedProduct && (
+        <Modal onClose={() => setActiveModal(null)}>
+          <div className="modal-product-image">
+            {getImage(selectedProduct) ? (
+              <img src={getImage(selectedProduct)} alt={selectedProduct.name} />
             ) : (
               <div className="image-placeholder">S</div>
             )}
           </div>
-          <div className="modal-heading">
-            <small>{selectedProduct.category || "PRODUCT"}</small>
+          <div className="modal-header">
+            <span>{selectedProduct.category || "PRODUCT"}</span>
             <h2>{selectedProduct.name}</h2>
             <p>{selectedProduct.description || "Premium Shindara Phoneflair product."}</p>
           </div>
-          <div className="checkout-summary">
-            <span>Price</span>
-            <strong>{money(selectedProduct.price)}</strong>
-            <span>Availability</span>
-            <span>{Number(selectedProduct.stock || 0) > 0 ? `${selectedProduct.stock} available` : "Sold out"}</span>
+          <div className="modal-summary">
+            <div>
+              <span>Price</span>
+              <strong>{money(selectedProduct.price)}</strong>
+            </div>
+            <div>
+              <span>Availability</span>
+              <span>{Number(selectedProduct.stock || 0) > 0 ? `${selectedProduct.stock} available` : "Sold out"}</span>
+            </div>
           </div>
-          <button className="primary-button full" disabled={Number(selectedProduct.stock || 0) <= 0} onClick={() => {
-            addToCart(selectedProduct);
-            setModal(null);
-          }}>
+          <button 
+            className="btn-primary full" 
+            disabled={Number(selectedProduct.stock || 0) <= 0}
+            onClick={() => { addToCart(selectedProduct); setActiveModal(null); }}
+          >
             {Number(selectedProduct.stock || 0) > 0 ? "Add to cart" : "Sold out"}
           </button>
         </Modal>
       )}
 
-      {/* AUTH */}
-      {modal === "account" && (
-        <Modal onClose={() => setModal(null)}>
-          <div className="modal-heading">
-            <small>SHINDARA ACCOUNT</small>
+      {/* AUTH MODAL */}
+      {activeModal === "auth" && (
+        <Modal onClose={() => setActiveModal(null)}>
+          <div className="modal-header">
+            <span>SHINDARA ACCOUNT</span>
             <h2>{authMode === "login" ? "Welcome back." : "Create your account."}</h2>
             <p>Save your cart, manage your profile and track every order from one place.</p>
           </div>
 
-          {authMessage && <div className={`form-message ${authMessage.includes("Check your email") ? "success" : "error"}`}>{authMessage}</div>}
+          {authError && <div className={`form-message ${authError.includes("verification") ? "success" : "error"}`}>{authError}</div>}
 
-          <button className="google-button" disabled={authLoading} onClick={handleGoogleLogin}>
+          <button className="btn-google" disabled={authLoading} onClick={handleGoogleLogin}>
             Continue with Google
           </button>
 
@@ -830,55 +886,55 @@ export default function App() {
           <form onSubmit={handleAuth}>
             {authMode === "signup" && (
               <>
-                <label>
-                  Full name
-                  <input value={authFullName} onChange={(e) => setAuthFullName(e.target.value)} placeholder="Your full name" autoComplete="name" />
-                </label>
-                <label>
-                  Phone number
-                  <input value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} placeholder="08012345678" inputMode="tel" autoComplete="tel" />
-                </label>
+                <div className="form-group">
+                  <label>Full name</label>
+                  <input value={authFullName} onChange={(e) => setAuthFullName(e.target.value)} placeholder="Your full name" />
+                </div>
+                <div className="form-group">
+                  <label>Phone number</label>
+                  <input value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} placeholder="08012345678" />
+                </div>
               </>
             )}
-            <label>
-              Email
-              <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" />
-            </label>
-            <label>
-              Password
-              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="At least 6 characters" autoComplete={authMode === "signup" ? "new-password" : "current-password"} />
-            </label>
-            <button className="primary-button full" disabled={authLoading} type="submit">
+            <div className="form-group">
+              <label>Email</label>
+              <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" />
+            </div>
+            <div className="form-group">
+              <label>Password</label>
+              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="At least 6 characters" />
+            </div>
+            <button className="btn-primary full" disabled={authLoading} type="submit">
               {authLoading ? "Please wait..." : authMode === "login" ? "Sign in" : "Create account"}
             </button>
           </form>
 
           <button className="switch-auth" onClick={() => {
             setAuthMode(authMode === "login" ? "signup" : "login");
-            setAuthMessage("");
+            setAuthError("");
           }}>
             {authMode === "login" ? "Don't have an account? Create one" : "Already have an account? Sign in"}
           </button>
         </Modal>
       )}
 
-      {/* CART */}
-      {modal === "cart" && (
-        <Modal onClose={() => setModal(null)}>
-          <div className="modal-heading">
-            <small>YOUR BAG</small>
+      {/* CART MODAL */}
+      {activeModal === "cart" && (
+        <Modal onClose={() => setActiveModal(null)}>
+          <div className="modal-header">
+            <span>YOUR BAG</span>
             <h2>Your cart.</h2>
             <p>Your cart is saved to your account, so you can leave and come back without losing your items.</p>
           </div>
 
           {cartLoading ? (
-            <div className="empty-cart"><p>Loading your cart...</p></div>
+            <div className="empty-state"><p>Loading your cart...</p></div>
           ) : cart.length === 0 ? (
-            <div className="empty-cart">
-              <div>🛒</div>
+            <div className="empty-state">
+              <div className="empty-icon">🛒</div>
               <h3>Your cart is empty</h3>
               <p>Add something you love and it will stay here until you remove it or complete your order.</p>
-              <button className="primary-button" onClick={() => { setModal(null); scrollTo("shop"); }}>
+              <button className="btn-primary" onClick={() => { setActiveModal(null); scrollToSection("shop"); }}>
                 Continue shopping
               </button>
             </div>
@@ -888,22 +944,22 @@ export default function App() {
                 {cart.map(item => (
                   <div className="cart-item" key={item.id}>
                     <div className="cart-item-image">
-                      {getProductImage(item.product) ? (
-                        <img src={getProductImage(item.product)} alt={item.product?.name || ""} />
+                      {getImage(item.product) ? (
+                        <img src={getImage(item.product)} alt={item.product?.name || ""} />
                       ) : "S"}
                     </div>
-                    <div className="cart-item-details">
-                      <b>{item.product?.name}</b>
+                    <div className="cart-item-info">
+                      <strong>{item.product?.name}</strong>
                       <span>{money(item.product?.price)}</span>
-                      <div className="quantity">
+                      <div className="quantity-control">
                         <button onClick={() => updateQuantity(item, -1)}>−</button>
-                        <strong>{item.quantity}</strong>
+                        <span>{item.quantity}</span>
                         <button onClick={() => updateQuantity(item, 1)}>+</button>
                       </div>
                     </div>
-                    <div className="cart-item-right">
-                      <b>{money(item.subtotal)}</b>
-                      <button className="remove" onClick={() => removeFromCart(item)}>REMOVE</button>
+                    <div className="cart-item-total">
+                      <strong>{money(item.subtotal)}</strong>
+                      <button className="btn-remove" onClick={() => removeFromCart(item)}>Remove</button>
                     </div>
                   </div>
                 ))}
@@ -912,7 +968,7 @@ export default function App() {
                 <span>Total</span>
                 <strong>{money(cartTotal)}</strong>
               </div>
-              <button className="primary-button full" onClick={() => setModal("checkout")}>
+              <button className="btn-primary full" onClick={() => setActiveModal("checkout")}>
                 Proceed to checkout →
               </button>
             </>
@@ -920,72 +976,76 @@ export default function App() {
         </Modal>
       )}
 
-      {/* CHECKOUT */}
-      {modal === "checkout" && (
-        <Modal onClose={() => !processingPayment && setModal(null)}>
-          <div className="modal-heading">
-            <small>SECURE CHECKOUT</small>
+      {/* CHECKOUT MODAL */}
+      {activeModal === "checkout" && (
+        <Modal onClose={() => !processingPayment && setActiveModal(null)}>
+          <div className="modal-header">
+            <span>SECURE CHECKOUT</span>
             <h2>Almost there.</h2>
             <p>Enter your delivery details, then continue to secure payment with Paystack.</p>
           </div>
 
-          {checkoutMessage && (
-            <div className={`form-message ${checkoutMessage.includes("successful") ? "success" : "error"}`}>
-              {checkoutMessage}
+          {checkoutError && (
+            <div className={`form-message ${checkoutError.includes("successful") ? "success" : "error"}`}>
+              {checkoutError}
             </div>
           )}
 
           <form onSubmit={handlePayment}>
             <div className="checkout-grid">
-              <label>
-                Full name
-                <input value={checkoutData.customer_name} onChange={(e) => setCheckoutData(prev => ({ ...prev, customer_name: e.target.value }))} placeholder="Full name" autoComplete="name" required />
-              </label>
-              <label>
-                Phone number
-                <input value={checkoutData.customer_phone} onChange={(e) => setCheckoutData(prev => ({ ...prev, customer_phone: e.target.value }))} placeholder="08012345678" inputMode="tel" autoComplete="tel" required />
-              </label>
-              <label>
-                Email
-                <input type="email" value={checkoutData.customer_email} onChange={(e) => setCheckoutData(prev => ({ ...prev, customer_email: e.target.value }))} placeholder="you@example.com" autoComplete="email" required />
-              </label>
-              <label>
-                State
-                <select value={checkoutData.delivery_state} onChange={(e) => {
-                  setCheckoutData(prev => ({ ...prev, delivery_state: e.target.value, delivery_city: "" }));
+              <div className="form-group">
+                <label>Full name</label>
+                <input value={checkout.name} onChange={(e) => setCheckout(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" required />
+              </div>
+              <div className="form-group">
+                <label>Phone number</label>
+                <input value={checkout.phone} onChange={(e) => setCheckout(prev => ({ ...prev, phone: e.target.value }))} placeholder="08012345678" required />
+              </div>
+              <div className="form-group">
+                <label>Email</label>
+                <input type="email" value={checkout.email} onChange={(e) => setCheckout(prev => ({ ...prev, email: e.target.value }))} placeholder="you@example.com" required />
+              </div>
+              <div className="form-group">
+                <label>State</label>
+                <select value={checkout.state} onChange={(e) => {
+                  setCheckout(prev => ({ ...prev, state: e.target.value, city: "" }));
                 }} required>
                   <option value="">Select your state</option>
                   {Object.keys(NIGERIA_LOCATIONS).map(state => (
                     <option key={state} value={state}>{state}</option>
                   ))}
                 </select>
-              </label>
-              <label>
-                City / locality
-                <select value={checkoutData.delivery_city} disabled={!checkoutData.delivery_state} onChange={(e) => {
-                  setCheckoutData(prev => ({ ...prev, delivery_city: e.target.value }));
+              </div>
+              <div className="form-group">
+                <label>City / locality</label>
+                <select value={checkout.city} disabled={!checkout.state} onChange={(e) => {
+                  setCheckout(prev => ({ ...prev, city: e.target.value }));
                 }} required>
-                  <option value="">{checkoutData.delivery_state ? "Select city" : "Select state first"}</option>
-                  {(NIGERIA_LOCATIONS[checkoutData.delivery_state] || []).map(city => (
+                  <option value="">{checkout.state ? "Select city" : "Select state first"}</option>
+                  {(NIGERIA_LOCATIONS[checkout.state] || []).map(city => (
                     <option key={city} value={city}>{city}</option>
                   ))}
                 </select>
-              </label>
+              </div>
             </div>
 
-            <label>
-              Delivery address
-              <textarea value={checkoutData.delivery_address} onChange={(e) => setCheckoutData(prev => ({ ...prev, delivery_address: e.target.value }))} placeholder="House number, street, estate, landmark..." rows="3" required />
-            </label>
-
-            <div className="checkout-summary">
-              <span>Items</span>
-              <span>{cartCount}</span>
-              <span>Total</span>
-              <strong>{money(cartTotal)}</strong>
+            <div className="form-group">
+              <label>Delivery address</label>
+              <textarea value={checkout.address} onChange={(e) => setCheckout(prev => ({ ...prev, address: e.target.value }))} placeholder="House number, street, estate, landmark..." rows="3" required />
             </div>
 
-            <button className="primary-button pay-button" disabled={processingPayment} type="submit">
+            <div className="modal-summary">
+              <div>
+                <span>Items</span>
+                <span>{cartCount}</span>
+              </div>
+              <div>
+                <span>Total</span>
+                <strong>{money(cartTotal)}</strong>
+              </div>
+            </div>
+
+            <button className="btn-primary pay-btn" disabled={processingPayment} type="submit">
               {processingPayment ? (
                 <>
                   <span className="spinner"></span>
@@ -995,23 +1055,23 @@ export default function App() {
                 `Pay ${money(cartTotal)} with Paystack`
               )}
             </button>
-            <span className="secure-note">🔒 Secure payment powered by Paystack</span>
+            <p className="secure-note">🔒 Secure payment powered by Paystack</p>
           </form>
         </Modal>
       )}
 
-      {/* ORDERS */}
-      {modal === "orders" && (
-        <Modal onClose={() => setModal(null)}>
-          <div className="modal-heading">
-            <small>MY ORDERS</small>
+      {/* ORDERS MODAL */}
+      {activeModal === "orders" && (
+        <Modal onClose={() => setActiveModal(null)}>
+          <div className="modal-header">
+            <span>MY ORDERS</span>
             <h2>Your orders.</h2>
             <p>View your purchases and track delivery progress.</p>
           </div>
 
           {orders.length === 0 ? (
-            <div className="empty-cart">
-              <div>📦</div>
+            <div className="empty-state">
+              <div className="empty-icon">📦</div>
               <h3>No orders yet</h3>
               <p>Your completed purchases will appear here.</p>
             </div>
@@ -1020,14 +1080,14 @@ export default function App() {
               {orders.map(order => (
                 <button className="order-card" key={order.id} onClick={() => {
                   setSelectedOrder(order);
-                  setModal("tracking");
+                  setActiveModal("tracking");
                 }}>
                   <div>
                     <small>{formatDate(order.created_at)}</small>
-                    <b>{order.tracking_number || `Order #${String(order.id).slice(0, 8)}`}</b>
+                    <strong>{order.tracking_number || `Order #${String(order.id).slice(0, 8)}`}</strong>
                     <small>{order.items?.length || 0} item{(order.items?.length || 0) === 1 ? "" : "s"} • {money(order.total)}</small>
                   </div>
-                  <span className={`status ${String(order.payment_status).toLowerCase() === "paid" ? "paid" : "pending"}`}>
+                  <span className={`order-status ${String(order.payment_status).toLowerCase() === "paid" ? "paid" : "pending"}`}>
                     {order.payment_status}
                   </span>
                   <span className="order-arrow">→</span>
@@ -1038,16 +1098,16 @@ export default function App() {
         </Modal>
       )}
 
-      {/* TRACKING */}
-      {modal === "tracking" && selectedOrder && (
-        <Modal onClose={() => setModal(null)}>
-          <div className="modal-heading">
-            <small>ORDER TRACKING</small>
+      {/* TRACKING MODAL */}
+      {activeModal === "tracking" && selectedOrder && (
+        <Modal onClose={() => setActiveModal(null)}>
+          <div className="modal-header">
+            <span>ORDER TRACKING</span>
             <h2>{selectedOrder.tracking_number || "Order tracking"}</h2>
             <p>Keep this tracking number for your delivery.</p>
           </div>
 
-          <div className="tracking-status-box">
+          <div className="tracking-grid">
             <div>
               <span>Payment</span>
               <strong>{String(selectedOrder.payment_status || "pending").toUpperCase()}</strong>
@@ -1076,13 +1136,13 @@ export default function App() {
               ["Out for delivery", "Your package is with the delivery team."],
               ["Delivered", "Your order has been delivered."],
             ].map(([title, description], index) => {
-              const currentStep = getTrackingStep(selectedOrder);
+              const currentStep = getStep(selectedOrder);
               const completed = index <= currentStep;
               return (
                 <div className={`timeline-item ${completed ? "completed" : ""}`} key={title}>
                   <div className="timeline-dot">{completed ? "✓" : index + 1}</div>
                   <div>
-                    <b>{title}</b>
+                    <strong>{title}</strong>
                     <p>{description}</p>
                   </div>
                 </div>
@@ -1090,15 +1150,15 @@ export default function App() {
             })}
           </div>
 
-          <div className="order-details">
+          <div className="order-items">
             <h3>Items purchased</h3>
             {(selectedOrder.items || []).length === 0 ? (
-              <p style={{ color: "#888", fontSize: 11 }}>Order item details are not available yet.</p>
+              <p className="text-muted">Order item details are not available yet.</p>
             ) : (
               selectedOrder.items.map((item) => (
-                <div className="detail-item" key={item.id || `${item.product_id}-${item.quantity}`}>
+                <div className="order-item" key={item.id || `${item.product_id}-${item.quantity}`}>
                   <div>
-                    <b>{item.product?.name || "Product"}</b>
+                    <strong>{item.product?.name || "Product"}</strong>
                     <span>Qty: {item.quantity} × {money(item.price)}</span>
                   </div>
                   <strong>{money(Number(item.price || 0) * Number(item.quantity || 0))}</strong>
@@ -1112,9 +1172,9 @@ export default function App() {
             <strong>{money(selectedOrder.total)}</strong>
           </div>
 
-          <div className="delivery-box">
+          <div className="delivery-info">
             <h3>Delivery address</h3>
-            <p><b>{selectedOrder.customer_name || "—"}</b></p>
+            <p><strong>{selectedOrder.customer_name || "—"}</strong></p>
             <p>{selectedOrder.customer_phone || "—"}</p>
             <p>{selectedOrder.delivery_address || "—"}</p>
             <p>{selectedOrder.delivery_city || "—"}, {selectedOrder.delivery_state || "—"}</p>
@@ -1122,67 +1182,74 @@ export default function App() {
         </Modal>
       )}
 
-      {/* SETTINGS */}
-      {modal === "settings" && user && (
-        <Modal onClose={() => setModal(null)}>
-          <div className="modal-heading">
-            <small>ACCOUNT SETTINGS</small>
+      {/* SETTINGS MODAL */}
+      {activeModal === "settings" && user && (
+        <Modal onClose={() => setActiveModal(null)}>
+          <div className="modal-header">
+            <span>ACCOUNT SETTINGS</span>
             <h2>Your profile.</h2>
             <p>Manage your customer information and display preferences.</p>
           </div>
 
-          <label>
-            Email
+          <div className="form-group">
+            <label>Email</label>
             <input value={user.email || ""} readOnly />
-          </label>
-          <label>
-            Full name
+          </div>
+          <div className="form-group">
+            <label>Full name</label>
             <input value={profile?.full_name || ""} onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))} placeholder="Your full name" />
-          </label>
-          <label>
-            Phone number
-            <input value={profile?.phone || ""} onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))} placeholder="08012345678" inputMode="tel" />
-          </label>
+          </div>
+          <div className="form-group">
+            <label>Phone number</label>
+            <input value={profile?.phone || ""} onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))} placeholder="08012345678" />
+          </div>
 
-          <button className="primary-button full" onClick={async () => {
+          <button className="btn-primary full" onClick={async () => {
             if (!profile?.full_name || !profile?.phone) {
-              showNotice("Please fill in all fields.");
+              showNotification("Please fill in all fields.");
               return;
             }
             try {
-              await supabase.from("profiles").upsert({ id: user.id, email: user.email, full_name: profile.full_name, phone: profile.phone });
-              await supabase.auth.updateUser({ data: { full_name: profile.full_name, phone: profile.phone } });
-              showNotice("Profile updated.");
+              await supabase.from("profiles").upsert({ 
+                id: user.id, 
+                email: user.email, 
+                full_name: profile.full_name, 
+                phone: profile.phone 
+              });
+              await supabase.auth.updateUser({ 
+                data: { full_name: profile.full_name, phone: profile.phone } 
+              });
+              showNotification("Profile updated.");
             } catch (error) {
-              showNotice("Error updating profile.");
+              showNotification("Error updating profile.");
             }
           }}>
             Save profile
           </button>
 
           <div className="settings-divider">
-            <label>
-              Appearance
+            <div className="form-group">
+              <label>Appearance</label>
               <select value={theme} onChange={(e) => setTheme(e.target.value)}>
                 <option value="device">Use device setting</option>
                 <option value="light">Light mode</option>
                 <option value="dark">Dark mode</option>
               </select>
-            </label>
+            </div>
           </div>
 
-          <button className="secondary-button full" onClick={() => setModal("orders")}>
+          <button className="btn-secondary full" onClick={() => setActiveModal("orders")}>
             View my orders
           </button>
 
-          <button className="logout-button" onClick={logout}>
+          <button className="btn-logout" onClick={handleLogout}>
             Sign out
           </button>
         </Modal>
       )}
 
-      {/* NOTICE */}
-      {notice && <div className="notice">{notice}</div>}
+      {/* NOTIFICATION */}
+      {notification && <div className="notification">{notification}</div>}
     </div>
   );
 }
