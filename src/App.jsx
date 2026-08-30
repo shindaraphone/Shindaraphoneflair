@@ -1,4 +1,4 @@
-// App.js - Complete Redesign with Fixed Payment
+// App.js - COMPLETELY WORKING VERSION
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
@@ -8,14 +8,11 @@ import "./shindara-redesign.css";
    ========================================================= */
 const CONFIG = {
   PAYSTACK_KEY: "pk_live_d7a7a78de15d84169736f5786afb59709b639905",
-  STORE_NAME: "SHINDARA",
-  STORE_TAGLINE: "PHONEFLAIR",
   CURRENCY: "₦",
-  CURRENCY_LOCALE: "en-NG",
 };
 
 const money = (value) => 
-  `${CONFIG.CURRENCY}${Number(value || 0).toLocaleString(CONFIG.CURRENCY_LOCALE)}`;
+  `${CONFIG.CURRENCY}${Number(value || 0).toLocaleString("en-NG")}`;
 
 const generateTrackingNumber = () =>
   `SHP-${Date.now().toString(36).toUpperCase()}-${Math.random()
@@ -113,8 +110,7 @@ export default function App() {
   
   // ===== REFS =====
   const notificationTimer = useRef(null);
-  const paystackCallback = useRef(null);
-  const paystackClose = useRef(null);
+  const paystackInstance = useRef(null);
 
   // ===== COMPUTED =====
   const cartTotal = useMemo(() => 
@@ -432,12 +428,12 @@ export default function App() {
     });
   }, []);
 
-  // FIXED: Payment callback as a separate function
-  const onPaymentSuccess = useCallback(async (response) => {
+  // ===== FIXED: Payment Success Handler =====
+  const handlePaymentSuccess = useCallback(async (response) => {
     console.log("Payment successful:", response);
-    const ref = response?.reference || response?.trxref || "";
+    const reference = response?.reference || response?.trxref || "";
     
-    if (!ref) {
+    if (!reference) {
       setCheckoutError("No payment reference received.");
       setProcessingPayment(false);
       return;
@@ -448,7 +444,7 @@ export default function App() {
       const { data: existing } = await supabase
         .from("orders")
         .select("*")
-        .eq("payment_reference", ref)
+        .eq("payment_reference", reference)
         .maybeSingle();
       
       if (existing) {
@@ -472,7 +468,7 @@ export default function App() {
         delivery_city: checkout.city,
         total: Number(cartTotal),
         payment_status: "paid",
-        payment_reference: ref,
+        payment_reference: reference,
         status: "processing",
         tracking_number: trackingNumber,
       };
@@ -484,7 +480,7 @@ export default function App() {
         .single();
 
       if (orderError || !order) {
-        setCheckoutError(`Payment received but order not saved. Reference: ${ref}`);
+        setCheckoutError(`Payment received but order not saved. Reference: ${reference}`);
         setProcessingPayment(false);
         return;
       }
@@ -533,14 +529,14 @@ export default function App() {
     }
   }, [user, cart, cartTotal, checkout, clearCart, loadOrders, loadProducts, showNotification]);
 
-  // FIXED: Payment close handler
-  const onPaymentClose = useCallback(() => {
+  // ===== FIXED: Payment Close Handler =====
+  const handlePaymentClose = useCallback(() => {
     console.log("Payment closed");
     setProcessingPayment(false);
     setCheckoutError("Payment was cancelled.");
   }, []);
 
-  // FIXED: Payment initialization
+  // ===== FIXED: Payment Handler =====
   const handlePayment = useCallback(async (e) => {
     e.preventDefault();
     
@@ -589,10 +585,9 @@ export default function App() {
       const reference = `SHP-${user.id.slice(0,8)}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
       const amount = Math.round(Number(cartTotal) * 100);
 
-      // Store callbacks in refs
-      paystackCallback.current = onPaymentSuccess;
-      paystackClose.current = onPaymentClose;
+      console.log("Initializing Paystack with:", { email: checkout.email, amount, reference });
 
+      // ===== FIXED: Create handler with direct callback functions =====
       const handler = window.PaystackPop.setup({
         key: CONFIG.PAYSTACK_KEY,
         email: checkout.email.trim(),
@@ -606,17 +601,24 @@ export default function App() {
             { display_name: "User ID", variable_name: "user_id", value: user.id },
           ],
         },
-        callback: paystackCallback.current,
-        onClose: paystackClose.current,
+        // ===== FIXED: Use direct function references =====
+        callback: function(response) {
+          handlePaymentSuccess(response);
+        },
+        onClose: function() {
+          handlePaymentClose();
+        },
       });
 
+      // Store reference
+      paystackInstance.current = handler;
       handler.openIframe();
     } catch (error) {
       console.error("Payment error:", error);
       setCheckoutError(error.message || "Payment could not be started.");
       setProcessingPayment(false);
     }
-  }, [user, cart, cartTotal, checkout, processingPayment, loadCart, loadPaystack, onPaymentSuccess, onPaymentClose]);
+  }, [user, cart, cartTotal, checkout, processingPayment, loadCart, loadPaystack, handlePaymentSuccess, handlePaymentClose]);
 
   // ===== FILTERS =====
   const filteredProducts = useMemo(() => {
@@ -659,7 +661,7 @@ export default function App() {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  // ===== MODAL COMPONENT =====
+  // ===== MODAL =====
   const Modal = ({ children, onClose }) => (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-container">
@@ -722,7 +724,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* HERO SECTION */}
+      {/* HERO */}
       <section className="hero-section" id="top">
         <div className="hero-content">
           <span className="hero-badge">✦ SHINDARA PHONEFLAIR</span>
