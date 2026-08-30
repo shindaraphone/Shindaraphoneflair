@@ -1070,331 +1070,336 @@ export default function App() {
   }, [showNotice]);
 
   /* =========================================================
-     CHECKOUT & PAYMENT - FIXED VERSION
-     ========================================================= */
-  const loadPaystack = useCallback(() => {
-    return new Promise((resolve, reject) => {
-      // Check if already loaded
-      if (window.PaystackPop) {
-        console.log("Paystack already loaded");
-        resolve(true);
-        return;
-      }
+   CHECKOUT & PAYMENT - FIXED VERSION
+   ========================================================= */
+const loadPaystack = useCallback(() => {
+  return new Promise((resolve, reject) => {
+    // Check if already loaded
+    if (window.PaystackPop) {
+      console.log("Paystack already loaded");
+      resolve(true);
+      return;
+    }
 
-      // Check if script is already in DOM but not loaded
-      const existingScript = document.querySelector(
-        'script[src="https://js.paystack.co/v1/inline.js"]'
-      );
+    // Check if script is already in DOM but not loaded
+    const existingScript = document.querySelector(
+      'script[src="https://js.paystack.co/v1/inline.js"]'
+    );
 
-      if (existingScript) {
-        console.log("Paystack script found, waiting for load...");
-        const checkInterval = setInterval(() => {
-          if (window.PaystackPop) {
-            clearInterval(checkInterval);
-            console.log("Paystack loaded successfully");
-            resolve(true);
-          }
-        }, 200);
-
-        // Timeout after 10 seconds
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          reject(new Error("Paystack script load timeout"));
-        }, 10000);
-
-        return;
-      }
-
-      // Create and load script
-      console.log("Loading Paystack script...");
-      const script = document.createElement("script");
-      script.src = "https://js.paystack.co/v1/inline.js";
-      script.async = true;
-
-      script.onload = () => {
+    if (existingScript) {
+      console.log("Paystack script found, waiting for load...");
+      const checkInterval = setInterval(() => {
         if (window.PaystackPop) {
-          console.log("Paystack loaded via onload");
+          clearInterval(checkInterval);
+          console.log("Paystack loaded successfully");
           resolve(true);
-        } else {
-          reject(new Error("Paystack loaded but PaystackPop not available"));
         }
+      }, 200);
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        reject(new Error("Paystack script load timeout"));
+      }, 10000);
+
+      return;
+    }
+
+    // Create and load script
+    console.log("Loading Paystack script...");
+    const script = document.createElement("script");
+    script.src = "https://js.paystack.co/v1/inline.js";
+    script.async = true;
+
+    script.onload = () => {
+      if (window.PaystackPop) {
+        console.log("Paystack loaded via onload");
+        resolve(true);
+      } else {
+        reject(new Error("Paystack loaded but PaystackPop not available"));
+      }
+    };
+
+    script.onerror = () => {
+      console.error("Paystack script failed to load");
+      reject(new Error("Could not load Paystack. Please check your internet connection."));
+    };
+
+    document.head.appendChild(script);
+  });
+}, []);
+
+const handlePayment = useCallback(
+  async (e) => {
+    e.preventDefault();
+    
+    if (ui.placingOrder) {
+      console.log("Order already in progress");
+      return;
+    }
+    
+    if (!user) {
+      dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Please sign in again." } });
+      return;
+    }
+    
+    if (!cart.length) {
+      dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Your cart is empty." } });
+      return;
+    }
+
+    // Validate required fields
+    const requiredFields = [
+      ["customer_name", "full name"],
+      ["customer_phone", "phone number"],
+      ["customer_email", "email"],
+      ["delivery_address", "delivery address"],
+      ["delivery_state", "state"],
+      ["delivery_city", "city"],
+    ];
+    
+    for (const [field, label] of requiredFields) {
+      if (!String(checkout[field] || "").trim()) {
+        dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: `Please enter your ${label}.` } });
+        return;
+      }
+    }
+
+    // Check stock
+    for (const item of cart) {
+      if (Number(item.product?.stock || 0) < Number(item.quantity || 0)) {
+        dispatch({
+          type: "SET_CHECKOUT",
+          payload: { key: "message", value: `${item.product?.name || "Product"} is out of stock.` },
+        });
+        await loadCart(user.id);
+        return;
+      }
+    }
+
+    // Start payment process
+    dispatch({ type: "SET_PLACING_ORDER", payload: true });
+    dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Loading payment gateway..." } });
+
+    try {
+      // Load Paystack
+      await loadPaystack();
+      
+      if (!window.PaystackPop) {
+        throw new Error("Paystack is not available. Please refresh and try again.");
+      }
+
+      // Generate unique reference
+      const reference = `SHP-${user.id.slice(0,8)}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+      
+      // Calculate amount in kobo (Paystack uses the smallest currency unit)
+      const amountInKobo = Math.round(Number(cartTotal) * 100);
+      
+      console.log("Initializing Paystack with:", {
+        email: checkout.customer_email.trim(),
+        amount: amountInKobo,
+        reference: reference
+      });
+
+      // Create callback functions
+      const paymentCallback = async (response) => {
+        console.log("Payment callback received:", response);
+        await completePayment(response);
       };
 
-      script.onerror = () => {
-        console.error("Paystack script failed to load");
-        reject(new Error("Could not load Paystack. Please check your internet connection."));
+      const paymentOnClose = () => {
+        console.log("Paystack modal closed");
+        dispatch({ type: "SET_PLACING_ORDER", payload: false });
+        dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Payment was cancelled. You can try again." } });
       };
 
-      document.head.appendChild(script);
-    });
-  }, []);
+      // Setup Paystack with proper callbacks
+      const handler = window.PaystackPop.setup({
+        key: CONFIG.PAYSTACK_KEY,
+        email: checkout.customer_email.trim(),
+        amount: amountInKobo,
+        currency: "NGN",
+        ref: reference,
+        metadata: {
+          custom_fields: [
+            { 
+              display_name: "Customer Name", 
+              variable_name: "customer_name", 
+              value: checkout.customer_name.trim() 
+            },
+            { 
+              display_name: "Customer Phone", 
+              variable_name: "customer_phone", 
+              value: checkout.customer_phone.trim() 
+            },
+            { 
+              display_name: "User ID", 
+              variable_name: "user_id", 
+              value: user.id 
+            },
+          ],
+        },
+        callback: paymentCallback,
+        onClose: paymentOnClose,
+      });
 
-  const handlePayment = useCallback(
-    async (e) => {
-      e.preventDefault();
+      // Open Paystack
+      handler.openIframe();
       
-      if (ui.placingOrder) {
-        console.log("Order already in progress");
-        return;
-      }
-      
-      if (!user) {
-        dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Please sign in again." } });
-        return;
-      }
-      
-      if (!cart.length) {
-        dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Your cart is empty." } });
-        return;
-      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      dispatch({ 
+        type: "SET_CHECKOUT", 
+        payload: { 
+          key: "message", 
+          value: error.message || "Payment could not be started. Please refresh and try again." 
+        } 
+      });
+      dispatch({ type: "SET_PLACING_ORDER", payload: false });
+    }
+  },
+  [user, cart, checkout, cartTotal, ui.placingOrder, loadCart, loadPaystack]
+);
 
-      // Validate required fields
-      const requiredFields = [
-        ["customer_name", "full name"],
-        ["customer_phone", "phone number"],
-        ["customer_email", "email"],
-        ["delivery_address", "delivery address"],
-        ["delivery_state", "state"],
-        ["delivery_city", "city"],
-      ];
-      
-      for (const [field, label] of requiredFields) {
-        if (!String(checkout[field] || "").trim()) {
-          dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: `Please enter your ${label}.` } });
-          return;
-        }
-      }
+const completePayment = useCallback(
+  async (paymentResponse) => {
+    const ref = paymentResponse?.reference || paymentResponse?.trxref || "";
+    
+    if (!ref) {
+      dispatch({ 
+        type: "SET_CHECKOUT", 
+        payload: { key: "message", value: "No payment reference received. Please contact support." } 
+      });
+      dispatch({ type: "SET_PLACING_ORDER", payload: false });
+      return;
+    }
 
-      // Check stock
-      for (const item of cart) {
-        if (Number(item.product?.stock || 0) < Number(item.quantity || 0)) {
-          dispatch({
-            type: "SET_CHECKOUT",
-            payload: { key: "message", value: `${item.product?.name || "Product"} is out of stock.` },
-          });
-          await loadCart(user.id);
-          return;
-        }
+    console.log("Processing payment for reference:", ref);
+
+    try {
+      // Check for duplicate payment
+      const { data: existing, error: duplicateError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("payment_reference", ref)
+        .maybeSingle();
+
+      if (duplicateError) {
+        console.error("Duplicate check error:", duplicateError);
       }
 
-      // Start payment process
-      dispatch({ type: "SET_PLACING_ORDER", payload: true });
-      dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Loading payment gateway..." } });
-
-      try {
-        // Load Paystack
-        await loadPaystack();
-        
-        if (!window.PaystackPop) {
-          throw new Error("Paystack is not available. Please refresh and try again.");
-        }
-
-        // Generate unique reference
-        const reference = `SHP-${user.id.slice(0,8)}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
-        
-        // Calculate amount in kobo (Paystack uses the smallest currency unit)
-        const amountInKobo = Math.round(Number(cartTotal) * 100);
-        
-        console.log("Initializing Paystack with:", {
-          email: checkout.customer_email.trim(),
-          amount: amountInKobo,
-          reference: reference
-        });
-
-        // Setup Paystack
-        const handler = window.PaystackPop.setup({
-          key: CONFIG.PAYSTACK_KEY,
-          email: checkout.customer_email.trim(),
-          amount: amountInKobo,
-          currency: "NGN",
-          ref: reference,
-          metadata: {
-            custom_fields: [
-              { 
-                display_name: "Customer Name", 
-                variable_name: "customer_name", 
-                value: checkout.customer_name.trim() 
-              },
-              { 
-                display_name: "Customer Phone", 
-                variable_name: "customer_phone", 
-                value: checkout.customer_phone.trim() 
-              },
-              { 
-                display_name: "User ID", 
-                variable_name: "user_id", 
-                value: user.id 
-              },
-            ],
-          },
-          callback: async (response) => {
-            console.log("Payment callback received:", response);
-            await completePayment(response);
-          },
-          onClose: () => {
-            console.log("Paystack modal closed");
-            dispatch({ type: "SET_PLACING_ORDER", payload: false });
-            dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Payment was cancelled. You can try again." } });
-          },
-        });
-
-        // Open Paystack
-        handler.openIframe();
-        
-      } catch (error) {
-        console.error("Payment error:", error);
-        dispatch({ 
-          type: "SET_CHECKOUT", 
-          payload: { 
-            key: "message", 
-            value: error.message || "Payment could not be started. Please refresh and try again." 
-          } 
-        });
-        dispatch({ type: "SET_PLACING_ORDER", payload: false });
-      }
-    },
-    [user, cart, checkout, cartTotal, ui.placingOrder, loadCart, loadPaystack]
-  );
-
-  const completePayment = useCallback(
-    async (paymentResponse) => {
-      const ref = paymentResponse?.reference || paymentResponse?.trxref || "";
-      
-      if (!ref) {
-        dispatch({ 
-          type: "SET_CHECKOUT", 
-          payload: { key: "message", value: "No payment reference received. Please contact support." } 
-        });
-        dispatch({ type: "SET_PLACING_ORDER", payload: false });
-        return;
-      }
-
-      console.log("Processing payment for reference:", ref);
-
-      try {
-        // Check for duplicate payment
-        const { data: existing, error: duplicateError } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("payment_reference", ref)
-          .maybeSingle();
-
-        if (duplicateError) {
-          console.error("Duplicate check error:", duplicateError);
-        }
-
-        if (existing) {
-          console.log("Duplicate payment detected, order already exists");
-          await loadOrders(user.id);
-          await clearCart();
-          dispatch({ type: "CLOSE_MODAL", payload: "checkout" });
-          dispatch({ type: "SET_PLACING_ORDER", payload: false });
-          showNotice("Payment already recorded. Order confirmed!");
-          return;
-        }
-
-        // Create order
-        const trackingNumber = generateTrackingNumber();
-        const orderPayload = {
-          user_id: user.id,
-          customer_name: checkout.customer_name.trim(),
-          customer_phone: checkout.customer_phone.trim(),
-          customer_email: checkout.customer_email.trim(),
-          delivery_address: checkout.delivery_address.trim(),
-          delivery_state: checkout.delivery_state,
-          delivery_city: checkout.delivery_city,
-          total: Number(cartTotal),
-          payment_status: "paid",
-          payment_reference: ref,
-          status: "processing",
-          tracking_number: trackingNumber,
-        };
-
-        console.log("Creating order with payload:", orderPayload);
-
-        const { data: order, error: orderError } = await supabase
-          .from("orders")
-          .insert(orderPayload)
-          .select()
-          .single();
-
-        if (orderError || !order) {
-          console.error("Order save error:", orderError);
-          dispatch({ 
-            type: "SET_CHECKOUT", 
-            payload: { 
-              key: "message", 
-              value: `Payment was received but order could not be saved. Reference: ${ref}. Please contact support.` 
-            } 
-          });
-          dispatch({ type: "SET_PLACING_ORDER", payload: false });
-          return;
-        }
-
-        // Save order items
-        const orderItems = cart.map(item => ({
-          order_id: order.id,
-          product_id: item.product_id,
-          quantity: Number(item.quantity),
-          price: Number(item.product?.price || 0),
-        }));
-
-        const { error: itemError } = await supabase
-          .from("order_items")
-          .insert(orderItems);
-
-        if (itemError) {
-          console.error("Order items save error:", itemError);
-        }
-
-        // Update stock
-        for (const item of cart) {
-          try {
-            const currentStock = Number(item.product?.stock || 0);
-            const qty = Number(item.quantity || 0);
-            if (currentStock >= qty) {
-              await supabase
-                .from("products")
-                .update({ stock: currentStock - qty })
-                .eq("id", item.product_id);
-            }
-          } catch (e) { 
-            console.warn("Stock update skipped:", e); 
-          }
-        }
-
-        // Clear cart and refresh data
-        await clearCart();
+      if (existing) {
+        console.log("Duplicate payment detected, order already exists");
         await loadOrders(user.id);
-        await loadProducts();
-
-        // Get fresh order data
-        const { data: freshOrder } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("id", order.id)
-          .single();
-
-        dispatch({ type: "SET_SELECTED", payload: { key: "order", value: freshOrder || order } });
+        await clearCart();
         dispatch({ type: "CLOSE_MODAL", payload: "checkout" });
         dispatch({ type: "SET_PLACING_ORDER", payload: false });
-        dispatch({ type: "OPEN_MODAL", payload: "tracking" });
-        showNotice("Payment successful! Order confirmed. 🎉");
-        
-      } catch (error) {
-        console.error("Complete payment error:", error);
+        showNotice("Payment already recorded. Order confirmed!");
+        return;
+      }
+
+      // Create order
+      const trackingNumber = generateTrackingNumber();
+      const orderPayload = {
+        user_id: user.id,
+        customer_name: checkout.customer_name.trim(),
+        customer_phone: checkout.customer_phone.trim(),
+        customer_email: checkout.customer_email.trim(),
+        delivery_address: checkout.delivery_address.trim(),
+        delivery_state: checkout.delivery_state,
+        delivery_city: checkout.delivery_city,
+        total: Number(cartTotal),
+        payment_status: "paid",
+        payment_reference: ref,
+        status: "processing",
+        tracking_number: trackingNumber,
+      };
+
+      console.log("Creating order with payload:", orderPayload);
+
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert(orderPayload)
+        .select()
+        .single();
+
+      if (orderError || !order) {
+        console.error("Order save error:", orderError);
         dispatch({ 
           type: "SET_CHECKOUT", 
           payload: { 
             key: "message", 
-            value: "Payment was received but there was an error completing your order. Please contact support." 
+            value: `Payment was received but order could not be saved. Reference: ${ref}. Please contact support.` 
           } 
         });
         dispatch({ type: "SET_PLACING_ORDER", payload: false });
+        return;
       }
-    },
-    [user, cart, checkout, cartTotal, clearCart, loadOrders, loadProducts, showNotice]
-  );
+
+      // Save order items
+      const orderItems = cart.map(item => ({
+        order_id: order.id,
+        product_id: item.product_id,
+        quantity: Number(item.quantity),
+        price: Number(item.product?.price || 0),
+      }));
+
+      const { error: itemError } = await supabase
+        .from("order_items")
+        .insert(orderItems);
+
+      if (itemError) {
+        console.error("Order items save error:", itemError);
+      }
+
+      // Update stock
+      for (const item of cart) {
+        try {
+          const currentStock = Number(item.product?.stock || 0);
+          const qty = Number(item.quantity || 0);
+          if (currentStock >= qty) {
+            await supabase
+              .from("products")
+              .update({ stock: currentStock - qty })
+              .eq("id", item.product_id);
+          }
+        } catch (e) { 
+          console.warn("Stock update skipped:", e); 
+        }
+      }
+
+      // Clear cart and refresh data
+      await clearCart();
+      await loadOrders(user.id);
+      await loadProducts();
+
+      // Get fresh order data
+      const { data: freshOrder } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("id", order.id)
+        .single();
+
+      dispatch({ type: "SET_SELECTED", payload: { key: "order", value: freshOrder || order } });
+      dispatch({ type: "CLOSE_MODAL", payload: "checkout" });
+      dispatch({ type: "SET_PLACING_ORDER", payload: false });
+      dispatch({ type: "OPEN_MODAL", payload: "tracking" });
+      showNotice("Payment successful! Order confirmed. 🎉");
+      
+    } catch (error) {
+      console.error("Complete payment error:", error);
+      dispatch({ 
+        type: "SET_CHECKOUT", 
+        payload: { 
+          key: "message", 
+          value: "Payment was received but there was an error completing your order. Please contact support." 
+        } 
+      });
+      dispatch({ type: "SET_PLACING_ORDER", payload: false });
+    }
+  },
+  [user, cart, checkout, cartTotal, clearCart, loadOrders, loadProducts, showNotice]
+);
 
   /* =========================================================
      FILTER PRODUCTS
