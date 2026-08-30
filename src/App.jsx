@@ -1,4 +1,4 @@
-// App.js - COMPLETELY WORKING VERSION
+// App.js - Updated with all fixes
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
@@ -63,7 +63,8 @@ const NIGERIA_LOCATIONS = {
   Zamfara: ["Anka", "Bakura", "Bungudu", "Gummi", "Gusau", "Kaura Namoda", "Maradun", "Maru", "Shinkafi", "Talata Mafara", "Tsafe"],
 };
 
-const CATEGORIES = ["All", "Phones", "Phone Cases", "Chargers", "Cables", "Power Banks", "Audio", "Smart Watches", "Screen Protectors"];
+// REMOVED "Phones" from categories
+const CATEGORIES = ["All", "Phone Cases", "Chargers", "Cables", "Power Banks", "Audio", "Smart Watches", "Screen Protectors"];
 
 /* =========================================================
    MAIN APP
@@ -363,7 +364,7 @@ export default function App() {
         if (error) throw new Error(error.message);
         if (data?.user) {
           setActiveModal(null);
-          showNotification("Welcome back!");
+          showNotification(`Welcome back, ${data.user.user_metadata?.full_name || "User"}!`);
         }
       }
     } catch (error) {
@@ -428,7 +429,6 @@ export default function App() {
     });
   }, []);
 
-  // ===== FIXED: Payment Success Handler =====
   const handlePaymentSuccess = useCallback(async (response) => {
     console.log("Payment successful:", response);
     const reference = response?.reference || response?.trxref || "";
@@ -440,7 +440,6 @@ export default function App() {
     }
 
     try {
-      // Check for duplicate
       const { data: existing } = await supabase
         .from("orders")
         .select("*")
@@ -456,7 +455,6 @@ export default function App() {
         return;
       }
 
-      // Create order
       const trackingNumber = generateTrackingNumber();
       const orderPayload = {
         user_id: user.id,
@@ -485,7 +483,6 @@ export default function App() {
         return;
       }
 
-      // Save order items
       const orderItems = cart.map(item => ({
         order_id: order.id,
         product_id: item.product_id,
@@ -494,7 +491,6 @@ export default function App() {
       }));
       await supabase.from("order_items").insert(orderItems);
 
-      // Update stock
       for (const item of cart) {
         try {
           const currentStock = Number(item.product?.stock || 0);
@@ -529,14 +525,12 @@ export default function App() {
     }
   }, [user, cart, cartTotal, checkout, clearCart, loadOrders, loadProducts, showNotification]);
 
-  // ===== FIXED: Payment Close Handler =====
   const handlePaymentClose = useCallback(() => {
     console.log("Payment closed");
     setProcessingPayment(false);
     setCheckoutError("Payment was cancelled.");
   }, []);
 
-  // ===== FIXED: Payment Handler =====
   const handlePayment = useCallback(async (e) => {
     e.preventDefault();
     
@@ -550,7 +544,6 @@ export default function App() {
       return;
     }
 
-    // Validate fields
     const required = [
       ["name", "full name"],
       ["phone", "phone number"],
@@ -566,7 +559,6 @@ export default function App() {
       }
     }
 
-    // Check stock
     for (const item of cart) {
       if (Number(item.product?.stock || 0) < Number(item.quantity || 0)) {
         setCheckoutError(`${item.product?.name || "Product"} is out of stock.`);
@@ -585,9 +577,6 @@ export default function App() {
       const reference = `SHP-${user.id.slice(0,8)}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
       const amount = Math.round(Number(cartTotal) * 100);
 
-      console.log("Initializing Paystack with:", { email: checkout.email, amount, reference });
-
-      // ===== FIXED: Create handler with direct callback functions =====
       const handler = window.PaystackPop.setup({
         key: CONFIG.PAYSTACK_KEY,
         email: checkout.email.trim(),
@@ -601,7 +590,6 @@ export default function App() {
             { display_name: "User ID", variable_name: "user_id", value: user.id },
           ],
         },
-        // ===== FIXED: Use direct function references =====
         callback: function(response) {
           handlePaymentSuccess(response);
         },
@@ -610,7 +598,6 @@ export default function App() {
         },
       });
 
-      // Store reference
       paystackInstance.current = handler;
       handler.openIframe();
     } catch (error) {
@@ -709,12 +696,15 @@ export default function App() {
         </nav>
 
         <div className="header-actions">
-          <button 
-            className="btn-profile" 
-            onClick={() => user ? setActiveModal("settings") : (setAuthMode("login"), setActiveModal("auth"))}
-          >
-            {user ? "👤 Profile" : "Sign in"}
-          </button>
+          {user ? (
+            <button className="btn-profile" onClick={() => setActiveModal("settings")}>
+              👤 {profile?.full_name || "Profile"}
+            </button>
+          ) : (
+            <button className="btn-profile" onClick={() => { setAuthMode("login"); setActiveModal("auth"); }}>
+              Sign in
+            </button>
+          )}
           <button 
             className="btn-cart" 
             onClick={() => user ? setActiveModal("cart") : (setActiveModal("auth"), showNotification("Sign in to access your cart."))}
@@ -729,7 +719,7 @@ export default function App() {
         <div className="hero-content">
           <span className="hero-badge">✦ SHINDARA PHONEFLAIR</span>
           <h1>Tech essentials.<br /><em>Done better.</em></h1>
-          <p>Premium phones, accessories and everyday technology selected for people who want quality without the unnecessary noise.</p>
+          <p>Premium accessories and everyday technology selected for people who want quality without the unnecessary noise.</p>
           <button className="btn-primary" onClick={() => scrollToSection("shop")}>
             Shop now →
           </button>
@@ -833,7 +823,7 @@ export default function App() {
           MODALS
           ========================================================= */}
 
-      {/* PRODUCT MODAL */}
+      {/* PRODUCT PREVIEW MODAL */}
       {activeModal === "product" && selectedProduct && (
         <Modal onClose={() => setActiveModal(null)}>
           <div className="modal-product-image">
