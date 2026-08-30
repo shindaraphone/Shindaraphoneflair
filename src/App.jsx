@@ -1,5 +1,5 @@
-// App.js - COMPLETE FIXED VERSION (Copy and paste this entire file)
-import React, { useEffect, useMemo, useState, useCallback, useReducer } from "react";
+// App.js - Complete Redesigned Version (Copy and paste this entire file)
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
 
@@ -27,772 +27,132 @@ const generateTrackingNumber = () =>
    NIGERIA STATES + CITIES (COMPLETE)
    ========================================================= */
 const NIGERIA_LOCATIONS = {
-  Abia: [
-    "Aba",
-    "Arochukwu",
-    "Bende",
-    "Ikwuano",
-    "Isiala Ngwa",
-    "Isuikwuato",
-    "Obi Ngwa",
-    "Ohafia",
-    "Osisioma",
-    "Umuahia",
-    "Umunneochi",
-  ],
-  Adamawa: [
-    "Fufore",
-    "Ganye",
-    "Girei",
-    "Gombi",
-    "Hong",
-    "Jada",
-    "Jimeta",
-    "Mayo Belwa",
-    "Michika",
-    "Mubi",
-    "Numan",
-    "Song",
-    "Toungo",
-    "Yola",
-  ],
-  "Akwa Ibom": [
-    "Abak",
-    "Eket",
-    "Essien Udim",
-    "Etinan",
-    "Ikot Ekpene",
-    "Ikot Abasi",
-    "Ika",
-    "Itu",
-    "Mkpat Enin",
-    "Oron",
-    "Uyo",
-  ],
-  Anambra: [
-    "Aguata",
-    "Awka",
-    "Awka North",
-    "Awka South",
-    "Ekwusigo",
-    "Idemili North",
-    "Idemili South",
-    "Ihiala",
-    "Nnewi",
-    "Nnewi North",
-    "Nnewi South",
-    "Ogbaru",
-    "Onitsha",
-    "Onitsha North",
-    "Onitsha South",
-    "Orumba North",
-    "Orumba South",
-    "Oyi",
-  ],
-  Bauchi: [
-    "Bauchi",
-    "Bogoro",
-    "Dass",
-    "Gamawa",
-    "Ganjuwa",
-    "Jama'are",
-    "Katagum",
-    "Misau",
-    "Ningi",
-    "Toro",
-    "Warji",
-  ],
-  Bayelsa: [
-    "Brass",
-    "Ekeremor",
-    "Kolokuma",
-    "Nembe",
-    "Ogbia",
-    "Sagbama",
-    "Southern Ijaw",
-    "Yenagoa",
-  ],
-  Benue: [
-    "Adikpo",
-    "Gbajimba",
-    "Gboko",
-    "Katsina-Ala",
-    "Makurdi",
-    "Otukpo",
-    "Vandeikya",
-    "Zaki Biam",
-  ],
-  Borno: [
-    "Bama",
-    "Biu",
-    "Chibok",
-    "Dikwa",
-    "Gubio",
-    "Jere",
-    "Kaga",
-    "Konduga",
-    "Maiduguri",
-    "Monguno",
-    "Ngala",
-  ],
-  "Cross River": [
-    "Akampka",
-    "Akamkpa",
-    "Calabar",
-    "Ikom",
-    "Obubra",
-    "Obudu",
-    "Ogoja",
-    "Ugep",
-    "Yakurr",
-  ],
-  Delta: [
-    "Asaba",
-    "Bomadi",
-    "Burutu",
-    "Effurun",
-    "Ibadan?",
-    "Isoko North",
-    "Isoko South",
-    "Kwale",
-    "Oghara",
-    "Ogwashi-Uku",
-    "Okpe",
-    "Ozoro",
-    "Sapele",
-    "Ughelli",
-    "Warri",
-    "Warri North",
-    "Warri South",
-    "Warri South West",
-  ],
-  Ebonyi: [
-    "Abakaliki",
-    "Afikpo",
-    "Ezza",
-    "Ishielu",
-    "Ivo",
-    "Izzi",
-    "Ohaukwu",
-    "Onicha",
-  ],
-  Edo: [
-    "Auchi",
-    "Benin City",
-    "Ekpoma",
-    "Igarra",
-    "Igueben",
-    "Irrua",
-    "Jattu",
-    "Oredo",
-    "Sabongida-Ora",
-    "Uromi",
-  ],
-  Ekiti: [
-    "Ado Ekiti",
-    "Aramoko",
-    "Efon Alaaye",
-    "Emure",
-    "Ikere",
-    "Ikole",
-    "Ilawe",
-    "Ijero",
-    "Ise",
-    "Omuo",
-  ],
-  Enugu: [
-    "Awgu",
-    "Enugu",
-    "Enugu East",
-    "Enugu North",
-    "Enugu South",
-    "Nsukka",
-    "Oji River",
-    "Udi",
-  ],
-  FCT: [
-    "Abaji",
-    "Abuja",
-    "Bwari",
-    "Gwagwalada",
-    "Kuje",
-    "Kwali",
-    "Maitama",
-    "Wuse",
-    "Garki",
-    "Asokoro",
-    "Gwarinpa",
-    "Jabi",
-    "Lugbe",
-    "Kubwa",
-    "Nyanya",
-  ],
-  Gombe: [
-    "Akko",
-    "Billiri",
-    "Dukku",
-    "Funakaye",
-    "Gombe",
-    "Kaltungo",
-    "Kwami",
-    "Nafada",
-    "Yamaltu-Deba",
-  ],
-  Imo: [
-    "Ehime Mbano",
-    "Ezinihitte",
-    "Ideato North",
-    "Ideato South",
-    "Ihitte Uboma",
-    "Ikeduru",
-    "Isu",
-    "Mbaitoli",
-    "Ngor Okpala",
-    "Nkwerre",
-    "Okigwe",
-    "Orlu",
-    "Owerri",
-    "Owerri Municipal",
-    "Owerri North",
-    "Owerri West",
-  ],
-  Jigawa: [
-    "Auyo",
-    "Birnin Kudu",
-    "Dutse",
-    "Gumel",
-    "Hadejia",
-    "Kafin Hausa",
-    "Kazaure",
-    "Ringim",
-    "Sule Tankarkar",
-  ],
-  Kaduna: [
-    "Birnin Gwari",
-    "Chikun",
-    "Giwa",
-    "Igabi",
-    "Ikara",
-    "Jaba",
-    "Kaduna",
-    "Kaduna North",
-    "Kaduna South",
-    "Kafanchan",
-    "Kachia",
-    "Kajuru",
-    "Kagarko",
-    "Kaura",
-    "Kudan",
-    "Sabon Gari",
-    "Sanga",
-    "Zangon Kataf",
-    "Zaria",
-  ],
-  Kano: [
-    "Bichi",
-    "Dambatta",
-    "Dawakin Kudu",
-    "Fagge",
-    "Gaya",
-    "Gwale",
-    "Kano",
-    "Kano Municipal",
-    "Kumbotso",
-    "Nassarawa",
-    "Rano",
-    "Tarauni",
-    "Ungogo",
-    "Wudil",
-  ],
-  Katsina: [
-    "Bakori",
-    "Batagarawa",
-    "Daura",
-    "Dutsin-Ma",
-    "Funtua",
-    "Jibia",
-    "Kafur",
-    "Kankara",
-    "Katsina",
-    "Malumfashi",
-    "Mani",
-    "Rimi",
-  ],
-  Kebbi: [
-    "Argungu",
-    "Arewa",
-    "Birnin Kebbi",
-    "Bunza",
-    "Jega",
-    "Kebbe",
-    "Maiyama",
-    "Sakaba",
-    "Surame",
-    "Yauri",
-    "Zuru",
-  ],
-  Kogi: [
-    "Ankpa",
-    "Dekina",
-    "Idah",
-    "Igalamela",
-    "Kabba",
-    "Kogi",
-    "Lokoja",
-    "Okene",
-    "Olamaboro",
-    "Omala",
-    "Yagba East",
-    "Yagba West",
-  ],
-  Kwara: [
-    "Baruten",
-    "Edu",
-    "Ilorin",
-    "Ilorin East",
-    "Ilorin South",
-    "Ilorin West",
-    "Ifelodun",
-    "Isin",
-    "Kaiama",
-    "Moro",
-    "Offa",
-    "Oke Ero",
-    "Oyun",
-    "Pategi",
-    "Jebba",
-    "Lafiagi",
-  ],
-  Lagos: [
-    "Agege",
-    "Alimosho",
-    "Apapa",
-    "Badagry",
-    "Epe",
-    "Eti-Osa",
-    "Ibeju-Lekki",
-    "Ikeja",
-    "Ikorodu",
-    "Lagos Island",
-    "Lagos Mainland",
-    "Lekki",
-    "Mushin",
-    "Ojo",
-    "Shomolu",
-    "Surulere",
-    "Victoria Island",
-    "Yaba",
-  ],
-  Nasarawa: [
-    "Akwanga",
-    "Doma",
-    "Karu",
-    "Keffi",
-    "Lafia",
-    "Nasarawa",
-    "Nasarawa Eggon",
-    "Obi",
-    "Toto",
-  ],
-  Niger: [
-    "Bida",
-    "Borgu",
-    "Chanchaga",
-    "Kontagora",
-    "Lapai",
-    "Minna",
-    "Mokwa",
-    "Munya",
-    "Paikoro",
-    "Rafi",
-    "Shiroro",
-    "Suleja",
-    "Tafa",
-  ],
-  Ogun: [
-    "Abeokuta",
-    "Abeokuta North",
-    "Abeokuta South",
-    "Ado-Odo/Ota",
-    "Agbara",
-    "Ijebu Ode",
-    "Ijebu North",
-    "Ijebu North East",
-    "Ilaro",
-    "Ikenne",
-    "Iperu",
-    "Ishara",
-    "Ota",
-    "Sagamu",
-    "Ifo",
-    "Obafemi Owode",
-  ],
-  Ondo: [
-    "Akoko",
-    "Akure",
-    "Akure North",
-    "Akure South",
-    "Ikare",
-    "Ile Oluji",
-    "Ondo",
-    "Okitipupa",
-    "Owo",
-    "Ore",
-    "Idanre",
-  ],
-  Osun: [
-    "Ede",
-    "Ejigbo",
-    "Ife Central",
-    "Ife East",
-    "Ife North",
-    "Ife South",
-    "Igbajo",
-    "Ijesa",
-    "Ikirun",
-    "Ila Orangun",
-    "Ilesa",
-    "Iwo",
-    "Osogbo",
-  ],
-  Oyo: [
-    "Afijio",
-    "Egbeda",
-    "Ibadan",
-    "Ibadan North",
-    "Ibadan North East",
-    "Ibadan North West",
-    "Ibadan South East",
-    "Ibadan South West",
-    "Ibarapa",
-    "Iseyin",
-    "Ogbomosho",
-    "Ogo Oluwa",
-    "Oyo",
-    "Saki",
-    "Saki East",
-  ],
-  Plateau: [
-    "Barkin Ladi",
-    "Bassa",
-    "Bokkos",
-    "Jos",
-    "Jos East",
-    "Jos North",
-    "Jos South",
-    "Mangu",
-    "Pankshin",
-    "Riyom",
-    "Shendam",
-    "Wase",
-  ],
-  Rivers: [
-    "Abua",
-    "Ahoada",
-    "Bonny",
-    "Degema",
-    "Eleme",
-    "Emohua",
-    "Etche",
-    "Ikwerre",
-    "Obio-Akpor",
-    "Okrika",
-    "Oyigbo",
-    "Port Harcourt",
-    "Rivers",
-  ],
-  Sokoto: [
-    "Binji",
-    "Bodinga",
-    "Goronyo",
-    "Gwadabawa",
-    "Illela",
-    "Kware",
-    "Sokoto",
-    "Tambuwal",
-    "Wamakko",
-    "Wurno",
-  ],
-  Taraba: [
-    "Ardo Kola",
-    "Bali",
-    "Donga",
-    "Gashaka",
-    "Ibi",
-    "Jalingo",
-    "Karim Lamido",
-    "Lau",
-    "Sardauna",
-    "Takum",
-    "Wukari",
-    "Yorro",
-  ],
-  Yobe: [
-    "Bade",
-    "Bursari",
-    "Damaturu",
-    "Fika",
-    "Geidam",
-    "Gujba",
-    "Gulani",
-    "Nguru",
-    "Potiskum",
-    "Tarmuwa",
-  ],
-  Zamfara: [
-    "Anka",
-    "Bakura",
-    "Bungudu",
-    "Gummi",
-    "Gusau",
-    "Kaura Namoda",
-    "Maradun",
-    "Maru",
-    "Shinkafi",
-    "Talata Mafara",
-    "Tsafe",
-  ],
+  Abia: ["Aba", "Arochukwu", "Bende", "Ikwuano", "Isiala Ngwa", "Isuikwuato", "Obi Ngwa", "Ohafia", "Osisioma", "Umuahia", "Umunneochi"],
+  Adamawa: ["Fufore", "Ganye", "Girei", "Gombi", "Hong", "Jada", "Jimeta", "Mayo Belwa", "Michika", "Mubi", "Numan", "Song", "Toungo", "Yola"],
+  "Akwa Ibom": ["Abak", "Eket", "Essien Udim", "Etinan", "Ikot Ekpene", "Ikot Abasi", "Ika", "Itu", "Mkpat Enin", "Oron", "Uyo"],
+  Anambra: ["Aguata", "Awka", "Awka North", "Awka South", "Ekwusigo", "Idemili North", "Idemili South", "Ihiala", "Nnewi", "Nnewi North", "Nnewi South", "Ogbaru", "Onitsha", "Onitsha North", "Onitsha South", "Orumba North", "Orumba South", "Oyi"],
+  Bauchi: ["Bauchi", "Bogoro", "Dass", "Gamawa", "Ganjuwa", "Jama'are", "Katagum", "Misau", "Ningi", "Toro", "Warji"],
+  Bayelsa: ["Brass", "Ekeremor", "Kolokuma", "Nembe", "Ogbia", "Sagbama", "Southern Ijaw", "Yenagoa"],
+  Benue: ["Adikpo", "Gbajimba", "Gboko", "Katsina-Ala", "Makurdi", "Otukpo", "Vandeikya", "Zaki Biam"],
+  Borno: ["Bama", "Biu", "Chibok", "Dikwa", "Gubio", "Jere", "Kaga", "Konduga", "Maiduguri", "Monguno", "Ngala"],
+  "Cross River": ["Akampka", "Akamkpa", "Calabar", "Ikom", "Obubra", "Obudu", "Ogoja", "Ugep", "Yakurr"],
+  Delta: ["Asaba", "Bomadi", "Burutu", "Effurun", "Isoko North", "Isoko South", "Kwale", "Oghara", "Ogwashi-Uku", "Okpe", "Ozoro", "Sapele", "Ughelli", "Warri", "Warri North", "Warri South", "Warri South West"],
+  Ebonyi: ["Abakaliki", "Afikpo", "Ezza", "Ishielu", "Ivo", "Izzi", "Ohaukwu", "Onicha"],
+  Edo: ["Auchi", "Benin City", "Ekpoma", "Igarra", "Igueben", "Irrua", "Jattu", "Oredo", "Sabongida-Ora", "Uromi"],
+  Ekiti: ["Ado Ekiti", "Aramoko", "Efon Alaaye", "Emure", "Ikere", "Ikole", "Ilawe", "Ijero", "Ise", "Omuo"],
+  Enugu: ["Awgu", "Enugu", "Enugu East", "Enugu North", "Enugu South", "Nsukka", "Oji River", "Udi"],
+  FCT: ["Abaji", "Abuja", "Bwari", "Gwagwalada", "Kuje", "Kwali", "Maitama", "Wuse", "Garki", "Asokoro", "Gwarinpa", "Jabi", "Lugbe", "Kubwa", "Nyanya"],
+  Gombe: ["Akko", "Billiri", "Dukku", "Funakaye", "Gombe", "Kaltungo", "Kwami", "Nafada", "Yamaltu-Deba"],
+  Imo: ["Ehime Mbano", "Ezinihitte", "Ideato North", "Ideato South", "Ihitte Uboma", "Ikeduru", "Isu", "Mbaitoli", "Ngor Okpala", "Nkwerre", "Okigwe", "Orlu", "Owerri", "Owerri Municipal", "Owerri North", "Owerri West"],
+  Jigawa: ["Auyo", "Birnin Kudu", "Dutse", "Gumel", "Hadejia", "Kafin Hausa", "Kazaure", "Ringim", "Sule Tankarkar"],
+  Kaduna: ["Birnin Gwari", "Chikun", "Giwa", "Igabi", "Ikara", "Jaba", "Kaduna", "Kaduna North", "Kaduna South", "Kafanchan", "Kachia", "Kajuru", "Kagarko", "Kaura", "Kudan", "Sabon Gari", "Sanga", "Zangon Kataf", "Zaria"],
+  Kano: ["Bichi", "Dambatta", "Dawakin Kudu", "Fagge", "Gaya", "Gwale", "Kano", "Kano Municipal", "Kumbotso", "Nassarawa", "Rano", "Tarauni", "Ungogo", "Wudil"],
+  Katsina: ["Bakori", "Batagarawa", "Daura", "Dutsin-Ma", "Funtua", "Jibia", "Kafur", "Kankara", "Katsina", "Malumfashi", "Mani", "Rimi"],
+  Kebbi: ["Argungu", "Arewa", "Birnin Kebbi", "Bunza", "Jega", "Kebbe", "Maiyama", "Sakaba", "Surame", "Yauri", "Zuru"],
+  Kogi: ["Ankpa", "Dekina", "Idah", "Igalamela", "Kabba", "Kogi", "Lokoja", "Okene", "Olamaboro", "Omala", "Yagba East", "Yagba West"],
+  Kwara: ["Baruten", "Edu", "Ilorin", "Ilorin East", "Ilorin South", "Ilorin West", "Ifelodun", "Isin", "Kaiama", "Moro", "Offa", "Oke Ero", "Oyun", "Pategi", "Jebba", "Lafiagi"],
+  Lagos: ["Agege", "Alimosho", "Apapa", "Badagry", "Epe", "Eti-Osa", "Ibeju-Lekki", "Ikeja", "Ikorodu", "Lagos Island", "Lagos Mainland", "Lekki", "Mushin", "Ojo", "Shomolu", "Surulere", "Victoria Island", "Yaba"],
+  Nasarawa: ["Akwanga", "Doma", "Karu", "Keffi", "Lafia", "Nasarawa", "Nasarawa Eggon", "Obi", "Toto"],
+  Niger: ["Bida", "Borgu", "Chanchaga", "Kontagora", "Lapai", "Minna", "Mokwa", "Munya", "Paikoro", "Rafi", "Shiroro", "Suleja", "Tafa"],
+  Ogun: ["Abeokuta", "Abeokuta North", "Abeokuta South", "Ado-Odo/Ota", "Agbara", "Ijebu Ode", "Ijebu North", "Ijebu North East", "Ilaro", "Ikenne", "Iperu", "Ishara", "Ota", "Sagamu", "Ifo", "Obafemi Owode"],
+  Ondo: ["Akoko", "Akure", "Akure North", "Akure South", "Ikare", "Ile Oluji", "Ondo", "Okitipupa", "Owo", "Ore", "Idanre"],
+  Osun: ["Ede", "Ejigbo", "Ife Central", "Ife East", "Ife North", "Ife South", "Igbajo", "Ijesa", "Ila Orangun", "Ilesa", "Iwo", "Osogbo", "Oshogbo"],
+  Oyo: ["Afijio", "Egbeda", "Ibadan", "Ibadan North", "Ibadan North East", "Ibadan North West", "Ibadan South East", "Ibadan South West", "Ibarapa", "Iseyin", "Ogbomosho", "Ogo Oluwa", "Oyo", "Saki", "Saki East"],
+  Plateau: ["Barkin Ladi", "Bassa", "Bokkos", "Jos", "Jos East", "Jos North", "Jos South", "Mangu", "Pankshin", "Riyom", "Shendam", "Wase"],
+  Rivers: ["Abua", "Ahoada", "Bonny", "Degema", "Eleme", "Emohua", "Etche", "Ikwerre", "Obio-Akpor", "Okrika", "Oyigbo", "Port Harcourt", "Rivers"],
+  Sokoto: ["Binji", "Bodinga", "Goronyo", "Gwadabawa", "Illela", "Kware", "Sokoto", "Tambuwal", "Wamakko", "Wurno"],
+  Taraba: ["Ardo Kola", "Bali", "Donga", "Gashaka", "Ibi", "Jalingo", "Karim Lamido", "Lau", "Sardauna", "Takum", "Wukari", "Yorro"],
+  Yobe: ["Bade", "Bursari", "Damaturu", "Fika", "Geidam", "Gujba", "Gulani", "Nguru", "Potiskum", "Tarmuwa"],
+  Zamfara: ["Anka", "Bakura", "Bungudu", "Gummi", "Gusau", "Kaura Namoda", "Maradun", "Maru", "Shinkafi", "Talata Mafara", "Tsafe"],
 };
 
-/* =========================================================
-   CATEGORIES
-   ========================================================= */
-const CATEGORIES = [
-  "All",
-  "Phones",
-  "Phone Cases",
-  "Chargers",
-  "Cables",
-  "Power Banks",
-  "Audio",
-  "Smart Watches",
-  "Screen Protectors",
-];
+const CATEGORIES = ["All", "Phones", "Phone Cases", "Chargers", "Cables", "Power Banks", "Audio", "Smart Watches", "Screen Protectors"];
 
 /* =========================================================
-   REDUCER - Centralized State Management
+   MAIN APP
    ========================================================= */
-const initialState = {
-  user: null,
-  profile: null,
-  products: [],
-  cart: [],
-  orders: [],
+export default function App() {
+  // ===== STATE =====
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [orders, setOrders] = useState([]);
   
-  ui: {
-    loading: true,
-    cartLoading: false,
-    authLoading: false,
-    placingOrder: false,
-    savingProfile: false,
-  },
+  const [loading, setLoading] = useState(true);
+  const [cartLoading, setCartLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
   
-  modals: {
-    cart: false,
-    account: false,
-    checkout: false,
-    orders: false,
-    tracking: false,
-    product: false,
-    settings: false,
-  },
+  const [modal, setModal] = useState(null); // null, 'cart', 'account', 'checkout', 'orders', 'tracking', 'product', 'settings'
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   
-  filters: {
-    search: "",
-    category: "All",
-  },
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
+  const [notice, setNotice] = useState("");
   
-  auth: {
-    mode: "login",
-    message: "",
-    email: "",
-    password: "",
-    fullName: "",
-    phone: "",
-  },
+  const [authMode, setAuthMode] = useState("login");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authFullName, setAuthFullName] = useState("");
+  const [authPhone, setAuthPhone] = useState("");
   
-  checkout: {
+  const [checkoutData, setCheckoutData] = useState({
     customer_name: "",
     customer_phone: "",
     customer_email: "",
     delivery_address: "",
     delivery_state: "",
     delivery_city: "",
-    message: "",
-  },
+  });
+  const [checkoutMessage, setCheckoutMessage] = useState("");
   
-  selected: {
-    product: null,
-    order: null,
-  },
+  const [theme, setTheme] = useState(() => localStorage.getItem("shindara-theme") || "device");
   
-  theme: localStorage.getItem("shindara-theme") || "device",
-  notice: "",
-};
+  // ===== REFS =====
+  const noticeTimerRef = useRef(null);
+  const paymentCallbackRef = useRef(null);
+  const paymentCloseRef = useRef(null);
 
-function appReducer(state, action) {
-  switch (action.type) {
-    case "SET_USER":
-      return { ...state, user: action.payload };
-    case "SET_PROFILE":
-      return { ...state, profile: action.payload };
-    case "SET_PRODUCTS":
-      return { ...state, products: action.payload };
-    case "SET_CART":
-      return { ...state, cart: action.payload };
-    case "SET_ORDERS":
-      return { ...state, orders: action.payload };
-    case "SET_LOADING":
-      return { ...state, ui: { ...state.ui, loading: action.payload } };
-    case "SET_CART_LOADING":
-      return { ...state, ui: { ...state.ui, cartLoading: action.payload } };
-    case "SET_AUTH_LOADING":
-      return { ...state, ui: { ...state.ui, authLoading: action.payload } };
-    case "SET_PLACING_ORDER":
-      return { ...state, ui: { ...state.ui, placingOrder: action.payload } };
-    case "SET_SAVING_PROFILE":
-      return { ...state, ui: { ...state.ui, savingProfile: action.payload } };
-    case "OPEN_MODAL":
-      return {
-        ...state,
-        modals: { ...state.modals, [action.payload]: true },
-      };
-    case "CLOSE_MODAL":
-      return {
-        ...state,
-        modals: { ...state.modals, [action.payload]: false },
-      };
-    case "SET_FILTER":
-      return {
-        ...state,
-        filters: { ...state.filters, [action.payload.key]: action.payload.value },
-      };
-    case "SET_AUTH":
-      return {
-        ...state,
-        auth: { ...state.auth, [action.payload.key]: action.payload.value },
-      };
-    case "SET_AUTH_MODE":
-      return { ...state, auth: { ...state.auth, mode: action.payload } };
-    case "SET_CHECKOUT":
-      return {
-        ...state,
-        checkout: { ...state.checkout, [action.payload.key]: action.payload.value },
-      };
-    case "SET_SELECTED":
-      return {
-        ...state,
-        selected: { ...state.selected, [action.payload.key]: action.payload.value },
-      };
-    case "SET_THEME":
-      return { ...state, theme: action.payload };
-    case "SET_NOTICE":
-      return { ...state, notice: action.payload };
-    default:
-      return state;
-  }
-}
-
-/* =========================================================
-   MAIN APP
-   ========================================================= */
-export default function App() {
-  const [state, dispatch] = useReducer(appReducer, initialState);
-  
-  // Destructure state for cleaner access
-  const {
-    user,
-    profile,
-    products,
-    cart,
-    orders,
-    ui,
-    modals,
-    filters,
-    auth,
-    checkout,
-    selected,
-    theme,
-    notice,
-  } = state;
-
-  const { search, category } = filters;
-  const cartTotal = useMemo(
-    () => cart.reduce((sum, item) => sum + Number(item.subtotal || 0), 0),
+  // ===== COMPUTED =====
+  const cartTotal = useMemo(() => 
+    cart.reduce((sum, item) => sum + Number(item.subtotal || 0), 0), 
     [cart]
   );
-  const cartCount = useMemo(
-    () => cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+  
+  const cartCount = useMemo(() => 
+    cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0), 
     [cart]
   );
 
-  /* =========================================================
-     NOTIFICATIONS
-     ========================================================= */
+  // ===== NOTICE =====
   const showNotice = useCallback((message) => {
-    dispatch({ type: "SET_NOTICE", payload: message });
-    clearTimeout(window.__noticeTimer);
-    window.__noticeTimer = setTimeout(() => {
-      dispatch({ type: "SET_NOTICE", payload: "" });
-    }, 3500);
+    setNotice(message);
+    clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setNotice(""), 3500);
   }, []);
 
-  /* =========================================================
-     THEME MANAGEMENT
-     ========================================================= */
+  // ===== THEME =====
   useEffect(() => {
     localStorage.setItem("shindara-theme", theme);
-    const applyTheme = () => {
-      const isDark =
-        theme === "dark" ||
-        (theme === "device" &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches);
-      document.documentElement.dataset.theme = isDark ? "dark" : "light";
-    };
-    applyTheme();
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener("change", applyTheme);
-    return () => media.removeEventListener("change", applyTheme);
+    const isDark = theme === "dark" || (theme === "device" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.dataset.theme = isDark ? "dark" : "light";
   }, [theme]);
 
-  /* =========================================================
-     DATA LOADING HELPERS
-     ========================================================= */
+  // ===== DATA LOADING =====
   const loadProducts = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (!error) dispatch({ type: "SET_PRODUCTS", payload: data || [] });
-  }, []);
-
-  const loadProfile = useCallback(async (userId) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!error && data) {
-      dispatch({ type: "SET_PROFILE", payload: data });
-      dispatch({
-        type: "SET_CHECKOUT",
-        payload: { key: "customer_name", value: data.full_name || "" },
-      });
-      dispatch({
-        type: "SET_CHECKOUT",
-        payload: { key: "customer_phone", value: data.phone || "" },
-      });
-    }
+    const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+    if (!error) setProducts(data || []);
   }, []);
 
   const loadCart = useCallback(async (userId) => {
-    dispatch({ type: "SET_CART_LOADING", payload: true });
+    if (!userId) return;
+    setCartLoading(true);
     const { data, error } = await supabase
       .from("cart_items")
-      .select(`
-        id, user_id, product_id, quantity,
-        products:product_id (id, name, price, image_url, description, category, stock)
-      `)
+      .select(`id, user_id, product_id, quantity, products:product_id (id, name, price, image_url, description, category, stock)`)
       .eq("user_id", userId)
       .order("id");
     if (!error) {
@@ -803,12 +163,13 @@ export default function App() {
           product: item.products,
           subtotal: Number(item.products.price || 0) * Number(item.quantity || 0),
         }));
-      dispatch({ type: "SET_CART", payload: formatted });
+      setCart(formatted);
     }
-    dispatch({ type: "SET_CART_LOADING", payload: false });
+    setCartLoading(false);
   }, []);
 
   const loadOrders = useCallback(async (userId) => {
+    if (!userId) return;
     const { data: orderData, error } = await supabase
       .from("orders")
       .select("*")
@@ -819,39 +180,30 @@ export default function App() {
         (orderData || []).map(async (order) => {
           const { data: items } = await supabase
             .from("order_items")
-            .select(`
-              id, order_id, product_id, quantity, price,
-              products:product_id (id, name, image_url, category, description)
-            `)
+            .select(`id, order_id, product_id, quantity, price, products:product_id (id, name, image_url, category, description)`)
             .eq("order_id", order.id);
-          return {
-            ...order,
-            items: (items || []).map(item => ({
-              ...item,
-              product: item.products,
-            })),
-          };
+          return { ...order, items: (items || []).map(item => ({ ...item, product: item.products })) };
         })
       );
-      dispatch({ type: "SET_ORDERS", payload: completeOrders });
+      setOrders(completeOrders);
     }
   }, []);
 
-  const loadCustomerData = useCallback(
-    async (user) => {
-      if (!user) return;
-      await Promise.all([
-        loadProfile(user.id),
-        loadCart(user.id),
-        loadOrders(user.id),
-      ]);
-    },
-    [loadProfile, loadCart, loadOrders]
-  );
+  const loadProfile = useCallback(async (userId) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    if (!error && data) {
+      setProfile(data);
+      setCheckoutData(prev => ({
+        ...prev,
+        customer_name: data.full_name || "",
+        customer_phone: data.phone || "",
+        customer_email: data.email || "",
+      }));
+    }
+  }, []);
 
-  /* =========================================================
-     INITIALIZATION
-     ========================================================= */
+  // ===== INIT =====
   useEffect(() => {
     let mounted = true;
     const init = async () => {
@@ -859,193 +211,161 @@ export default function App() {
         const { data: { session } } = await supabase.auth.getSession();
         const currentUser = session?.user || null;
         if (mounted) {
-          dispatch({ type: "SET_USER", payload: currentUser });
+          setUser(currentUser);
           await loadProducts();
-          if (currentUser) await loadCustomerData(currentUser);
+          if (currentUser) {
+            await loadProfile(currentUser.id);
+            await loadCart(currentUser.id);
+            await loadOrders(currentUser.id);
+          }
         }
       } catch (error) {
-        console.error("Initialization error:", error);
+        console.error("Init error:", error);
       } finally {
-        if (mounted) dispatch({ type: "SET_LOADING", payload: false });
+        if (mounted) setLoading(false);
       }
     };
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_, session) => {
-        const user = session?.user || null;
-        dispatch({ type: "SET_USER", payload: user });
-        if (user) {
-          await loadCustomerData(user);
-        } else {
-          dispatch({ type: "SET_PROFILE", payload: null });
-          dispatch({ type: "SET_CART", payload: [] });
-          dispatch({ type: "SET_ORDERS", payload: [] });
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_, session) => {
+      const user = session?.user || null;
+      setUser(user);
+      if (user) {
+        await loadProfile(user.id);
+        await loadCart(user.id);
+        await loadOrders(user.id);
+      } else {
+        setProfile(null);
+        setCart([]);
+        setOrders([]);
       }
-    );
+    });
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadProducts, loadCustomerData]);
+  }, [loadProducts, loadProfile, loadCart, loadOrders]);
 
-  /* =========================================================
-     CART OPERATIONS
-     ========================================================= */
-  const addToCart = useCallback(
-    async (product) => {
-      if (!user) {
-        dispatch({ type: "OPEN_MODAL", payload: "account" });
-        dispatch({ type: "SET_AUTH_MODE", payload: "login" });
-        showNotice("Please sign in to add items to your cart.");
-        return;
-      }
-      if (Number(product.stock || 0) <= 0) {
-        showNotice("This product is out of stock.");
-        return;
-      }
+  // ===== CART OPERATIONS =====
+  const addToCart = useCallback(async (product) => {
+    if (!user) {
+      setModal("account");
+      setAuthMode("login");
+      showNotice("Please sign in first.");
+      return;
+    }
+    if (Number(product.stock || 0) <= 0) {
+      showNotice("Out of stock.");
+      return;
+    }
 
-      const existing = cart.find(item => item.product_id === product.id);
-      if (existing) {
-        const nextQty = Number(existing.quantity) + 1;
-        if (nextQty > Number(product.stock)) {
-          showNotice("Cannot exceed available stock.");
-          return;
-        }
-        await supabase
-          .from("cart_items")
-          .update({ quantity: nextQty })
-          .eq("id", existing.id)
-          .eq("user_id", user.id);
-      } else {
-        await supabase.from("cart_items").insert({
-          user_id: user.id,
-          product_id: product.id,
-          quantity: 1,
-        });
-      }
-      await loadCart(user.id);
-      showNotice(`${product.name} added to cart.`);
-    },
-    [user, cart, loadCart, showNotice]
-  );
-
-  const updateQuantity = useCallback(
-    async (item, change) => {
-      if (!user) return;
-      const nextQty = Number(item.quantity) + change;
-      if (nextQty <= 0) {
-        await supabase
-          .from("cart_items")
-          .delete()
-          .eq("id", item.id)
-          .eq("user_id", user.id);
-        await loadCart(user.id);
-        showNotice("Item removed from cart.");
-        return;
-      }
-      if (item.product && Number(item.product.stock || 0) < nextQty) {
+    const existing = cart.find(item => item.product_id === product.id);
+    if (existing) {
+      const nextQty = Number(existing.quantity) + 1;
+      if (nextQty > Number(product.stock)) {
         showNotice("Cannot exceed available stock.");
         return;
       }
-      await supabase
-        .from("cart_items")
-        .update({ quantity: nextQty })
-        .eq("id", item.id)
-        .eq("user_id", user.id);
-      await loadCart(user.id);
-    },
-    [user, loadCart, showNotice]
-  );
+      await supabase.from("cart_items").update({ quantity: nextQty }).eq("id", existing.id).eq("user_id", user.id);
+    } else {
+      await supabase.from("cart_items").insert({ user_id: user.id, product_id: product.id, quantity: 1 });
+    }
+    await loadCart(user.id);
+    showNotice(`${product.name} added to cart!`);
+  }, [user, cart, loadCart, showNotice]);
 
-  const removeFromCart = useCallback(
-    async (item) => {
-      if (!user) return;
-      await supabase
-        .from("cart_items")
-        .delete()
-        .eq("id", item.id)
-        .eq("user_id", user.id);
+  const updateQuantity = useCallback(async (item, change) => {
+    if (!user) return;
+    const nextQty = Number(item.quantity) + change;
+    if (nextQty <= 0) {
+      await supabase.from("cart_items").delete().eq("id", item.id).eq("user_id", user.id);
       await loadCart(user.id);
-      showNotice("Item removed from cart.");
-    },
-    [user, loadCart, showNotice]
-  );
+      showNotice("Item removed.");
+      return;
+    }
+    if (item.product && Number(item.product.stock || 0) < nextQty) {
+      showNotice("Cannot exceed available stock.");
+      return;
+    }
+    await supabase.from("cart_items").update({ quantity: nextQty }).eq("id", item.id).eq("user_id", user.id);
+    await loadCart(user.id);
+  }, [user, loadCart, showNotice]);
+
+  const removeFromCart = useCallback(async (item) => {
+    if (!user) return;
+    await supabase.from("cart_items").delete().eq("id", item.id).eq("user_id", user.id);
+    await loadCart(user.id);
+    showNotice("Item removed.");
+  }, [user, loadCart, showNotice]);
 
   const clearCart = useCallback(async () => {
     if (!user) return false;
     await supabase.from("cart_items").delete().eq("user_id", user.id);
-    dispatch({ type: "SET_CART", payload: [] });
+    setCart([]);
     return true;
   }, [user]);
 
-  /* =========================================================
-     AUTH OPERATIONS
-     ========================================================= */
-  const handleAuth = useCallback(
-    async (e) => {
-      e.preventDefault();
-      dispatch({ type: "SET_AUTH_LOADING", payload: true });
-      try {
-        const { email, password, fullName, phone, mode } = auth;
-        if (!email.trim() || !password) {
-          dispatch({ type: "SET_AUTH", payload: { key: "message", value: "Please enter email and password." } });
-          return;
-        }
-        if (password.length < 6) {
-          dispatch({ type: "SET_AUTH", payload: { key: "message", value: "Password must be at least 6 characters." } });
-          return;
-        }
-
-        if (mode === "signup") {
-          if (!fullName.trim() || !phone.trim()) {
-            dispatch({ type: "SET_AUTH", payload: { key: "message", value: "Please enter your full name and phone number." } });
-            return;
-          }
-          const { data, error } = await supabase.auth.signUp({
-            email: email.trim().toLowerCase(),
-            password,
-            options: { data: { full_name: fullName.trim(), phone: phone.trim() } },
-          });
-          if (error) throw new Error(error.message);
-          if (data?.user) {
-            await supabase.from("profiles").upsert({
-              id: data.user.id,
-              email: data.user.email || email.trim().toLowerCase(),
-              full_name: fullName.trim(),
-              phone: phone.trim(),
-            });
-          }
-          if (data?.session) {
-            dispatch({ type: "CLOSE_MODAL", payload: "account" });
-            showNotice("Account created successfully.");
-          } else {
-            dispatch({ type: "SET_AUTH", payload: { key: "message", value: "Account created. Check your email for verification." } });
-          }
-        } else {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: email.trim().toLowerCase(),
-            password,
-          });
-          if (error) throw new Error(error.message);
-          if (data?.user) {
-            await loadCustomerData(data.user);
-            dispatch({ type: "CLOSE_MODAL", payload: "account" });
-            showNotice("Welcome back!");
-          }
-        }
-      } catch (error) {
-        dispatch({ type: "SET_AUTH", payload: { key: "message", value: error.message } });
-      } finally {
-        dispatch({ type: "SET_AUTH_LOADING", payload: false });
+  // ===== AUTH =====
+  const handleAuth = useCallback(async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthMessage("");
+    try {
+      if (!authEmail.trim() || !authPassword) {
+        setAuthMessage("Please enter email and password.");
+        return;
       }
-    },
-    [auth, loadCustomerData, showNotice]
-  );
+      if (authPassword.length < 6) {
+        setAuthMessage("Password must be at least 6 characters.");
+        return;
+      }
+
+      if (authMode === "signup") {
+        if (!authFullName.trim() || !authPhone.trim()) {
+          setAuthMessage("Please enter your full name and phone number.");
+          return;
+        }
+        const { data, error } = await supabase.auth.signUp({
+          email: authEmail.trim().toLowerCase(),
+          password: authPassword,
+          options: { data: { full_name: authFullName.trim(), phone: authPhone.trim() } },
+        });
+        if (error) throw new Error(error.message);
+        if (data?.user) {
+          await supabase.from("profiles").upsert({
+            id: data.user.id,
+            email: data.user.email || authEmail.trim().toLowerCase(),
+            full_name: authFullName.trim(),
+            phone: authPhone.trim(),
+          });
+        }
+        if (data?.session) {
+          setModal(null);
+          showNotice("Account created!");
+        } else {
+          setAuthMessage("Check your email for verification.");
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: authEmail.trim().toLowerCase(),
+          password: authPassword,
+        });
+        if (error) throw new Error(error.message);
+        if (data?.user) {
+          setModal(null);
+          showNotice("Welcome back!");
+        }
+      }
+    } catch (error) {
+      setAuthMessage(error.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [authEmail, authPassword, authFullName, authPhone, authMode, showNotice]);
 
   const handleGoogleLogin = useCallback(async () => {
-    dispatch({ type: "SET_AUTH_LOADING", payload: true });
+    setAuthLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -1053,248 +373,71 @@ export default function App() {
       });
       if (error) throw new Error(error.message);
     } catch (error) {
-      dispatch({ type: "SET_AUTH", payload: { key: "message", value: error.message } });
+      setAuthMessage(error.message);
     } finally {
-      dispatch({ type: "SET_AUTH_LOADING", payload: false });
+      setAuthLoading(false);
     }
   }, []);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
-    dispatch({ type: "SET_USER", payload: null });
-    dispatch({ type: "SET_PROFILE", payload: null });
-    dispatch({ type: "SET_CART", payload: [] });
-    dispatch({ type: "SET_ORDERS", payload: [] });
-    Object.keys(modals).forEach(key => dispatch({ type: "CLOSE_MODAL", payload: key }));
+    setUser(null);
+    setProfile(null);
+    setCart([]);
+    setOrders([]);
+    setModal(null);
     showNotice("Signed out.");
   }, [showNotice]);
 
-  /* =========================================================
-   CHECKOUT & PAYMENT - FIXED VERSION
-   ========================================================= */
-const loadPaystack = useCallback(() => {
-  return new Promise((resolve, reject) => {
-    // Check if already loaded
-    if (window.PaystackPop) {
-      console.log("Paystack already loaded");
-      resolve(true);
-      return;
-    }
-
-    // Check if script is already in DOM but not loaded
-    const existingScript = document.querySelector(
-      'script[src="https://js.paystack.co/v1/inline.js"]'
-    );
-
-    if (existingScript) {
-      console.log("Paystack script found, waiting for load...");
-      const checkInterval = setInterval(() => {
-        if (window.PaystackPop) {
-          clearInterval(checkInterval);
-          console.log("Paystack loaded successfully");
-          resolve(true);
-        }
-      }, 200);
-
-      // Timeout after 10 seconds
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        reject(new Error("Paystack script load timeout"));
-      }, 10000);
-
-      return;
-    }
-
-    // Create and load script
-    console.log("Loading Paystack script...");
-    const script = document.createElement("script");
-    script.src = "https://js.paystack.co/v1/inline.js";
-    script.async = true;
-
-    script.onload = () => {
+  // ===== PAYMENT =====
+  const loadPaystack = useCallback(() => {
+    return new Promise((resolve, reject) => {
       if (window.PaystackPop) {
-        console.log("Paystack loaded via onload");
         resolve(true);
-      } else {
-        reject(new Error("Paystack loaded but PaystackPop not available"));
-      }
-    };
-
-    script.onerror = () => {
-      console.error("Paystack script failed to load");
-      reject(new Error("Could not load Paystack. Please check your internet connection."));
-    };
-
-    document.head.appendChild(script);
-  });
-}, []);
-
-const handlePayment = useCallback(
-  async (e) => {
-    e.preventDefault();
-    
-    if (ui.placingOrder) {
-      console.log("Order already in progress");
-      return;
-    }
-    
-    if (!user) {
-      dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Please sign in again." } });
-      return;
-    }
-    
-    if (!cart.length) {
-      dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Your cart is empty." } });
-      return;
-    }
-
-    // Validate required fields
-    const requiredFields = [
-      ["customer_name", "full name"],
-      ["customer_phone", "phone number"],
-      ["customer_email", "email"],
-      ["delivery_address", "delivery address"],
-      ["delivery_state", "state"],
-      ["delivery_city", "city"],
-    ];
-    
-    for (const [field, label] of requiredFields) {
-      if (!String(checkout[field] || "").trim()) {
-        dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: `Please enter your ${label}.` } });
         return;
       }
-    }
-
-    // Check stock
-    for (const item of cart) {
-      if (Number(item.product?.stock || 0) < Number(item.quantity || 0)) {
-        dispatch({
-          type: "SET_CHECKOUT",
-          payload: { key: "message", value: `${item.product?.name || "Product"} is out of stock.` },
-        });
-        await loadCart(user.id);
+      const existingScript = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
+      if (existingScript) {
+        const checkInterval = setInterval(() => {
+          if (window.PaystackPop) {
+            clearInterval(checkInterval);
+            resolve(true);
+          }
+        }, 200);
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          reject(new Error("Paystack load timeout"));
+        }, 10000);
         return;
       }
-    }
+      const script = document.createElement("script");
+      script.src = "https://js.paystack.co/v1/inline.js";
+      script.async = true;
+      script.onload = () => window.PaystackPop ? resolve(true) : reject(new Error("Paystack not available"));
+      script.onerror = () => reject(new Error("Could not load Paystack"));
+      document.head.appendChild(script);
+    });
+  }, []);
 
-    // Start payment process
-    dispatch({ type: "SET_PLACING_ORDER", payload: true });
-    dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Loading payment gateway..." } });
-
-    try {
-      // Load Paystack
-      await loadPaystack();
-      
-      if (!window.PaystackPop) {
-        throw new Error("Paystack is not available. Please refresh and try again.");
-      }
-
-      // Generate unique reference
-      const reference = `SHP-${user.id.slice(0,8)}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
-      
-      // Calculate amount in kobo (Paystack uses the smallest currency unit)
-      const amountInKobo = Math.round(Number(cartTotal) * 100);
-      
-      console.log("Initializing Paystack with:", {
-        email: checkout.customer_email.trim(),
-        amount: amountInKobo,
-        reference: reference
-      });
-
-      // Create callback functions
-      const paymentCallback = async (response) => {
-        console.log("Payment callback received:", response);
-        await completePayment(response);
-      };
-
-      const paymentOnClose = () => {
-        console.log("Paystack modal closed");
-        dispatch({ type: "SET_PLACING_ORDER", payload: false });
-        dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Payment was cancelled. You can try again." } });
-      };
-
-      // Setup Paystack with proper callbacks
-      const handler = window.PaystackPop.setup({
-        key: CONFIG.PAYSTACK_KEY,
-        email: checkout.customer_email.trim(),
-        amount: amountInKobo,
-        currency: "NGN",
-        ref: reference,
-        metadata: {
-          custom_fields: [
-            { 
-              display_name: "Customer Name", 
-              variable_name: "customer_name", 
-              value: checkout.customer_name.trim() 
-            },
-            { 
-              display_name: "Customer Phone", 
-              variable_name: "customer_phone", 
-              value: checkout.customer_phone.trim() 
-            },
-            { 
-              display_name: "User ID", 
-              variable_name: "user_id", 
-              value: user.id 
-            },
-          ],
-        },
-        callback: paymentCallback,
-        onClose: paymentOnClose,
-      });
-
-      // Open Paystack
-      handler.openIframe();
-      
-    } catch (error) {
-      console.error("Payment error:", error);
-      dispatch({ 
-        type: "SET_CHECKOUT", 
-        payload: { 
-          key: "message", 
-          value: error.message || "Payment could not be started. Please refresh and try again." 
-        } 
-      });
-      dispatch({ type: "SET_PLACING_ORDER", payload: false });
-    }
-  },
-  [user, cart, checkout, cartTotal, ui.placingOrder, loadCart, loadPaystack]
-);
-
-const completePayment = useCallback(
-  async (paymentResponse) => {
-    const ref = paymentResponse?.reference || paymentResponse?.trxref || "";
-    
+  // Payment callback handler
+  const handlePaymentCallback = useCallback(async (response) => {
+    console.log("Payment callback:", response);
+    const ref = response?.reference || response?.trxref || "";
     if (!ref) {
-      dispatch({ 
-        type: "SET_CHECKOUT", 
-        payload: { key: "message", value: "No payment reference received. Please contact support." } 
-      });
-      dispatch({ type: "SET_PLACING_ORDER", payload: false });
+      setCheckoutMessage("No payment reference received.");
+      setProcessingPayment(false);
       return;
     }
 
-    console.log("Processing payment for reference:", ref);
-
     try {
-      // Check for duplicate payment
-      const { data: existing, error: duplicateError } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("payment_reference", ref)
-        .maybeSingle();
-
-      if (duplicateError) {
-        console.error("Duplicate check error:", duplicateError);
-      }
-
+      // Check duplicate
+      const { data: existing } = await supabase.from("orders").select("*").eq("payment_reference", ref).maybeSingle();
       if (existing) {
-        console.log("Duplicate payment detected, order already exists");
         await loadOrders(user.id);
         await clearCart();
-        dispatch({ type: "CLOSE_MODAL", payload: "checkout" });
-        dispatch({ type: "SET_PLACING_ORDER", payload: false });
-        showNotice("Payment already recorded. Order confirmed!");
+        setModal(null);
+        setProcessingPayment(false);
+        showNotice("Payment already recorded!");
         return;
       }
 
@@ -1302,12 +445,12 @@ const completePayment = useCallback(
       const trackingNumber = generateTrackingNumber();
       const orderPayload = {
         user_id: user.id,
-        customer_name: checkout.customer_name.trim(),
-        customer_phone: checkout.customer_phone.trim(),
-        customer_email: checkout.customer_email.trim(),
-        delivery_address: checkout.delivery_address.trim(),
-        delivery_state: checkout.delivery_state,
-        delivery_city: checkout.delivery_city,
+        customer_name: checkoutData.customer_name.trim(),
+        customer_phone: checkoutData.customer_phone.trim(),
+        customer_email: checkoutData.customer_email.trim(),
+        delivery_address: checkoutData.delivery_address.trim(),
+        delivery_state: checkoutData.delivery_state,
+        delivery_city: checkoutData.delivery_city,
         total: Number(cartTotal),
         payment_status: "paid",
         payment_reference: ref,
@@ -1315,24 +458,10 @@ const completePayment = useCallback(
         tracking_number: trackingNumber,
       };
 
-      console.log("Creating order with payload:", orderPayload);
-
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert(orderPayload)
-        .select()
-        .single();
-
+      const { data: order, error: orderError } = await supabase.from("orders").insert(orderPayload).select().single();
       if (orderError || !order) {
-        console.error("Order save error:", orderError);
-        dispatch({ 
-          type: "SET_CHECKOUT", 
-          payload: { 
-            key: "message", 
-            value: `Payment was received but order could not be saved. Reference: ${ref}. Please contact support.` 
-          } 
-        });
-        dispatch({ type: "SET_PLACING_ORDER", payload: false });
+        setCheckoutMessage(`Payment received but order not saved. Reference: ${ref}`);
+        setProcessingPayment(false);
         return;
       }
 
@@ -1343,14 +472,7 @@ const completePayment = useCallback(
         quantity: Number(item.quantity),
         price: Number(item.product?.price || 0),
       }));
-
-      const { error: itemError } = await supabase
-        .from("order_items")
-        .insert(orderItems);
-
-      if (itemError) {
-        console.error("Order items save error:", itemError);
-      }
+      await supabase.from("order_items").insert(orderItems);
 
       // Update stock
       for (const item of cart) {
@@ -1358,72 +480,124 @@ const completePayment = useCallback(
           const currentStock = Number(item.product?.stock || 0);
           const qty = Number(item.quantity || 0);
           if (currentStock >= qty) {
-            await supabase
-              .from("products")
-              .update({ stock: currentStock - qty })
-              .eq("id", item.product_id);
+            await supabase.from("products").update({ stock: currentStock - qty }).eq("id", item.product_id);
           }
-        } catch (e) { 
-          console.warn("Stock update skipped:", e); 
-        }
+        } catch (e) { console.warn("Stock update skipped:", e); }
       }
 
-      // Clear cart and refresh data
       await clearCart();
       await loadOrders(user.id);
       await loadProducts();
 
-      // Get fresh order data
-      const { data: freshOrder } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("id", order.id)
-        .single();
-
-      dispatch({ type: "SET_SELECTED", payload: { key: "order", value: freshOrder || order } });
-      dispatch({ type: "CLOSE_MODAL", payload: "checkout" });
-      dispatch({ type: "SET_PLACING_ORDER", payload: false });
-      dispatch({ type: "OPEN_MODAL", payload: "tracking" });
-      showNotice("Payment successful! Order confirmed. 🎉");
-      
+      const { data: freshOrder } = await supabase.from("orders").select("*").eq("id", order.id).single();
+      setSelectedOrder(freshOrder || order);
+      setModal("tracking");
+      setProcessingPayment(false);
+      showNotice("Payment successful! 🎉");
     } catch (error) {
-      console.error("Complete payment error:", error);
-      dispatch({ 
-        type: "SET_CHECKOUT", 
-        payload: { 
-          key: "message", 
-          value: "Payment was received but there was an error completing your order. Please contact support." 
-        } 
-      });
-      dispatch({ type: "SET_PLACING_ORDER", payload: false });
+      console.error("Payment completion error:", error);
+      setCheckoutMessage("Error completing payment. Please contact support.");
+      setProcessingPayment(false);
     }
-  },
-  [user, cart, checkout, cartTotal, clearCart, loadOrders, loadProducts, showNotice]
-);
+  }, [user, cart, cartTotal, checkoutData, clearCart, loadOrders, loadProducts, showNotice]);
 
-  /* =========================================================
-     FILTER PRODUCTS
-     ========================================================= */
+  // Payment close handler
+  const handlePaymentClose = useCallback(() => {
+    console.log("Payment closed");
+    setProcessingPayment(false);
+    setCheckoutMessage("Payment was cancelled.");
+  }, []);
+
+  // Setup payment
+  const handlePayment = useCallback(async (e) => {
+    e.preventDefault();
+    if (processingPayment) return;
+    if (!user) {
+      setCheckoutMessage("Please sign in.");
+      return;
+    }
+    if (!cart.length) {
+      setCheckoutMessage("Your cart is empty.");
+      return;
+    }
+
+    // Validate fields
+    const required = [
+      ["customer_name", "full name"],
+      ["customer_phone", "phone number"],
+      ["customer_email", "email"],
+      ["delivery_address", "delivery address"],
+      ["delivery_state", "state"],
+      ["delivery_city", "city"],
+    ];
+    for (const [field, label] of required) {
+      if (!String(checkoutData[field] || "").trim()) {
+        setCheckoutMessage(`Please enter your ${label}.`);
+        return;
+      }
+    }
+
+    // Check stock
+    for (const item of cart) {
+      if (Number(item.product?.stock || 0) < Number(item.quantity || 0)) {
+        setCheckoutMessage(`${item.product?.name || "Product"} is out of stock.`);
+        await loadCart(user.id);
+        return;
+      }
+    }
+
+    setProcessingPayment(true);
+    setCheckoutMessage("Loading payment...");
+
+    try {
+      await loadPaystack();
+      if (!window.PaystackPop) throw new Error("Paystack not available.");
+
+      const reference = `SHP-${user.id.slice(0,8)}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+      const amount = Math.round(Number(cartTotal) * 100);
+
+      paymentCallbackRef.current = handlePaymentCallback;
+      paymentCloseRef.current = handlePaymentClose;
+
+      const handler = window.PaystackPop.setup({
+        key: CONFIG.PAYSTACK_KEY,
+        email: checkoutData.customer_email.trim(),
+        amount: amount,
+        currency: "NGN",
+        ref: reference,
+        metadata: {
+          custom_fields: [
+            { display_name: "Customer Name", variable_name: "customer_name", value: checkoutData.customer_name.trim() },
+            { display_name: "Customer Phone", variable_name: "customer_phone", value: checkoutData.customer_phone.trim() },
+            { display_name: "User ID", variable_name: "user_id", value: user.id },
+          ],
+        },
+        callback: paymentCallbackRef.current,
+        onClose: paymentCloseRef.current,
+      });
+
+      handler.openIframe();
+    } catch (error) {
+      console.error("Payment error:", error);
+      setCheckoutMessage(error.message || "Payment could not be started.");
+      setProcessingPayment(false);
+    }
+  }, [user, cart, cartTotal, checkoutData, processingPayment, loadCart, loadPaystack, handlePaymentCallback, handlePaymentClose]);
+
+  // ===== FILTERS =====
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter(product => {
       const matchesCategory = category === "All" || 
         product.category?.toLowerCase().includes(category.toLowerCase()) ||
         (category === "Audio" && /(airpod|earbud|headphone|speaker)/i.test(product.category || ""));
-      
-      const searchable = [product.name, product.description, product.category]
-        .map(v => String(v || "").toLowerCase())
-        .join(" ");
+      const searchable = [product.name, product.description, product.category].map(v => String(v || "").toLowerCase()).join(" ");
       return matchesCategory && (!q || searchable.includes(q));
     });
   }, [products, category, search]);
 
-  /* =========================================================
-     HELPERS
-     ========================================================= */
-  const getProductImage = useCallback((product) => 
-    product?.image_url || product?.image || product?.imageUrl || "", []);
-
+  // ===== HELPERS =====
+  const getProductImage = useCallback((product) => product?.image_url || product?.image || product?.imageUrl || "", []);
   const formatDate = useCallback((date) => {
     if (!date) return "—";
     try { return new Date(date).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }); }
@@ -1443,28 +617,22 @@ const completePayment = useCallback(
     return 2;
   }, []);
 
-  /* =========================================================
-     RENDER HELPERS
-     ========================================================= */
   const scrollTo = useCallback((id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const openProductPreview = useCallback((product) => {
-    dispatch({ type: "SET_SELECTED", payload: { key: "product", value: product } });
-    dispatch({ type: "OPEN_MODAL", payload: "product" });
-  }, []);
+  // ===== MODAL COMPONENT =====
+  const Modal = ({ children, onClose }) => (
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <button className="close" onClick={onClose}>×</button>
+        {children}
+      </div>
+    </div>
+  );
 
-  const openOrderTracking = useCallback((order) => {
-    dispatch({ type: "SET_SELECTED", payload: { key: "order", value: order } });
-    dispatch({ type: "CLOSE_MODAL", payload: "orders" });
-    dispatch({ type: "OPEN_MODAL", payload: "tracking" });
-  }, []);
-
-  /* =========================================================
-     LOADING SCREEN
-     ========================================================= */
-  if (ui.loading) {
+  // ===== LOADING =====
+  if (loading) {
     return (
       <div className="loading-screen">
         <div className="loading-logo">S</div>
@@ -1474,26 +642,20 @@ const completePayment = useCallback(
     );
   }
 
-  /* =========================================================
-     MAIN RENDER
-     ========================================================= */
+  // =========================================================
+  // RENDER
+  // =========================================================
   return (
     <div className="app-shell">
-      {/* Announcement Bar */}
+      {/* ANNOUNCEMENT */}
       <div className="announcement">
         <div className="announcement-track">
-          <span>
-            SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • 
-            QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY •
-          </span>
-          <span aria-hidden="true">
-            SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • 
-            QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY •
-          </span>
+          <span>SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY •</span>
+          <span aria-hidden="true">SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY •</span>
         </div>
       </div>
 
-      {/* Header */}
+      {/* HEADER */}
       <header className="header">
         <button className="logo-button" onClick={() => scrollTo("top")}>
           <b>SHINDARA</b>
@@ -1503,50 +665,33 @@ const completePayment = useCallback(
         <nav className="desktop-nav">
           <button onClick={() => scrollTo("categories")}>Categories</button>
           <button onClick={() => scrollTo("shop")}>Shop</button>
-          {user && <button onClick={() => dispatch({ type: "OPEN_MODAL", payload: "orders" })}>Orders</button>}
+          {user && <button onClick={() => setModal("orders")}>Orders</button>}
         </nav>
 
         <div className="header-actions">
-          <button
-            className="account-button"
-            onClick={() => {
-              if (user) {
-                dispatch({ type: "OPEN_MODAL", payload: "settings" });
-              } else {
-                dispatch({ type: "SET_AUTH_MODE", payload: "login" });
-                dispatch({ type: "OPEN_MODAL", payload: "account" });
-              }
-            }}
-          >
+          <button className="account-button" onClick={() => {
+            if (user) setModal("settings");
+            else { setAuthMode("login"); setModal("account"); }
+          }}>
             {user ? "Profile" : "Sign in"}
           </button>
-          <button
-            className="cart-button"
-            onClick={() => {
-              if (!user) {
-                dispatch({ type: "OPEN_MODAL", payload: "account" });
-                showNotice("Sign in to access your cart.");
-              } else {
-                dispatch({ type: "OPEN_MODAL", payload: "cart" });
-              }
-            }}
-          >
+          <button className="cart-button" onClick={() => {
+            if (!user) { setModal("account"); showNotice("Sign in to access your cart."); }
+            else setModal("cart");
+          }}>
             🛒 {cartCount}
           </button>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* HERO */}
       <main id="top">
-        {/* Hero Section */}
         <section className="hero">
           <div className="hero-copy">
             <div className="eyebrow">SHINDARA PHONEFLAIR</div>
             <h1>Tech essentials. <br /><em>Done better.</em></h1>
             <p>Premium phones, accessories and everyday technology selected for people who want quality without the unnecessary noise.</p>
-            <button className="primary-button" onClick={() => scrollTo("shop")}>
-              Shop now →
-            </button>
+            <button className="primary-button" onClick={() => scrollTo("shop")}>Shop now →</button>
           </div>
           <div className="hero-card">
             <span>THE SHINDARA EDIT</span>
@@ -1557,7 +702,7 @@ const completePayment = useCallback(
           </div>
         </section>
 
-        {/* Categories Section */}
+        {/* CATEGORIES */}
         <section className="categories-section" id="categories">
           <div className="section-heading">
             <small>SHOP BY CATEGORY</small>
@@ -1565,34 +710,24 @@ const completePayment = useCallback(
           </div>
           <div className="category-scroll">
             {CATEGORIES.map(item => (
-              <button
-                key={item}
-                className={`category ${category === item ? "active" : ""}`}
-                onClick={() => {
-                  dispatch({ type: "SET_FILTER", payload: { key: "category", value: item } });
-                  scrollTo("shop");
-                }}
-              >
+              <button key={item} className={`category ${category === item ? "active" : ""}`} onClick={() => {
+                setCategory(item);
+                scrollTo("shop");
+              }}>
                 {item}
               </button>
             ))}
           </div>
         </section>
 
-        {/* Shop Section */}
+        {/* SHOP */}
         <section className="shop-section" id="shop">
           <div className="shop-top">
             <div>
               <small>THE COLLECTION</small>
               <h2>Shop Shindara.</h2>
             </div>
-            <input
-              className="search"
-              value={search}
-              onChange={(e) => dispatch({ type: "SET_FILTER", payload: { key: "search", value: e.target.value } })}
-              placeholder="Search products..."
-              type="search"
-            />
+            <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." type="search" />
           </div>
 
           {filteredProducts.length === 0 ? (
@@ -1605,11 +740,7 @@ const completePayment = useCallback(
             <div className="product-grid">
               {filteredProducts.map(product => (
                 <article className="product-card" key={product.id}>
-                  <button
-                    type="button"
-                    onClick={() => openProductPreview(product)}
-                    className="product-clickable"
-                  >
+                  <button type="button" onClick={() => { setSelectedProduct(product); setModal("product"); }} className="product-clickable">
                     <div className="product-image">
                       {getProductImage(product) ? (
                         <img src={getProductImage(product)} alt={product.name} loading="lazy" />
@@ -1625,10 +756,7 @@ const completePayment = useCallback(
                     <p>{product.description || "Premium everyday tech essential."}</p>
                     <div className="product-bottom">
                       <strong>{money(product.price)}</strong>
-                      <button
-                        disabled={Number(product.stock || 0) <= 0}
-                        onClick={() => addToCart(product)}
-                      >
+                      <button disabled={Number(product.stock || 0) <= 0} onClick={() => addToCart(product)}>
                         {Number(product.stock || 0) <= 0 ? "Sold out" : "Add to cart"}
                       </button>
                     </div>
@@ -1640,7 +768,7 @@ const completePayment = useCallback(
         </section>
       </main>
 
-      {/* Footer */}
+      {/* FOOTER */}
       <footer className="footer">
         <b>SHINDARA</b>
         <span>PHONEFLAIR</span>
@@ -1648,145 +776,109 @@ const completePayment = useCallback(
         <small>© {new Date().getFullYear()} Shindara Phoneflair. All rights reserved.</small>
       </footer>
 
-      {/* ====================================================
+      {/* =========================================================
           MODALS
-          ==================================================== */}
+          ========================================================= */}
 
-      {/* Product Preview Modal */}
-      {modals.product && selected.product && (
-        <Modal onClose={() => dispatch({ type: "CLOSE_MODAL", payload: "product" })}>
+      {/* PRODUCT PREVIEW */}
+      {modal === "product" && selectedProduct && (
+        <Modal onClose={() => setModal(null)}>
           <div className="product-preview-image">
-            {getProductImage(selected.product) ? (
-              <img src={getProductImage(selected.product)} alt={selected.product.name} />
+            {getProductImage(selectedProduct) ? (
+              <img src={getProductImage(selectedProduct)} alt={selectedProduct.name} />
             ) : (
               <div className="image-placeholder">S</div>
             )}
           </div>
           <div className="modal-heading">
-            <small>{selected.product.category || "PRODUCT"}</small>
-            <h2>{selected.product.name}</h2>
-            <p>{selected.product.description || "Premium Shindara Phoneflair product."}</p>
+            <small>{selectedProduct.category || "PRODUCT"}</small>
+            <h2>{selectedProduct.name}</h2>
+            <p>{selectedProduct.description || "Premium Shindara Phoneflair product."}</p>
           </div>
           <div className="checkout-summary">
             <span>Price</span>
-            <strong>{money(selected.product.price)}</strong>
+            <strong>{money(selectedProduct.price)}</strong>
             <span>Availability</span>
-            <span>{Number(selected.product.stock || 0) > 0 ? `${selected.product.stock} available` : "Sold out"}</span>
+            <span>{Number(selectedProduct.stock || 0) > 0 ? `${selectedProduct.stock} available` : "Sold out"}</span>
           </div>
-          <button
-            className="primary-button full"
-            disabled={Number(selected.product.stock || 0) <= 0}
-            onClick={() => {
-              addToCart(selected.product);
-              dispatch({ type: "CLOSE_MODAL", payload: "product" });
-            }}
-          >
-            {Number(selected.product.stock || 0) > 0 ? "Add to cart" : "Sold out"}
+          <button className="primary-button full" disabled={Number(selectedProduct.stock || 0) <= 0} onClick={() => {
+            addToCart(selectedProduct);
+            setModal(null);
+          }}>
+            {Number(selectedProduct.stock || 0) > 0 ? "Add to cart" : "Sold out"}
           </button>
         </Modal>
       )}
 
-      {/* Auth Modal */}
-      {modals.account && (
-        <Modal onClose={() => dispatch({ type: "CLOSE_MODAL", payload: "account" })}>
+      {/* AUTH */}
+      {modal === "account" && (
+        <Modal onClose={() => setModal(null)}>
           <div className="modal-heading">
             <small>SHINDARA ACCOUNT</small>
-            <h2>{auth.mode === "login" ? "Welcome back." : "Create your account."}</h2>
+            <h2>{authMode === "login" ? "Welcome back." : "Create your account."}</h2>
             <p>Save your cart, manage your profile and track every order from one place.</p>
           </div>
 
-          {auth.message && <div className="form-message">{auth.message}</div>}
+          {authMessage && <div className={`form-message ${authMessage.includes("Check your email") ? "success" : "error"}`}>{authMessage}</div>}
 
-          <button className="google-button" disabled={ui.authLoading} onClick={handleGoogleLogin}>
+          <button className="google-button" disabled={authLoading} onClick={handleGoogleLogin}>
             Continue with Google
           </button>
 
           <div className="divider">OR CONTINUE WITH EMAIL</div>
 
           <form onSubmit={handleAuth}>
-            {auth.mode === "signup" && (
+            {authMode === "signup" && (
               <>
                 <label>
                   Full name
-                  <input
-                    value={auth.fullName}
-                    onChange={(e) => dispatch({ type: "SET_AUTH", payload: { key: "fullName", value: e.target.value } })}
-                    placeholder="Your full name"
-                    autoComplete="name"
-                  />
+                  <input value={authFullName} onChange={(e) => setAuthFullName(e.target.value)} placeholder="Your full name" autoComplete="name" />
                 </label>
                 <label>
                   Phone number
-                  <input
-                    value={auth.phone}
-                    onChange={(e) => dispatch({ type: "SET_AUTH", payload: { key: "phone", value: e.target.value } })}
-                    placeholder="08012345678"
-                    inputMode="tel"
-                    autoComplete="tel"
-                  />
+                  <input value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} placeholder="08012345678" inputMode="tel" autoComplete="tel" />
                 </label>
               </>
             )}
             <label>
               Email
-              <input
-                type="email"
-                value={auth.email}
-                onChange={(e) => dispatch({ type: "SET_AUTH", payload: { key: "email", value: e.target.value } })}
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
+              <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" />
             </label>
             <label>
               Password
-              <input
-                type="password"
-                value={auth.password}
-                onChange={(e) => dispatch({ type: "SET_AUTH", payload: { key: "password", value: e.target.value } })}
-                placeholder="At least 6 characters"
-                autoComplete={auth.mode === "signup" ? "new-password" : "current-password"}
-              />
+              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="At least 6 characters" autoComplete={authMode === "signup" ? "new-password" : "current-password"} />
             </label>
-            <button className="primary-button full" disabled={ui.authLoading} type="submit">
-              {ui.authLoading ? "Please wait..." : auth.mode === "login" ? "Sign in" : "Create account"}
+            <button className="primary-button full" disabled={authLoading} type="submit">
+              {authLoading ? "Please wait..." : authMode === "login" ? "Sign in" : "Create account"}
             </button>
           </form>
 
-          <button
-            className="switch-auth"
-            onClick={() => {
-              dispatch({ type: "SET_AUTH_MODE", payload: auth.mode === "login" ? "signup" : "login" });
-              dispatch({ type: "SET_AUTH", payload: { key: "message", value: "" } });
-            }}
-          >
-            {auth.mode === "login" ? "Don't have an account? Create one" : "Already have an account? Sign in"}
+          <button className="switch-auth" onClick={() => {
+            setAuthMode(authMode === "login" ? "signup" : "login");
+            setAuthMessage("");
+          }}>
+            {authMode === "login" ? "Don't have an account? Create one" : "Already have an account? Sign in"}
           </button>
         </Modal>
       )}
 
-      {/* Cart Modal */}
-      {modals.cart && (
-        <Modal onClose={() => dispatch({ type: "CLOSE_MODAL", payload: "cart" })}>
+      {/* CART */}
+      {modal === "cart" && (
+        <Modal onClose={() => setModal(null)}>
           <div className="modal-heading">
             <small>YOUR BAG</small>
             <h2>Your cart.</h2>
             <p>Your cart is saved to your account, so you can leave and come back without losing your items.</p>
           </div>
 
-          {ui.cartLoading ? (
+          {cartLoading ? (
             <div className="empty-cart"><p>Loading your cart...</p></div>
           ) : cart.length === 0 ? (
             <div className="empty-cart">
               <div>🛒</div>
               <h3>Your cart is empty</h3>
               <p>Add something you love and it will stay here until you remove it or complete your order.</p>
-              <button
-                className="primary-button"
-                onClick={() => {
-                  dispatch({ type: "CLOSE_MODAL", payload: "cart" });
-                  scrollTo("shop");
-                }}
-              >
+              <button className="primary-button" onClick={() => { setModal(null); scrollTo("shop"); }}>
                 Continue shopping
               </button>
             </div>
@@ -1820,13 +912,7 @@ const completePayment = useCallback(
                 <span>Total</span>
                 <strong>{money(cartTotal)}</strong>
               </div>
-              <button
-                className="primary-button full"
-                onClick={() => {
-                  dispatch({ type: "CLOSE_MODAL", payload: "cart" });
-                  dispatch({ type: "OPEN_MODAL", payload: "checkout" });
-                }}
-              >
+              <button className="primary-button full" onClick={() => setModal("checkout")}>
                 Proceed to checkout →
               </button>
             </>
@@ -1834,18 +920,18 @@ const completePayment = useCallback(
         </Modal>
       )}
 
-      {/* Checkout Modal - Fixed */}
-      {modals.checkout && (
-        <Modal onClose={() => !ui.placingOrder && dispatch({ type: "CLOSE_MODAL", payload: "checkout" })}>
+      {/* CHECKOUT */}
+      {modal === "checkout" && (
+        <Modal onClose={() => !processingPayment && setModal(null)}>
           <div className="modal-heading">
             <small>SECURE CHECKOUT</small>
             <h2>Almost there.</h2>
             <p>Enter your delivery details, then continue to secure payment with Paystack.</p>
           </div>
 
-          {checkout.message && (
-            <div className={`form-message ${checkout.message.includes("success") ? "success" : "error"}`}>
-              {checkout.message}
+          {checkoutMessage && (
+            <div className={`form-message ${checkoutMessage.includes("successful") ? "success" : "error"}`}>
+              {checkoutMessage}
             </div>
           )}
 
@@ -1853,46 +939,21 @@ const completePayment = useCallback(
             <div className="checkout-grid">
               <label>
                 Full name
-                <input
-                  value={checkout.customer_name}
-                  onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "customer_name", value: e.target.value } })}
-                  placeholder="Full name"
-                  autoComplete="name"
-                  required
-                />
+                <input value={checkoutData.customer_name} onChange={(e) => setCheckoutData(prev => ({ ...prev, customer_name: e.target.value }))} placeholder="Full name" autoComplete="name" required />
               </label>
               <label>
                 Phone number
-                <input
-                  value={checkout.customer_phone}
-                  onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "customer_phone", value: e.target.value } })}
-                  placeholder="08012345678"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  required
-                />
+                <input value={checkoutData.customer_phone} onChange={(e) => setCheckoutData(prev => ({ ...prev, customer_phone: e.target.value }))} placeholder="08012345678" inputMode="tel" autoComplete="tel" required />
               </label>
               <label>
                 Email
-                <input
-                  type="email"
-                  value={checkout.customer_email}
-                  onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "customer_email", value: e.target.value } })}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  required
-                />
+                <input type="email" value={checkoutData.customer_email} onChange={(e) => setCheckoutData(prev => ({ ...prev, customer_email: e.target.value }))} placeholder="you@example.com" autoComplete="email" required />
               </label>
               <label>
                 State
-                <select
-                  value={checkout.delivery_state}
-                  onChange={(e) => {
-                    dispatch({ type: "SET_CHECKOUT", payload: { key: "delivery_state", value: e.target.value } });
-                    dispatch({ type: "SET_CHECKOUT", payload: { key: "delivery_city", value: "" } });
-                  }}
-                  required
-                >
+                <select value={checkoutData.delivery_state} onChange={(e) => {
+                  setCheckoutData(prev => ({ ...prev, delivery_state: e.target.value, delivery_city: "" }));
+                }} required>
                   <option value="">Select your state</option>
                   {Object.keys(NIGERIA_LOCATIONS).map(state => (
                     <option key={state} value={state}>{state}</option>
@@ -1901,14 +962,11 @@ const completePayment = useCallback(
               </label>
               <label>
                 City / locality
-                <select
-                  value={checkout.delivery_city}
-                  disabled={!checkout.delivery_state}
-                  onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "delivery_city", value: e.target.value } })}
-                  required
-                >
-                  <option value="">{checkout.delivery_state ? "Select city" : "Select state first"}</option>
-                  {(NIGERIA_LOCATIONS[checkout.delivery_state] || []).map(city => (
+                <select value={checkoutData.delivery_city} disabled={!checkoutData.delivery_state} onChange={(e) => {
+                  setCheckoutData(prev => ({ ...prev, delivery_city: e.target.value }));
+                }} required>
+                  <option value="">{checkoutData.delivery_state ? "Select city" : "Select state first"}</option>
+                  {(NIGERIA_LOCATIONS[checkoutData.delivery_state] || []).map(city => (
                     <option key={city} value={city}>{city}</option>
                   ))}
                 </select>
@@ -1917,13 +975,7 @@ const completePayment = useCallback(
 
             <label>
               Delivery address
-              <textarea
-                value={checkout.delivery_address}
-                onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "delivery_address", value: e.target.value } })}
-                placeholder="House number, street, estate, landmark..."
-                rows="3"
-                required
-              />
+              <textarea value={checkoutData.delivery_address} onChange={(e) => setCheckoutData(prev => ({ ...prev, delivery_address: e.target.value }))} placeholder="House number, street, estate, landmark..." rows="3" required />
             </label>
 
             <div className="checkout-summary">
@@ -1933,12 +985,8 @@ const completePayment = useCallback(
               <strong>{money(cartTotal)}</strong>
             </div>
 
-            <button 
-              className="primary-button pay-button" 
-              disabled={ui.placingOrder} 
-              type="submit"
-            >
-              {ui.placingOrder ? (
+            <button className="primary-button pay-button" disabled={processingPayment} type="submit">
+              {processingPayment ? (
                 <>
                   <span className="spinner"></span>
                   Opening secure payment...
@@ -1952,9 +1000,9 @@ const completePayment = useCallback(
         </Modal>
       )}
 
-      {/* Orders Modal */}
-      {modals.orders && (
-        <Modal onClose={() => dispatch({ type: "CLOSE_MODAL", payload: "orders" })}>
+      {/* ORDERS */}
+      {modal === "orders" && (
+        <Modal onClose={() => setModal(null)}>
           <div className="modal-heading">
             <small>MY ORDERS</small>
             <h2>Your orders.</h2>
@@ -1970,7 +1018,10 @@ const completePayment = useCallback(
           ) : (
             <div className="orders-list">
               {orders.map(order => (
-                <button className="order-card" key={order.id} onClick={() => openOrderTracking(order)}>
+                <button className="order-card" key={order.id} onClick={() => {
+                  setSelectedOrder(order);
+                  setModal("tracking");
+                }}>
                   <div>
                     <small>{formatDate(order.created_at)}</small>
                     <b>{order.tracking_number || `Order #${String(order.id).slice(0, 8)}`}</b>
@@ -1987,31 +1038,31 @@ const completePayment = useCallback(
         </Modal>
       )}
 
-      {/* Tracking Modal */}
-      {modals.tracking && selected.order && (
-        <Modal onClose={() => dispatch({ type: "CLOSE_MODAL", payload: "tracking" })}>
+      {/* TRACKING */}
+      {modal === "tracking" && selectedOrder && (
+        <Modal onClose={() => setModal(null)}>
           <div className="modal-heading">
             <small>ORDER TRACKING</small>
-            <h2>{selected.order.tracking_number || "Order tracking"}</h2>
+            <h2>{selectedOrder.tracking_number || "Order tracking"}</h2>
             <p>Keep this tracking number for your delivery.</p>
           </div>
 
           <div className="tracking-status-box">
             <div>
               <span>Payment</span>
-              <strong>{String(selected.order.payment_status || "pending").toUpperCase()}</strong>
+              <strong>{String(selectedOrder.payment_status || "pending").toUpperCase()}</strong>
             </div>
             <div>
               <span>Order status</span>
-              <strong>{String(selected.order.status || "pending").replace(/_/g, " ").toUpperCase()}</strong>
+              <strong>{String(selectedOrder.status || "pending").replace(/_/g, " ").toUpperCase()}</strong>
             </div>
             <div>
               <span>Payment reference</span>
-              <strong>{selected.order.payment_reference || "—"}</strong>
+              <strong>{selectedOrder.payment_reference || "—"}</strong>
             </div>
             <div>
               <span>Order date</span>
-              <strong>{formatDate(selected.order.created_at)}</strong>
+              <strong>{formatDate(selectedOrder.created_at)}</strong>
             </div>
           </div>
 
@@ -2025,7 +1076,7 @@ const completePayment = useCallback(
               ["Out for delivery", "Your package is with the delivery team."],
               ["Delivered", "Your order has been delivered."],
             ].map(([title, description], index) => {
-              const currentStep = getTrackingStep(selected.order);
+              const currentStep = getTrackingStep(selectedOrder);
               const completed = index <= currentStep;
               return (
                 <div className={`timeline-item ${completed ? "completed" : ""}`} key={title}>
@@ -2041,10 +1092,10 @@ const completePayment = useCallback(
 
           <div className="order-details">
             <h3>Items purchased</h3>
-            {(selected.order.items || []).length === 0 ? (
+            {(selectedOrder.items || []).length === 0 ? (
               <p style={{ color: "#888", fontSize: 11 }}>Order item details are not available yet.</p>
             ) : (
-              selected.order.items.map((item) => (
+              selectedOrder.items.map((item) => (
                 <div className="detail-item" key={item.id || `${item.product_id}-${item.quantity}`}>
                   <div>
                     <b>{item.product?.name || "Product"}</b>
@@ -2058,22 +1109,22 @@ const completePayment = useCallback(
 
           <div className="tracking-total">
             <span>Total</span>
-            <strong>{money(selected.order.total)}</strong>
+            <strong>{money(selectedOrder.total)}</strong>
           </div>
 
           <div className="delivery-box">
             <h3>Delivery address</h3>
-            <p><b>{selected.order.customer_name || "—"}</b></p>
-            <p>{selected.order.customer_phone || "—"}</p>
-            <p>{selected.order.delivery_address || "—"}</p>
-            <p>{selected.order.delivery_city || "—"}, {selected.order.delivery_state || "—"}</p>
+            <p><b>{selectedOrder.customer_name || "—"}</b></p>
+            <p>{selectedOrder.customer_phone || "—"}</p>
+            <p>{selectedOrder.delivery_address || "—"}</p>
+            <p>{selectedOrder.delivery_city || "—"}, {selectedOrder.delivery_state || "—"}</p>
           </div>
         </Modal>
       )}
 
-      {/* Settings Modal */}
-      {modals.settings && user && (
-        <Modal onClose={() => dispatch({ type: "CLOSE_MODAL", payload: "settings" })}>
+      {/* SETTINGS */}
+      {modal === "settings" && user && (
+        <Modal onClose={() => setModal(null)}>
           <div className="modal-heading">
             <small>ACCOUNT SETTINGS</small>
             <h2>Your profile.</h2>
@@ -2086,53 +1137,33 @@ const completePayment = useCallback(
           </label>
           <label>
             Full name
-            <input
-              value={profile?.full_name || ""}
-              onChange={(e) => dispatch({ type: "SET_PROFILE", payload: { ...profile, full_name: e.target.value } })}
-              placeholder="Your full name"
-            />
+            <input value={profile?.full_name || ""} onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))} placeholder="Your full name" />
           </label>
           <label>
             Phone number
-            <input
-              value={profile?.phone || ""}
-              onChange={(e) => dispatch({ type: "SET_PROFILE", payload: { ...profile, phone: e.target.value } })}
-              placeholder="08012345678"
-              inputMode="tel"
-            />
+            <input value={profile?.phone || ""} onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))} placeholder="08012345678" inputMode="tel" />
           </label>
 
-          <button
-            className="primary-button full"
-            disabled={ui.savingProfile}
-            onClick={async () => {
-              if (!profile?.full_name || !profile?.phone) {
-                showNotice("Please fill in all fields.");
-                return;
-              }
-              dispatch({ type: "SET_SAVING_PROFILE", payload: true });
-              try {
-                await supabase
-                  .from("profiles")
-                  .upsert({ id: user.id, email: user.email, full_name: profile.full_name, phone: profile.phone })
-                  .eq("id", user.id);
-                await supabase.auth.updateUser({ data: { full_name: profile.full_name, phone: profile.phone } });
-                showNotice("Profile updated.");
-              } finally {
-                dispatch({ type: "SET_SAVING_PROFILE", payload: false });
-              }
-            }}
-          >
-            {ui.savingProfile ? "Saving..." : "Save profile"}
+          <button className="primary-button full" onClick={async () => {
+            if (!profile?.full_name || !profile?.phone) {
+              showNotice("Please fill in all fields.");
+              return;
+            }
+            try {
+              await supabase.from("profiles").upsert({ id: user.id, email: user.email, full_name: profile.full_name, phone: profile.phone });
+              await supabase.auth.updateUser({ data: { full_name: profile.full_name, phone: profile.phone } });
+              showNotice("Profile updated.");
+            } catch (error) {
+              showNotice("Error updating profile.");
+            }
+          }}>
+            Save profile
           </button>
 
           <div className="settings-divider">
             <label>
               Appearance
-              <select
-                value={theme}
-                onChange={(e) => dispatch({ type: "SET_THEME", payload: e.target.value })}
-              >
+              <select value={theme} onChange={(e) => setTheme(e.target.value)}>
                 <option value="device">Use device setting</option>
                 <option value="light">Light mode</option>
                 <option value="dark">Dark mode</option>
@@ -2140,13 +1171,7 @@ const completePayment = useCallback(
             </label>
           </div>
 
-          <button
-            className="secondary-button full"
-            onClick={() => {
-              dispatch({ type: "CLOSE_MODAL", payload: "settings" });
-              dispatch({ type: "OPEN_MODAL", payload: "orders" });
-            }}
-          >
+          <button className="secondary-button full" onClick={() => setModal("orders")}>
             View my orders
           </button>
 
@@ -2156,22 +1181,8 @@ const completePayment = useCallback(
         </Modal>
       )}
 
-      {/* Notice */}
+      {/* NOTICE */}
       {notice && <div className="notice">{notice}</div>}
-    </div>
-  );
-}
-
-/* =========================================================
-   MODAL COMPONENT
-   ========================================================= */
-function Modal({ children, onClose }) {
-  return (
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <button className="close" onClick={onClose}>×</button>
-        {children}
-      </div>
     </div>
   );
 }
