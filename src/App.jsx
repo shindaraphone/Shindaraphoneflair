@@ -1,4 +1,4 @@
-// App.js - Premium Nike-Style Store
+// App.js - Premium Nike-Style with Animated Golden Header
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
@@ -50,7 +50,7 @@ const NIGERIA_LOCATIONS = {
   Niger: ["Bida", "Borgu", "Chanchaga", "Kontagora", "Lapai", "Minna", "Mokwa", "Munya", "Paikoro", "Rafi", "Shiroro", "Suleja", "Tafa"],
   Ogun: ["Abeokuta", "Abeokuta North", "Abeokuta South", "Ado-Odo/Ota", "Agbara", "Ijebu Ode", "Ijebu North", "Ijebu North East", "Ilaro", "Ikenne", "Iperu", "Ishara", "Ota", "Sagamu", "Ifo", "Obafemi Owode"],
   Ondo: ["Akoko", "Akure", "Akure North", "Akure South", "Ikare", "Ile Oluji", "Ondo", "Okitipupa", "Owo", "Ore", "Idanre"],
-  Osun: ["Ede", "Ejigbo", "Ife Central", "Ife East", "Ife North", "Ife South", "Igbajo", "Ijesa", "Ila Orangun", "Ilesa", "Iwo", "Osogbo", "Ikirun"],
+  Osun: ["Ede", "Ejigbo", "Ife Central", "Ife East", "Ife North", "Ife South", "Igbajo", "Ijesa", "Ila Orangun", "Ilesa", "Iwo", "Osogbo", "Oshogbo"],
   Oyo: ["Afijio", "Egbeda", "Ibadan", "Ibadan North", "Ibadan North East", "Ibadan North West", "Ibadan South East", "Ibadan South West", "Ibarapa", "Iseyin", "Ogbomosho", "Ogo Oluwa", "Oyo", "Saki", "Saki East"],
   Plateau: ["Barkin Ladi", "Bassa", "Bokkos", "Jos", "Jos East", "Jos North", "Jos South", "Mangu", "Pankshin", "Riyom", "Shendam", "Wase"],
   Rivers: ["Abua", "Ahoada", "Bonny", "Degema", "Eleme", "Emohua", "Etche", "Ikwerre", "Obio-Akpor", "Okrika", "Oyigbo", "Port Harcourt", "Rivers"],
@@ -632,16 +632,19 @@ export default function App() {
   }
 
   // =========================================================
-  // RENDER - NIKE STYLE
+  // RENDER
   // =========================================================
   return (
     <div className="app">
-      {/* Top bar - Nike style */}
+      {/* Top bar - Animated Golden Text */}
       <div className="topbar">
-        <span>FREE DELIVERY • NATIONWIDE • SECURE PAYMENT</span>
+        <div className="topbar-scroll">
+          <span className="golden-text">✦ Premium phone accessories are screaming here!!! ✦</span>
+          <span className="golden-text" aria-hidden="true">✦ Premium phone accessories are screaming here!!! ✦</span>
+        </div>
       </div>
 
-      {/* Header - Nike style */}
+      {/* Header */}
       <header className="header">
         <button className="logo" onClick={() => scrollTo("top")}>
           <span className="logo-icon">◆</span>
@@ -674,7 +677,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Hero - Nike style */}
+      {/* Hero */}
       <section className="hero" id="top">
         <div className="hero-content">
           <div className="hero-badge">✦ 2024 COLLECTION</div>
@@ -703,7 +706,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Categories - Nike style */}
+      {/* Categories */}
       <section className="categories" id="categories">
         <div className="section-header">
           <span>SHOP BY CATEGORY</span>
@@ -722,7 +725,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Products - Nike style */}
+      {/* Products */}
       <section className="products" id="shop">
         <div className="products-header">
           <div>
@@ -782,7 +785,7 @@ export default function App() {
         )}
       </section>
 
-      {/* Footer - Nike style */}
+      {/* Footer */}
       <footer className="footer">
         <div className="footer-grid">
           <div>
