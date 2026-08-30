@@ -1,4 +1,4 @@
-// App.js - COMPLETE REDESIGN (Copy and paste this entire file)
+// App.js - COMPLETE FIXED VERSION (Copy and paste this entire file)
 import React, { useEffect, useMemo, useState, useCallback, useReducer } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
@@ -449,11 +449,11 @@ const NIGERIA_LOCATIONS = {
     "Ife South",
     "Igbajo",
     "Ijesa",
+    "Ikirun",
     "Ila Orangun",
     "Ilesa",
     "Iwo",
     "Osogbo",
-    "Oshogbo",
   ],
   Oyo: [
     "Afijio",
@@ -652,11 +652,6 @@ function appReducer(state, action) {
       return { ...state, ui: { ...state.ui, placingOrder: action.payload } };
     case "SET_SAVING_PROFILE":
       return { ...state, ui: { ...state.ui, savingProfile: action.payload } };
-    case "TOGGLE_MODAL":
-      return {
-        ...state,
-        modals: { ...state.modals, [action.payload]: !state.modals[action.payload] },
-      };
     case "OPEN_MODAL":
       return {
         ...state,
@@ -1075,16 +1070,61 @@ export default function App() {
   }, [showNotice]);
 
   /* =========================================================
-     CHECKOUT & PAYMENT
+     CHECKOUT & PAYMENT - FIXED VERSION
      ========================================================= */
   const loadPaystack = useCallback(() => {
     return new Promise((resolve, reject) => {
-      if (window.PaystackPop) return resolve(true);
+      // Check if already loaded
+      if (window.PaystackPop) {
+        console.log("Paystack already loaded");
+        resolve(true);
+        return;
+      }
+
+      // Check if script is already in DOM but not loaded
+      const existingScript = document.querySelector(
+        'script[src="https://js.paystack.co/v1/inline.js"]'
+      );
+
+      if (existingScript) {
+        console.log("Paystack script found, waiting for load...");
+        const checkInterval = setInterval(() => {
+          if (window.PaystackPop) {
+            clearInterval(checkInterval);
+            console.log("Paystack loaded successfully");
+            resolve(true);
+          }
+        }, 200);
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          reject(new Error("Paystack script load timeout"));
+        }, 10000);
+
+        return;
+      }
+
+      // Create and load script
+      console.log("Loading Paystack script...");
       const script = document.createElement("script");
       script.src = "https://js.paystack.co/v1/inline.js";
       script.async = true;
-      script.onload = () => window.PaystackPop ? resolve(true) : reject(new Error("Paystack failed to load"));
-      script.onerror = () => reject(new Error("Could not load Paystack"));
+
+      script.onload = () => {
+        if (window.PaystackPop) {
+          console.log("Paystack loaded via onload");
+          resolve(true);
+        } else {
+          reject(new Error("Paystack loaded but PaystackPop not available"));
+        }
+      };
+
+      script.onerror = () => {
+        console.error("Paystack script failed to load");
+        reject(new Error("Could not load Paystack. Please check your internet connection."));
+      };
+
       document.head.appendChild(script);
     });
   }, []);
@@ -1092,16 +1132,23 @@ export default function App() {
   const handlePayment = useCallback(
     async (e) => {
       e.preventDefault();
-      if (ui.placingOrder) return;
+      
+      if (ui.placingOrder) {
+        console.log("Order already in progress");
+        return;
+      }
+      
       if (!user) {
         dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Please sign in again." } });
         return;
       }
+      
       if (!cart.length) {
         dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Your cart is empty." } });
         return;
       }
 
+      // Validate required fields
       const requiredFields = [
         ["customer_name", "full name"],
         ["customer_phone", "phone number"],
@@ -1110,6 +1157,7 @@ export default function App() {
         ["delivery_state", "state"],
         ["delivery_city", "city"],
       ];
+      
       for (const [field, label] of requiredFields) {
         if (!String(checkout[field] || "").trim()) {
           dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: `Please enter your ${label}.` } });
@@ -1129,37 +1177,79 @@ export default function App() {
         }
       }
 
+      // Start payment process
       dispatch({ type: "SET_PLACING_ORDER", payload: true });
-      try {
-        await loadPaystack();
-        if (!window.PaystackPop) throw new Error("Paystack unavailable.");
+      dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Loading payment gateway..." } });
 
+      try {
+        // Load Paystack
+        await loadPaystack();
+        
+        if (!window.PaystackPop) {
+          throw new Error("Paystack is not available. Please refresh and try again.");
+        }
+
+        // Generate unique reference
         const reference = `SHP-${user.id.slice(0,8)}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+        
+        // Calculate amount in kobo (Paystack uses the smallest currency unit)
+        const amountInKobo = Math.round(Number(cartTotal) * 100);
+        
+        console.log("Initializing Paystack with:", {
+          email: checkout.customer_email.trim(),
+          amount: amountInKobo,
+          reference: reference
+        });
+
+        // Setup Paystack
         const handler = window.PaystackPop.setup({
           key: CONFIG.PAYSTACK_KEY,
           email: checkout.customer_email.trim(),
-          amount: Math.round(Number(cartTotal) * 100),
+          amount: amountInKobo,
           currency: "NGN",
           ref: reference,
           metadata: {
             custom_fields: [
-              { display_name: "Customer Name", variable_name: "customer_name", value: checkout.customer_name.trim() },
-              { display_name: "Customer Phone", variable_name: "customer_phone", value: checkout.customer_phone.trim() },
-              { display_name: "User ID", variable_name: "user_id", value: user.id },
+              { 
+                display_name: "Customer Name", 
+                variable_name: "customer_name", 
+                value: checkout.customer_name.trim() 
+              },
+              { 
+                display_name: "Customer Phone", 
+                variable_name: "customer_phone", 
+                value: checkout.customer_phone.trim() 
+              },
+              { 
+                display_name: "User ID", 
+                variable_name: "user_id", 
+                value: user.id 
+              },
             ],
           },
           callback: async (response) => {
+            console.log("Payment callback received:", response);
             await completePayment(response);
           },
           onClose: () => {
+            console.log("Paystack modal closed");
             dispatch({ type: "SET_PLACING_ORDER", payload: false });
-            dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Payment closed. Your cart is saved." } });
+            dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Payment was cancelled. You can try again." } });
           },
         });
+
+        // Open Paystack
         handler.openIframe();
+        
       } catch (error) {
         console.error("Payment error:", error);
-        dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "Payment could not be started." } });
+        dispatch({ 
+          type: "SET_CHECKOUT", 
+          payload: { 
+            key: "message", 
+            value: error.message || "Payment could not be started. Please refresh and try again." 
+          } 
+        });
         dispatch({ type: "SET_PLACING_ORDER", payload: false });
       }
     },
@@ -1168,26 +1258,38 @@ export default function App() {
 
   const completePayment = useCallback(
     async (paymentResponse) => {
-      const ref = paymentResponse?.reference || "";
+      const ref = paymentResponse?.reference || paymentResponse?.trxref || "";
+      
       if (!ref) {
-        dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: "No payment reference received." } });
+        dispatch({ 
+          type: "SET_CHECKOUT", 
+          payload: { key: "message", value: "No payment reference received. Please contact support." } 
+        });
         dispatch({ type: "SET_PLACING_ORDER", payload: false });
         return;
       }
 
+      console.log("Processing payment for reference:", ref);
+
       try {
-        // Check for duplicate
-        const { data: existing } = await supabase
+        // Check for duplicate payment
+        const { data: existing, error: duplicateError } = await supabase
           .from("orders")
           .select("*")
           .eq("payment_reference", ref)
           .maybeSingle();
+
+        if (duplicateError) {
+          console.error("Duplicate check error:", duplicateError);
+        }
+
         if (existing) {
+          console.log("Duplicate payment detected, order already exists");
           await loadOrders(user.id);
           await clearCart();
           dispatch({ type: "CLOSE_MODAL", payload: "checkout" });
           dispatch({ type: "SET_PLACING_ORDER", payload: false });
-          showNotice("Payment already recorded.");
+          showNotice("Payment already recorded. Order confirmed!");
           return;
         }
 
@@ -1208,6 +1310,8 @@ export default function App() {
           tracking_number: trackingNumber,
         };
 
+        console.log("Creating order with payload:", orderPayload);
+
         const { data: order, error: orderError } = await supabase
           .from("orders")
           .insert(orderPayload)
@@ -1216,7 +1320,13 @@ export default function App() {
 
         if (orderError || !order) {
           console.error("Order save error:", orderError);
-          dispatch({ type: "SET_CHECKOUT", payload: { key: "message", value: `Payment received but order not saved. Reference: ${ref}` } });
+          dispatch({ 
+            type: "SET_CHECKOUT", 
+            payload: { 
+              key: "message", 
+              value: `Payment was received but order could not be saved. Reference: ${ref}. Please contact support.` 
+            } 
+          });
           dispatch({ type: "SET_PLACING_ORDER", payload: false });
           return;
         }
@@ -1228,7 +1338,14 @@ export default function App() {
           quantity: Number(item.quantity),
           price: Number(item.product?.price || 0),
         }));
-        await supabase.from("order_items").insert(orderItems);
+
+        const { error: itemError } = await supabase
+          .from("order_items")
+          .insert(orderItems);
+
+        if (itemError) {
+          console.error("Order items save error:", itemError);
+        }
 
         // Update stock
         for (const item of cart) {
@@ -1241,26 +1358,38 @@ export default function App() {
                 .update({ stock: currentStock - qty })
                 .eq("id", item.product_id);
             }
-          } catch (e) { console.warn("Stock update skipped:", e); }
+          } catch (e) { 
+            console.warn("Stock update skipped:", e); 
+          }
         }
 
+        // Clear cart and refresh data
         await clearCart();
         await loadOrders(user.id);
         await loadProducts();
 
-        const freshOrder = await supabase
+        // Get fresh order data
+        const { data: freshOrder } = await supabase
           .from("orders")
           .select("*")
           .eq("id", order.id)
           .single();
 
-        dispatch({ type: "SET_SELECTED", payload: { key: "order", value: freshOrder.data } });
+        dispatch({ type: "SET_SELECTED", payload: { key: "order", value: freshOrder || order } });
         dispatch({ type: "CLOSE_MODAL", payload: "checkout" });
         dispatch({ type: "SET_PLACING_ORDER", payload: false });
         dispatch({ type: "OPEN_MODAL", payload: "tracking" });
-        showNotice("Payment successful! Order confirmed.");
+        showNotice("Payment successful! Order confirmed. 🎉");
+        
       } catch (error) {
         console.error("Complete payment error:", error);
+        dispatch({ 
+          type: "SET_CHECKOUT", 
+          payload: { 
+            key: "message", 
+            value: "Payment was received but there was an error completing your order. Please contact support." 
+          } 
+        });
         dispatch({ type: "SET_PLACING_ORDER", payload: false });
       }
     },
@@ -1700,7 +1829,7 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Checkout Modal */}
+      {/* Checkout Modal - Fixed */}
       {modals.checkout && (
         <Modal onClose={() => !ui.placingOrder && dispatch({ type: "CLOSE_MODAL", payload: "checkout" })}>
           <div className="modal-heading">
@@ -1709,7 +1838,11 @@ export default function App() {
             <p>Enter your delivery details, then continue to secure payment with Paystack.</p>
           </div>
 
-          {checkout.message && <div className="form-message">{checkout.message}</div>}
+          {checkout.message && (
+            <div className={`form-message ${checkout.message.includes("success") ? "success" : "error"}`}>
+              {checkout.message}
+            </div>
+          )}
 
           <form onSubmit={handlePayment}>
             <div className="checkout-grid">
@@ -1720,6 +1853,7 @@ export default function App() {
                   onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "customer_name", value: e.target.value } })}
                   placeholder="Full name"
                   autoComplete="name"
+                  required
                 />
               </label>
               <label>
@@ -1730,6 +1864,7 @@ export default function App() {
                   placeholder="08012345678"
                   inputMode="tel"
                   autoComplete="tel"
+                  required
                 />
               </label>
               <label>
@@ -1740,6 +1875,7 @@ export default function App() {
                   onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "customer_email", value: e.target.value } })}
                   placeholder="you@example.com"
                   autoComplete="email"
+                  required
                 />
               </label>
               <label>
@@ -1750,6 +1886,7 @@ export default function App() {
                     dispatch({ type: "SET_CHECKOUT", payload: { key: "delivery_state", value: e.target.value } });
                     dispatch({ type: "SET_CHECKOUT", payload: { key: "delivery_city", value: "" } });
                   }}
+                  required
                 >
                   <option value="">Select your state</option>
                   {Object.keys(NIGERIA_LOCATIONS).map(state => (
@@ -1763,6 +1900,7 @@ export default function App() {
                   value={checkout.delivery_city}
                   disabled={!checkout.delivery_state}
                   onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "delivery_city", value: e.target.value } })}
+                  required
                 >
                   <option value="">{checkout.delivery_state ? "Select city" : "Select state first"}</option>
                   {(NIGERIA_LOCATIONS[checkout.delivery_state] || []).map(city => (
@@ -1779,6 +1917,7 @@ export default function App() {
                 onChange={(e) => dispatch({ type: "SET_CHECKOUT", payload: { key: "delivery_address", value: e.target.value } })}
                 placeholder="House number, street, estate, landmark..."
                 rows="3"
+                required
               />
             </label>
 
@@ -1789,8 +1928,19 @@ export default function App() {
               <strong>{money(cartTotal)}</strong>
             </div>
 
-            <button className="primary-button pay-button" disabled={ui.placingOrder} type="submit">
-              {ui.placingOrder ? "Opening secure payment..." : `Pay ${money(cartTotal)} with Paystack`}
+            <button 
+              className="primary-button pay-button" 
+              disabled={ui.placingOrder} 
+              type="submit"
+            >
+              {ui.placingOrder ? (
+                <>
+                  <span className="spinner"></span>
+                  Opening secure payment...
+                </>
+              ) : (
+                `Pay ${money(cartTotal)} with Paystack`
+              )}
             </button>
             <span className="secure-note">🔒 Secure payment powered by Paystack</span>
           </form>
