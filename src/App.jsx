@@ -1,4 +1,4 @@
-// App.js - Updated with all fixes
+// App.js - Complete with Admin Panel Layout
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
@@ -752,7 +752,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* PRODUCTS */}
+      {/* PRODUCTS - ADMIN LAYOUT */}
       <section className="products-section" id="shop">
         <div className="products-header">
           <div>
