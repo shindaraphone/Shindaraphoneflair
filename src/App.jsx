@@ -1,4 +1,4 @@
-// App.js - Premium Nike-Style with Animated Golden Header
+// App.js - Complete Redesign
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
@@ -66,7 +66,7 @@ const CATEGORIES = ["All", "Phone Cases", "Chargers", "Cables", "Power Banks", "
    MAIN APP
    ========================================================= */
 export default function App() {
-  // State
+  // ===== STATE =====
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [products, setProducts] = useState([]);
@@ -96,26 +96,26 @@ export default function App() {
   
   const timer = useRef(null);
 
-  // Computed
+  // ===== COMPUTED =====
   const cartTotal = useMemo(() => 
     cart.reduce((s, i) => s + Number(i.subtotal || 0), 0), [cart]);
   const cartCount = useMemo(() => 
     cart.reduce((s, i) => s + Number(i.quantity || 0), 0), [cart]);
 
-  // Notice
+  // ===== NOTICE =====
   const showNotice = useCallback((msg) => {
     setNotice(msg);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setNotice(""), 3000);
   }, []);
 
-  // Theme
+  // ===== THEME =====
   useEffect(() => {
     localStorage.setItem("theme", theme);
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  // Load data
+  // ===== DATA LOADING =====
   const loadProducts = useCallback(async () => {
     const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
     if (data) setProducts(data);
@@ -175,7 +175,7 @@ export default function App() {
     }
   }, []);
 
-  // Init
+  // ===== INIT =====
   useEffect(() => {
     let mounted = true;
     const init = async () => {
@@ -217,7 +217,7 @@ export default function App() {
     };
   }, [loadProducts, loadProfile, loadCart, loadOrders]);
 
-  // Cart actions
+  // ===== CART ACTIONS =====
   const addToCart = useCallback(async (product) => {
     if (!user) {
       setModal("auth");
@@ -286,7 +286,7 @@ export default function App() {
     return true;
   }, [user]);
 
-  // Auth
+  // ===== AUTH =====
   const handleAuth = useCallback(async (e) => {
     e.preventDefault();
     setAuthLoading(true);
@@ -334,7 +334,7 @@ export default function App() {
         if (error) throw new Error(error.message);
         if (data?.user) {
           setModal(null);
-          showNotice(`Welcome back, ${data.user.user_metadata?.full_name || ""}!`);
+          showNotice(`Welcome back!`);
         }
       }
     } catch (error) {
@@ -369,7 +369,7 @@ export default function App() {
     showNotice("Signed out.");
   }, [showNotice]);
 
-  // Payment
+  // ===== PAYMENT =====
   const loadPaystack = useCallback(() => {
     return new Promise((resolve, reject) => {
       if (window.PaystackPop) {
@@ -572,7 +572,7 @@ export default function App() {
     }
   }, [user, cart, cartTotal, checkout, processing, loadCart, loadPaystack, onPaymentSuccess, onPaymentClose]);
 
-  // Filter
+  // ===== FILTER =====
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter(p => {
@@ -585,7 +585,7 @@ export default function App() {
     });
   }, [products, category, search]);
 
-  // Helpers
+  // ===== HELPERS =====
   const getImage = useCallback((p) => p?.image_url || p?.image || p?.imageUrl || "", []);
   const formatDate = useCallback((d) => {
     if (!d) return "—";
@@ -610,7 +610,7 @@ export default function App() {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  // Modal
+  // ===== MODAL =====
   const Modal = ({ children, onClose }) => (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
@@ -620,7 +620,7 @@ export default function App() {
     </div>
   );
 
-  // Loading
+  // ===== LOADING =====
   if (loading) {
     return (
       <div className="loading">
@@ -636,15 +636,15 @@ export default function App() {
   // =========================================================
   return (
     <div className="app">
-      {/* Top bar - Animated Golden Text */}
+      {/* TOP BAR */}
       <div className="topbar">
-        <div className="topbar-scroll">
-          <span className="golden-text">✦ Premium phone accessories are screaming here!!! ✦</span>
-          <span className="golden-text" aria-hidden="true">✦ Premium phone accessories are screaming here!!! ✦</span>
+        <div className="topbar-track">
+          <span className="golden">✦ Premium phone accessories are screaming here!!! ✦</span>
+          <span className="golden" aria-hidden="true">✦ Premium phone accessories are screaming here!!! ✦</span>
         </div>
       </div>
 
-      {/* Header */}
+      {/* HEADER */}
       <header className="header">
         <button className="logo" onClick={() => scrollTo("top")}>
           <span className="logo-icon">◆</span>
@@ -655,9 +655,9 @@ export default function App() {
         </button>
 
         <nav className="nav">
-          <button onClick={() => scrollTo("shop")} className="nav-link">New & Featured</button>
-          <button onClick={() => scrollTo("categories")} className="nav-link">Categories</button>
-          {user && <button onClick={() => setModal("orders")} className="nav-link">Orders</button>}
+          <button onClick={() => scrollTo("shop")}>Shop</button>
+          <button onClick={() => scrollTo("categories")}>Categories</button>
+          {user && <button onClick={() => setModal("orders")}>Orders</button>}
         </nav>
 
         <div className="actions">
@@ -665,58 +665,57 @@ export default function App() {
             if (user) setModal("settings");
             else { setAuthMode("login"); setModal("auth"); }
           }}>
-            {user ? profile?.full_name?.split(" ")[0] || "Profile" : "Sign In"}
+            {user ? "👤" : "Sign In"}
           </button>
           <button className="action-btn cart-btn" onClick={() => {
             if (!user) { setModal("auth"); showNotice("Sign in to access your cart."); }
             else setModal("cart");
           }}>
-            <span className="cart-icon">🛒</span>
-            {cartCount > 0 && <span className="badge">{cartCount}</span>}
+            🛒 {cartCount > 0 && <span className="badge">{cartCount}</span>}
           </button>
         </div>
       </header>
 
-      {/* Hero */}
+      {/* HERO */}
       <section className="hero" id="top">
         <div className="hero-content">
-          <div className="hero-badge">✦ 2024 COLLECTION</div>
+          <span className="hero-badge">✦ 2024 COLLECTION</span>
           <h1>Tech <br /><em>Essentials</em></h1>
-          <p>Premium accessories engineered for everyday excellence. Quality meets performance.</p>
+          <p>Premium accessories engineered for everyday excellence.</p>
           <button className="btn-primary" onClick={() => scrollTo("shop")}>
             Shop Now →
           </button>
         </div>
-        <div className="hero-feature">
-          <div className="feature-card">
+        <div className="hero-features">
+          <div className="feature">
             <div className="feature-icon">⚡</div>
             <h3>Premium Quality</h3>
-            <p>Curated for performance and durability</p>
+            <p>Curated for performance</p>
           </div>
-          <div className="feature-card">
+          <div className="feature">
             <div className="feature-icon">🔒</div>
             <h3>Secure Checkout</h3>
-            <p>Protected by Paystack encryption</p>
+            <p>Paystack protected</p>
           </div>
-          <div className="feature-card">
+          <div className="feature">
             <div className="feature-icon">🚚</div>
             <h3>Fast Delivery</h3>
-            <p>Nationwide shipping available</p>
+            <p>Nationwide shipping</p>
           </div>
         </div>
       </section>
 
-      {/* Categories */}
+      {/* CATEGORIES */}
       <section className="categories" id="categories">
-        <div className="section-header">
+        <div className="section-head">
           <span>SHOP BY CATEGORY</span>
           <h2>Find Your Essential</h2>
         </div>
-        <div className="category-grid">
+        <div className="category-list">
           {CATEGORIES.map(item => (
             <button
               key={item}
-              className={`category-item ${category === item ? "active" : ""}`}
+              className={`cat-btn ${category === item ? "active" : ""}`}
               onClick={() => { setCategory(item); scrollTo("shop"); }}
             >
               {item}
@@ -725,51 +724,49 @@ export default function App() {
         </div>
       </section>
 
-      {/* Products */}
+      {/* PRODUCTS */}
       <section className="products" id="shop">
-        <div className="products-header">
+        <div className="products-head">
           <div>
             <span>THE COLLECTION</span>
             <h2>Featured Products</h2>
           </div>
-          <div className="search-wrapper">
-            <input
-              className="search"
-              type="search"
-              placeholder="Search products..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <input
+            className="search"
+            type="search"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
         {filtered.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">⌕</div>
             <h3>No products found</h3>
-            <p>Try adjusting your search or filter</p>
+            <p>Try adjusting your search</p>
           </div>
         ) : (
           <div className="product-grid">
             {filtered.map(p => (
               <div className="product-card" key={p.id}>
                 <button 
-                  className="product-image"
+                  className="product-img"
                   onClick={() => { setSelected(p); setModal("product"); }}
                 >
                   {getImage(p) ? (
                     <img src={getImage(p)} alt={p.name} loading="lazy" />
                   ) : (
-                    <div className="image-placeholder">S</div>
+                    <div className="img-placeholder">S</div>
                   )}
-                  {Number(p.stock || 0) <= 0 && <span className="sold-badge">SOLD OUT</span>}
+                  {Number(p.stock || 0) <= 0 && <span className="sold-tag">SOLD OUT</span>}
                 </button>
-                <div className="product-info">
-                  <span className="product-category">{p.category || "SHINDARA"}</span>
+                <div className="product-body">
+                  <span className="product-cat">{p.category || "SHINDARA"}</span>
                   <h3>{p.name}</h3>
                   <p>{p.description || "Premium tech essential."}</p>
-                  <div className="product-footer">
-                    <span className="product-price">{money(p.price)}</span>
+                  <div className="product-bottom">
+                    <span className="price">{money(p.price)}</span>
                     <button 
                       className="add-btn"
                       disabled={Number(p.stock || 0) <= 0}
@@ -785,7 +782,7 @@ export default function App() {
         )}
       </section>
 
-      {/* Footer */}
+      {/* FOOTER */}
       <footer className="footer">
         <div className="footer-grid">
           <div>
@@ -794,7 +791,7 @@ export default function App() {
               <strong>SHINDARA</strong>
               <span>PHONEFLAIR</span>
             </div>
-            <p className="footer-tagline">Premium tech essentials for the modern lifestyle.</p>
+            <p className="footer-tagline">Premium tech essentials.</p>
           </div>
           <div>
             <h4>Shop</h4>
@@ -804,7 +801,7 @@ export default function App() {
           <div>
             <h4>Support</h4>
             <button>Shipping Info</button>
-            <button>Returns Policy</button>
+            <button>Returns</button>
           </div>
           <div>
             <h4>Connect</h4>
@@ -813,28 +810,28 @@ export default function App() {
           </div>
         </div>
         <div className="footer-bottom">
-          <p>© {new Date().getFullYear()} Shindara Phoneflair. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Shindara Phoneflair.</p>
         </div>
       </footer>
 
       {/* ===== MODALS ===== */}
 
-      {/* Product Preview */}
+      {/* PRODUCT PREVIEW */}
       {modal === "product" && selected && (
         <Modal onClose={() => setModal(null)}>
-          <div className="modal-image">
+          <div className="modal-img">
             {getImage(selected) ? (
               <img src={getImage(selected)} alt={selected.name} />
             ) : (
-              <div className="image-placeholder">S</div>
+              <div className="img-placeholder">S</div>
             )}
           </div>
-          <div className="modal-header">
+          <div className="modal-head">
             <span>{selected.category || "PRODUCT"}</span>
             <h2>{selected.name}</h2>
             <p>{selected.description || "Premium product."}</p>
           </div>
-          <div className="modal-details">
+          <div className="modal-info">
             <div><span>Price</span><strong>{money(selected.price)}</strong></div>
             <div><span>Availability</span><span>{Number(selected.stock || 0) > 0 ? `${selected.stock} available` : "Sold out"}</span></div>
           </div>
@@ -848,16 +845,16 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Auth */}
+      {/* AUTH */}
       {modal === "auth" && (
         <Modal onClose={() => setModal(null)}>
-          <div className="modal-header">
+          <div className="modal-head">
             <span>SHINDARA</span>
             <h2>{authMode === "login" ? "Welcome Back" : "Create Account"}</h2>
-            <p>{authMode === "login" ? "Sign in to access your cart and orders." : "Join the community."}</p>
+            <p>{authMode === "login" ? "Sign in to access your cart." : "Join the community."}</p>
           </div>
 
-          {authError && <div className={`message ${authError.includes("verification") ? "success" : "error"}`}>{authError}</div>}
+          {authError && <div className={`msg ${authError.includes("verification") ? "success" : "error"}`}>{authError}</div>}
 
           <button className="btn-google" disabled={authLoading} onClick={handleGoogle}>
             Continue with Google
@@ -900,10 +897,10 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Cart */}
+      {/* CART */}
       {modal === "cart" && (
         <Modal onClose={() => setModal(null)}>
-          <div className="modal-header">
+          <div className="modal-head">
             <span>YOUR BAG</span>
             <h2>Shopping Cart</h2>
             <p>{cart.length} item{cart.length !== 1 ? "s" : ""} in your bag</p>
@@ -924,12 +921,12 @@ export default function App() {
               <div className="cart-list">
                 {cart.map(i => (
                   <div className="cart-item" key={i.id}>
-                    <div className="cart-image">
+                    <div className="cart-img">
                       {getImage(i.product) ? (
                         <img src={getImage(i.product)} alt={i.product?.name || ""} />
                       ) : "S"}
                     </div>
-                    <div className="cart-details">
+                    <div className="cart-info">
                       <h4>{i.product?.name}</h4>
                       <span className="cart-price">{money(i.product?.price)}</span>
                       <div className="cart-qty">
@@ -938,7 +935,7 @@ export default function App() {
                         <button onClick={() => updateQty(i, 1)}>+</button>
                       </div>
                     </div>
-                    <div className="cart-subtotal">
+                    <div className="cart-total-item">
                       <strong>{money(i.subtotal)}</strong>
                       <button className="remove-btn" onClick={() => removeFromCart(i)}>Remove</button>
                     </div>
@@ -957,17 +954,17 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Checkout */}
+      {/* CHECKOUT */}
       {modal === "checkout" && (
         <Modal onClose={() => !processing && setModal(null)}>
-          <div className="modal-header">
+          <div className="modal-head">
             <span>CHECKOUT</span>
             <h2>Delivery Details</h2>
             <p>Enter your information to complete your order.</p>
           </div>
 
           {checkoutError && (
-            <div className={`message ${checkoutError.includes("successful") ? "success" : "error"}`}>
+            <div className={`msg ${checkoutError.includes("successful") ? "success" : "error"}`}>
               {checkoutError}
             </div>
           )}
@@ -1012,7 +1009,7 @@ export default function App() {
 
             <div className="field">
               <label>Delivery address</label>
-              <textarea value={checkout.address} onChange={(e) => setCheckout(prev => ({ ...prev, address: e.target.value }))} placeholder="House number, street, landmark..." rows="2" required />
+              <textarea value={checkout.address} onChange={(e) => setCheckout(prev => ({ ...prev, address: e.target.value }))} placeholder="House number, street..." rows="2" required />
             </div>
 
             <div className="order-summary">
@@ -1021,21 +1018,17 @@ export default function App() {
             </div>
 
             <button className="btn-primary pay-btn" disabled={processing} type="submit">
-              {processing ? (
-                <>⏳ Processing...</>
-              ) : (
-                `Pay ${money(cartTotal)}`
-              )}
+              {processing ? "Processing..." : `Pay ${money(cartTotal)}`}
             </button>
             <p className="secure-note">🔒 Secured by Paystack</p>
           </form>
         </Modal>
       )}
 
-      {/* Orders */}
+      {/* ORDERS */}
       {modal === "orders" && (
         <Modal onClose={() => setModal(null)}>
-          <div className="modal-header">
+          <div className="modal-head">
             <span>MY ORDERS</span>
             <h2>Your Orders</h2>
             <p>Track your purchases.</p>
@@ -1069,16 +1062,16 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Tracking */}
+      {/* TRACKING */}
       {modal === "tracking" && selectedOrder && (
         <Modal onClose={() => setModal(null)}>
-          <div className="modal-header">
+          <div className="modal-head">
             <span>TRACKING</span>
             <h2>{selectedOrder.tracking_number || "Order"}</h2>
             <p>Keep this number for delivery reference.</p>
           </div>
 
-          <div className="tracking-status">
+          <div className="tracking-grid">
             <div><span>Payment</span><strong>{String(selectedOrder.payment_status || "pending").toUpperCase()}</strong></div>
             <div><span>Status</span><strong>{String(selectedOrder.status || "pending").replace(/_/g, " ").toUpperCase()}</strong></div>
             <div><span>Reference</span><strong>{selectedOrder.payment_reference || "—"}</strong></div>
@@ -1097,8 +1090,8 @@ export default function App() {
               const step = getStep(selectedOrder);
               const done = index <= step;
               return (
-                <div className={`timeline-item ${done ? "done" : ""}`} key={title}>
-                  <div className="timeline-dot">{done ? "✓" : index + 1}</div>
+                <div className={`tl-item ${done ? "done" : ""}`} key={title}>
+                  <div className="tl-dot">{done ? "✓" : index + 1}</div>
                   <div>
                     <h4>{title}</h4>
                     <p>{desc}</p>
@@ -1130,7 +1123,7 @@ export default function App() {
             <strong>{money(selectedOrder.total)}</strong>
           </div>
 
-          <div className="delivery-address">
+          <div className="delivery-info">
             <h3>Delivery Address</h3>
             <p><strong>{selectedOrder.customer_name || "—"}</strong></p>
             <p>{selectedOrder.customer_phone || "—"}</p>
@@ -1140,10 +1133,10 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Settings */}
+      {/* SETTINGS */}
       {modal === "settings" && user && (
         <Modal onClose={() => setModal(null)}>
-          <div className="modal-header">
+          <div className="modal-head">
             <span>SETTINGS</span>
             <h2>Your Profile</h2>
             <p>Manage your account information.</p>
@@ -1205,7 +1198,7 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Notice */}
+      {/* NOTICE */}
       {notice && <div className="notice">{notice}</div>}
     </div>
   );
