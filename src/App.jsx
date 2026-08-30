@@ -1,4 +1,4 @@
-// App.js - Complete with Admin Panel Layout
+// App.js - Calm & Clean Minimalist Design
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
@@ -63,14 +63,13 @@ const NIGERIA_LOCATIONS = {
   Zamfara: ["Anka", "Bakura", "Bungudu", "Gummi", "Gusau", "Kaura Namoda", "Maradun", "Maru", "Shinkafi", "Talata Mafara", "Tsafe"],
 };
 
-// REMOVED "Phones" from categories
 const CATEGORIES = ["All", "Phone Cases", "Chargers", "Cables", "Power Banks", "Audio", "Smart Watches", "Screen Protectors"];
 
 /* =========================================================
-   MAIN APP
+   MAIN APP - CALM & CLEAN
    ========================================================= */
 export default function App() {
-  // ===== STATE =====
+  // State
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [products, setProducts] = useState([]);
@@ -82,13 +81,13 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   
-  const [activeModal, setActiveModal] = useState(null);
+  const [modal, setModal] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [notification, setNotification] = useState("");
+  const [notice, setNotice] = useState("");
   
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
@@ -107,51 +106,47 @@ export default function App() {
   });
   const [checkoutError, setCheckoutError] = useState("");
   
-  const [theme, setTheme] = useState(() => localStorage.getItem("shindara-theme") || "device");
+  const [theme, setTheme] = useState(() => localStorage.getItem("shindara-theme") || "light");
   
-  // ===== REFS =====
-  const notificationTimer = useRef(null);
-  const paystackInstance = useRef(null);
+  const noticeTimer = useRef(null);
 
-  // ===== COMPUTED =====
+  // Computed
   const cartTotal = useMemo(() => 
     cart.reduce((sum, item) => sum + Number(item.subtotal || 0), 0), 
     [cart]
   );
-  
   const cartCount = useMemo(() => 
     cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0), 
     [cart]
   );
 
-  // ===== NOTIFICATION =====
-  const showNotification = useCallback((message) => {
-    setNotification(message);
-    clearTimeout(notificationTimer.current);
-    notificationTimer.current = setTimeout(() => setNotification(""), 3500);
+  // Notice
+  const showNotice = useCallback((msg) => {
+    setNotice(msg);
+    clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(""), 3500);
   }, []);
 
-  // ===== THEME =====
+  // Theme
   useEffect(() => {
     localStorage.setItem("shindara-theme", theme);
-    const isDark = theme === "dark" || (theme === "device" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.dataset.theme = isDark ? "dark" : "light";
+    document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  // ===== DATA LOADING =====
+  // Data Loading
   const loadProducts = useCallback(async () => {
-    const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
-    if (!error) setProducts(data || []);
+    const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+    if (data) setProducts(data);
   }, []);
 
   const loadCart = useCallback(async (userId) => {
     if (!userId) return;
     setCartLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("cart_items")
       .select(`*, products:product_id (*)`)
       .eq("user_id", userId);
-    if (!error && data) {
+    if (data) {
       const formatted = data
         .filter(item => item.products)
         .map(item => ({
@@ -166,12 +161,12 @@ export default function App() {
 
   const loadOrders = useCallback(async (userId) => {
     if (!userId) return;
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("orders")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-    if (!error && data) {
+    if (data) {
       const withItems = await Promise.all(
         data.map(async (order) => {
           const { data: items } = await supabase
@@ -187,12 +182,12 @@ export default function App() {
 
   const loadProfile = useCallback(async (userId) => {
     if (!userId) return;
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .maybeSingle();
-    if (!error && data) {
+    if (data) {
       setProfile(data);
       setCheckout(prev => ({
         ...prev,
@@ -203,7 +198,7 @@ export default function App() {
     }
   }, []);
 
-  // ===== INIT =====
+  // Init
   useEffect(() => {
     let mounted = true;
     const init = async () => {
@@ -247,16 +242,16 @@ export default function App() {
     };
   }, [loadProducts, loadProfile, loadCart, loadOrders]);
 
-  // ===== CART OPERATIONS =====
+  // Cart Operations
   const addToCart = useCallback(async (product) => {
     if (!user) {
-      setActiveModal("auth");
+      setModal("auth");
       setAuthMode("login");
-      showNotification("Please sign in first.");
+      showNotice("Please sign in first.");
       return;
     }
     if (Number(product.stock || 0) <= 0) {
-      showNotification("Out of stock.");
+      showNotice("Out of stock.");
       return;
     }
 
@@ -264,7 +259,7 @@ export default function App() {
     if (existing) {
       const nextQty = Number(existing.quantity) + 1;
       if (nextQty > Number(product.stock)) {
-        showNotification("Cannot exceed available stock.");
+        showNotice("Cannot exceed available stock.");
         return;
       }
       await supabase
@@ -278,8 +273,8 @@ export default function App() {
         .insert({ user_id: user.id, product_id: product.id, quantity: 1 });
     }
     await loadCart(user.id);
-    showNotification(`${product.name} added to cart!`);
-  }, [user, cart, loadCart, showNotification]);
+    showNotice(`${product.name} added to cart!`);
+  }, [user, cart, loadCart, showNotice]);
 
   const updateQuantity = useCallback(async (item, change) => {
     if (!user) return;
@@ -287,11 +282,11 @@ export default function App() {
     if (nextQty <= 0) {
       await supabase.from("cart_items").delete().eq("id", item.id).eq("user_id", user.id);
       await loadCart(user.id);
-      showNotification("Item removed.");
+      showNotice("Item removed.");
       return;
     }
     if (item.product && Number(item.product.stock || 0) < nextQty) {
-      showNotification("Cannot exceed available stock.");
+      showNotice("Cannot exceed available stock.");
       return;
     }
     await supabase
@@ -300,14 +295,14 @@ export default function App() {
       .eq("id", item.id)
       .eq("user_id", user.id);
     await loadCart(user.id);
-  }, [user, loadCart, showNotification]);
+  }, [user, loadCart, showNotice]);
 
   const removeFromCart = useCallback(async (item) => {
     if (!user) return;
     await supabase.from("cart_items").delete().eq("id", item.id).eq("user_id", user.id);
     await loadCart(user.id);
-    showNotification("Item removed.");
-  }, [user, loadCart, showNotification]);
+    showNotice("Item removed.");
+  }, [user, loadCart, showNotice]);
 
   const clearCart = useCallback(async () => {
     if (!user) return false;
@@ -316,7 +311,7 @@ export default function App() {
     return true;
   }, [user]);
 
-  // ===== AUTH =====
+  // Auth
   const handleAuth = useCallback(async (e) => {
     e.preventDefault();
     setAuthLoading(true);
@@ -351,8 +346,8 @@ export default function App() {
           });
         }
         if (data?.session) {
-          setActiveModal(null);
-          showNotification("Account created!");
+          setModal(null);
+          showNotice("Account created!");
         } else {
           setAuthError("Check your email for verification.");
         }
@@ -363,8 +358,8 @@ export default function App() {
         });
         if (error) throw new Error(error.message);
         if (data?.user) {
-          setActiveModal(null);
-          showNotification(`Welcome back, ${data.user.user_metadata?.full_name || "User"}!`);
+          setModal(null);
+          showNotice(`Welcome back, ${data.user.user_metadata?.full_name || "User"}!`);
         }
       }
     } catch (error) {
@@ -372,7 +367,7 @@ export default function App() {
     } finally {
       setAuthLoading(false);
     }
-  }, [authEmail, authPassword, authFullName, authPhone, authMode, showNotification]);
+  }, [authEmail, authPassword, authFullName, authPhone, authMode, showNotice]);
 
   const handleGoogleLogin = useCallback(async () => {
     setAuthLoading(true);
@@ -395,11 +390,11 @@ export default function App() {
     setProfile(null);
     setCart([]);
     setOrders([]);
-    setActiveModal(null);
-    showNotification("Signed out.");
-  }, [showNotification]);
+    setModal(null);
+    showNotice("Signed out.");
+  }, [showNotice]);
 
-  // ===== PAYMENT =====
+  // Payment
   const loadPaystack = useCallback(() => {
     return new Promise((resolve, reject) => {
       if (window.PaystackPop) {
@@ -430,9 +425,7 @@ export default function App() {
   }, []);
 
   const handlePaymentSuccess = useCallback(async (response) => {
-    console.log("Payment successful:", response);
     const reference = response?.reference || response?.trxref || "";
-    
     if (!reference) {
       setCheckoutError("No payment reference received.");
       setProcessingPayment(false);
@@ -449,9 +442,9 @@ export default function App() {
       if (existing) {
         await loadOrders(user.id);
         await clearCart();
-        setActiveModal(null);
+        setModal(null);
         setProcessingPayment(false);
-        showNotification("Payment already recorded!");
+        showNotice("Payment already recorded!");
         return;
       }
 
@@ -515,18 +508,17 @@ export default function App() {
         .single();
 
       setSelectedOrder(freshOrder || order);
-      setActiveModal("tracking");
+      setModal("tracking");
       setProcessingPayment(false);
-      showNotification("Payment successful! 🎉");
+      showNotice("Payment successful! 🎉");
     } catch (error) {
       console.error("Payment completion error:", error);
       setCheckoutError("Error completing payment. Please contact support.");
       setProcessingPayment(false);
     }
-  }, [user, cart, cartTotal, checkout, clearCart, loadOrders, loadProducts, showNotification]);
+  }, [user, cart, cartTotal, checkout, clearCart, loadOrders, loadProducts, showNotice]);
 
   const handlePaymentClose = useCallback(() => {
-    console.log("Payment closed");
     setProcessingPayment(false);
     setCheckoutError("Payment was cancelled.");
   }, []);
@@ -598,7 +590,6 @@ export default function App() {
         },
       });
 
-      paystackInstance.current = handler;
       handler.openIframe();
     } catch (error) {
       console.error("Payment error:", error);
@@ -607,7 +598,7 @@ export default function App() {
     }
   }, [user, cart, cartTotal, checkout, processingPayment, loadCart, loadPaystack, handlePaymentSuccess, handlePaymentClose]);
 
-  // ===== FILTERS =====
+  // Filters
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter(product => {
@@ -623,7 +614,7 @@ export default function App() {
     });
   }, [products, category, search]);
 
-  // ===== HELPERS =====
+  // Helpers
   const getImage = useCallback((product) => product?.image_url || product?.image || product?.imageUrl || "", []);
   const formatDate = useCallback((date) => {
     if (!date) return "—";
@@ -644,11 +635,11 @@ export default function App() {
     return 2;
   }, []);
 
-  const scrollToSection = useCallback((id) => {
+  const scrollTo = useCallback((id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  // ===== MODAL =====
+  // Modal
   const Modal = ({ children, onClose }) => (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-container">
@@ -658,69 +649,63 @@ export default function App() {
     </div>
   );
 
-  // ===== LOADING =====
+  // Loading
   if (loading) {
     return (
       <div className="loading-screen">
         <div className="loading-spinner">S</div>
-        <h2>SHINDARA PHONEFLAIR</h2>
+        <h2>SHINDARA</h2>
         <p>Loading store...</p>
       </div>
     );
   }
 
   // =========================================================
-  // RENDER
+  // RENDER - CLEAN & SIMPLE
   // =========================================================
   return (
     <div className="app">
-      {/* ANNOUNCEMENT BAR */}
-      <div className="announcement-bar">
-        <div className="announcement-track">
-          <span>✦ SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY ✦</span>
-          <span aria-hidden="true">✦ SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • QUALITY ACCESSORIES • SECURE CHECKOUT • NATIONWIDE DELIVERY ✦</span>
-        </div>
+      {/* Announcement */}
+      <div className="announcement">
+        <span>✦ SHINDARA PHONEFLAIR • PREMIUM TECH ESSENTIALS • NATIONWIDE DELIVERY ✦</span>
       </div>
 
-      {/* HEADER */}
+      {/* Header */}
       <header className="header">
-        <button className="brand" onClick={() => scrollToSection("top")}>
+        <button className="brand" onClick={() => scrollTo("top")}>
           <strong>SHINDARA</strong>
           <span>PHONEFLAIR</span>
         </button>
 
-        <nav className="nav-links">
-          <button onClick={() => scrollToSection("categories")}>Categories</button>
-          <button onClick={() => scrollToSection("shop")}>Shop</button>
-          {user && <button onClick={() => setActiveModal("orders")}>Orders</button>}
+        <nav className="nav">
+          <button onClick={() => scrollTo("categories")}>Categories</button>
+          <button onClick={() => scrollTo("shop")}>Shop</button>
+          {user && <button onClick={() => setModal("orders")}>Orders</button>}
         </nav>
 
-        <div className="header-actions">
-          {user ? (
-            <button className="btn-profile" onClick={() => setActiveModal("settings")}>
-              👤 {profile?.full_name || "Profile"}
-            </button>
-          ) : (
-            <button className="btn-profile" onClick={() => { setAuthMode("login"); setActiveModal("auth"); }}>
-              Sign in
-            </button>
-          )}
-          <button 
-            className="btn-cart" 
-            onClick={() => user ? setActiveModal("cart") : (setActiveModal("auth"), showNotification("Sign in to access your cart."))}
-          >
-            🛒 {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+        <div className="actions">
+          <button className="btn-profile" onClick={() => {
+            if (user) setModal("settings");
+            else { setAuthMode("login"); setModal("auth"); }
+          }}>
+            {user ? profile?.full_name || "Profile" : "Sign in"}
+          </button>
+          <button className="btn-cart" onClick={() => {
+            if (!user) { setModal("auth"); showNotice("Sign in to access your cart."); }
+            else setModal("cart");
+          }}>
+            🛒 {cartCount > 0 && <span className="badge">{cartCount}</span>}
           </button>
         </div>
       </header>
 
-      {/* HERO */}
-      <section className="hero-section" id="top">
-        <div className="hero-content">
-          <span className="hero-badge">✦ SHINDARA PHONEFLAIR</span>
+      {/* Hero */}
+      <section className="hero" id="top">
+        <div className="hero-text">
+          <span className="tag">✦ SHINDARA PHONEFLAIR</span>
           <h1>Tech essentials.<br /><em>Done better.</em></h1>
-          <p>Premium accessories and everyday technology selected for people who want quality without the unnecessary noise.</p>
-          <button className="btn-primary" onClick={() => scrollToSection("shop")}>
+          <p>Premium accessories selected for people who want quality without the noise.</p>
+          <button className="btn-primary" onClick={() => scrollTo("shop")}>
             Shop now →
           </button>
         </div>
@@ -728,23 +713,23 @@ export default function App() {
           <span>THE SHINDARA EDIT</span>
           <h3>Better accessories.</h3>
           <h3>Better everyday.</h3>
-          <div className="hero-divider" />
+          <div className="line" />
           <p>Discover phone essentials, power, audio and accessories built around your everyday life.</p>
         </div>
       </section>
 
-      {/* CATEGORIES */}
-      <section className="categories-section" id="categories">
-        <div className="section-header">
+      {/* Categories */}
+      <section className="categories" id="categories">
+        <div className="section-title">
           <span>SHOP BY CATEGORY</span>
           <h2>Find your essentials.</h2>
         </div>
-        <div className="categories-scroll">
+        <div className="category-list">
           {CATEGORIES.map(item => (
             <button
               key={item}
-              className={`category-btn ${category === item ? "active" : ""}`}
-              onClick={() => { setCategory(item); scrollToSection("shop"); }}
+              className={`cat-btn ${category === item ? "active" : ""}`}
+              onClick={() => { setCategory(item); scrollTo("shop"); }}
             >
               {item}
             </button>
@@ -752,15 +737,15 @@ export default function App() {
         </div>
       </section>
 
-      {/* PRODUCTS - ADMIN LAYOUT */}
-      <section className="products-section" id="shop">
+      {/* Products */}
+      <section className="products" id="shop">
         <div className="products-header">
           <div>
             <span>THE COLLECTION</span>
             <h2>Shop Shindara.</h2>
           </div>
           <input
-            className="search-input"
+            className="search"
             type="search"
             placeholder="Search products..."
             value={search}
@@ -769,31 +754,31 @@ export default function App() {
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div className="empty-state">
+          <div className="empty">
             <div className="empty-icon">⌕</div>
             <h3>No products found</h3>
             <p>Try another search or choose a different category.</p>
           </div>
         ) : (
-          <div className="products-grid">
+          <div className="grid">
             {filteredProducts.map(product => (
-              <div className="product-card" key={product.id}>
+              <div className="card" key={product.id}>
                 <button 
-                  className="product-image-wrapper"
-                  onClick={() => { setSelectedProduct(product); setActiveModal("product"); }}
+                  className="card-image"
+                  onClick={() => { setSelectedProduct(product); setModal("product"); }}
                 >
                   {getImage(product) ? (
                     <img src={getImage(product)} alt={product.name} loading="lazy" />
                   ) : (
-                    <div className="image-placeholder">S</div>
+                    <div className="placeholder">S</div>
                   )}
-                  {Number(product.stock || 0) <= 0 && <span className="badge-soldout">SOLD OUT</span>}
+                  {Number(product.stock || 0) <= 0 && <span className="sold">SOLD OUT</span>}
                 </button>
-                <div className="product-details">
-                  <span className="product-category">{product.category || "SHINDARA"}</span>
+                <div className="card-info">
+                  <span className="cat">{product.category || "SHINDARA"}</span>
                   <h3>{product.name}</h3>
                   <p>{product.description || "Premium everyday tech essential."}</p>
-                  <div className="product-actions">
+                  <div className="card-bottom">
                     <strong>{money(product.price)}</strong>
                     <button 
                       disabled={Number(product.stock || 0) <= 0}
@@ -809,31 +794,27 @@ export default function App() {
         )}
       </section>
 
-      {/* FOOTER */}
+      {/* Footer */}
       <footer className="footer">
-        <div className="footer-content">
-          <strong>SHINDARA</strong>
-          <span>PHONEFLAIR</span>
-          <p>Premium phone accessories and everyday technology.</p>
-          <small>© {new Date().getFullYear()} Shindara Phoneflair. All rights reserved.</small>
-        </div>
+        <strong>SHINDARA</strong>
+        <span>PHONEFLAIR</span>
+        <p>Premium phone accessories and everyday technology.</p>
+        <small>© {new Date().getFullYear()} Shindara Phoneflair. All rights reserved.</small>
       </footer>
 
-      {/* =========================================================
-          MODALS
-          ========================================================= */}
+      {/* ===== MODALS ===== */}
 
-      {/* PRODUCT PREVIEW MODAL */}
-      {activeModal === "product" && selectedProduct && (
-        <Modal onClose={() => setActiveModal(null)}>
-          <div className="modal-product-image">
+      {/* Product Preview */}
+      {modal === "product" && selectedProduct && (
+        <Modal onClose={() => setModal(null)}>
+          <div className="modal-image">
             {getImage(selectedProduct) ? (
               <img src={getImage(selectedProduct)} alt={selectedProduct.name} />
             ) : (
-              <div className="image-placeholder">S</div>
+              <div className="placeholder">S</div>
             )}
           </div>
-          <div className="modal-header">
+          <div className="modal-head">
             <span>{selectedProduct.category || "PRODUCT"}</span>
             <h2>{selectedProduct.name}</h2>
             <p>{selectedProduct.description || "Premium Shindara Phoneflair product."}</p>
@@ -851,23 +832,23 @@ export default function App() {
           <button 
             className="btn-primary full" 
             disabled={Number(selectedProduct.stock || 0) <= 0}
-            onClick={() => { addToCart(selectedProduct); setActiveModal(null); }}
+            onClick={() => { addToCart(selectedProduct); setModal(null); }}
           >
             {Number(selectedProduct.stock || 0) > 0 ? "Add to cart" : "Sold out"}
           </button>
         </Modal>
       )}
 
-      {/* AUTH MODAL */}
-      {activeModal === "auth" && (
-        <Modal onClose={() => setActiveModal(null)}>
-          <div className="modal-header">
+      {/* Auth */}
+      {modal === "auth" && (
+        <Modal onClose={() => setModal(null)}>
+          <div className="modal-head">
             <span>SHINDARA ACCOUNT</span>
             <h2>{authMode === "login" ? "Welcome back." : "Create your account."}</h2>
-            <p>Save your cart, manage your profile and track every order from one place.</p>
+            <p>Save your cart and track every order from one place.</p>
           </div>
 
-          {authError && <div className={`form-message ${authError.includes("verification") ? "success" : "error"}`}>{authError}</div>}
+          {authError && <div className={`msg ${authError.includes("verification") ? "success" : "error"}`}>{authError}</div>}
 
           <button className="btn-google" disabled={authLoading} onClick={handleGoogleLogin}>
             Continue with Google
@@ -878,21 +859,21 @@ export default function App() {
           <form onSubmit={handleAuth}>
             {authMode === "signup" && (
               <>
-                <div className="form-group">
+                <div className="field">
                   <label>Full name</label>
                   <input value={authFullName} onChange={(e) => setAuthFullName(e.target.value)} placeholder="Your full name" />
                 </div>
-                <div className="form-group">
+                <div className="field">
                   <label>Phone number</label>
                   <input value={authPhone} onChange={(e) => setAuthPhone(e.target.value)} placeholder="08012345678" />
                 </div>
               </>
             )}
-            <div className="form-group">
+            <div className="field">
               <label>Email</label>
               <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} placeholder="you@example.com" />
             </div>
-            <div className="form-group">
+            <div className="field">
               <label>Password</label>
               <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} placeholder="At least 6 characters" />
             </div>
@@ -901,7 +882,7 @@ export default function App() {
             </button>
           </form>
 
-          <button className="switch-auth" onClick={() => {
+          <button className="switch" onClick={() => {
             setAuthMode(authMode === "login" ? "signup" : "login");
             setAuthError("");
           }}>
@@ -910,23 +891,23 @@ export default function App() {
         </Modal>
       )}
 
-      {/* CART MODAL */}
-      {activeModal === "cart" && (
-        <Modal onClose={() => setActiveModal(null)}>
-          <div className="modal-header">
+      {/* Cart */}
+      {modal === "cart" && (
+        <Modal onClose={() => setModal(null)}>
+          <div className="modal-head">
             <span>YOUR BAG</span>
             <h2>Your cart.</h2>
-            <p>Your cart is saved to your account, so you can leave and come back without losing your items.</p>
+            <p>Your cart is saved to your account.</p>
           </div>
 
           {cartLoading ? (
-            <div className="empty-state"><p>Loading your cart...</p></div>
+            <div className="empty"><p>Loading your cart...</p></div>
           ) : cart.length === 0 ? (
-            <div className="empty-state">
+            <div className="empty">
               <div className="empty-icon">🛒</div>
               <h3>Your cart is empty</h3>
-              <p>Add something you love and it will stay here until you remove it or complete your order.</p>
-              <button className="btn-primary" onClick={() => { setActiveModal(null); scrollToSection("shop"); }}>
+              <p>Add something you love.</p>
+              <button className="btn-primary" onClick={() => { setModal(null); scrollTo("shop"); }}>
                 Continue shopping
               </button>
             </div>
@@ -935,32 +916,32 @@ export default function App() {
               <div className="cart-items">
                 {cart.map(item => (
                   <div className="cart-item" key={item.id}>
-                    <div className="cart-item-image">
+                    <div className="cart-img">
                       {getImage(item.product) ? (
                         <img src={getImage(item.product)} alt={item.product?.name || ""} />
                       ) : "S"}
                     </div>
-                    <div className="cart-item-info">
+                    <div className="cart-info">
                       <strong>{item.product?.name}</strong>
                       <span>{money(item.product?.price)}</span>
-                      <div className="quantity-control">
+                      <div className="qty">
                         <button onClick={() => updateQuantity(item, -1)}>−</button>
                         <span>{item.quantity}</span>
                         <button onClick={() => updateQuantity(item, 1)}>+</button>
                       </div>
                     </div>
-                    <div className="cart-item-total">
+                    <div className="cart-total-item">
                       <strong>{money(item.subtotal)}</strong>
-                      <button className="btn-remove" onClick={() => removeFromCart(item)}>Remove</button>
+                      <button className="remove" onClick={() => removeFromCart(item)}>Remove</button>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="cart-total">
+              <div className="cart-total-bottom">
                 <span>Total</span>
                 <strong>{money(cartTotal)}</strong>
               </div>
-              <button className="btn-primary full" onClick={() => setActiveModal("checkout")}>
+              <button className="btn-primary full" onClick={() => setModal("checkout")}>
                 Proceed to checkout →
               </button>
             </>
@@ -968,36 +949,36 @@ export default function App() {
         </Modal>
       )}
 
-      {/* CHECKOUT MODAL */}
-      {activeModal === "checkout" && (
-        <Modal onClose={() => !processingPayment && setActiveModal(null)}>
-          <div className="modal-header">
+      {/* Checkout */}
+      {modal === "checkout" && (
+        <Modal onClose={() => !processingPayment && setModal(null)}>
+          <div className="modal-head">
             <span>SECURE CHECKOUT</span>
             <h2>Almost there.</h2>
-            <p>Enter your delivery details, then continue to secure payment with Paystack.</p>
+            <p>Enter your delivery details to continue.</p>
           </div>
 
           {checkoutError && (
-            <div className={`form-message ${checkoutError.includes("successful") ? "success" : "error"}`}>
+            <div className={`msg ${checkoutError.includes("successful") ? "success" : "error"}`}>
               {checkoutError}
             </div>
           )}
 
           <form onSubmit={handlePayment}>
             <div className="checkout-grid">
-              <div className="form-group">
+              <div className="field">
                 <label>Full name</label>
                 <input value={checkout.name} onChange={(e) => setCheckout(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" required />
               </div>
-              <div className="form-group">
+              <div className="field">
                 <label>Phone number</label>
                 <input value={checkout.phone} onChange={(e) => setCheckout(prev => ({ ...prev, phone: e.target.value }))} placeholder="08012345678" required />
               </div>
-              <div className="form-group">
+              <div className="field">
                 <label>Email</label>
                 <input type="email" value={checkout.email} onChange={(e) => setCheckout(prev => ({ ...prev, email: e.target.value }))} placeholder="you@example.com" required />
               </div>
-              <div className="form-group">
+              <div className="field">
                 <label>State</label>
                 <select value={checkout.state} onChange={(e) => {
                   setCheckout(prev => ({ ...prev, state: e.target.value, city: "" }));
@@ -1008,7 +989,7 @@ export default function App() {
                   ))}
                 </select>
               </div>
-              <div className="form-group">
+              <div className="field">
                 <label>City / locality</label>
                 <select value={checkout.city} disabled={!checkout.state} onChange={(e) => {
                   setCheckout(prev => ({ ...prev, city: e.target.value }));
@@ -1021,7 +1002,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="form-group">
+            <div className="field">
               <label>Delivery address</label>
               <textarea value={checkout.address} onChange={(e) => setCheckout(prev => ({ ...prev, address: e.target.value }))} placeholder="House number, street, estate, landmark..." rows="3" required />
             </div>
@@ -1047,42 +1028,42 @@ export default function App() {
                 `Pay ${money(cartTotal)} with Paystack`
               )}
             </button>
-            <p className="secure-note">🔒 Secure payment powered by Paystack</p>
+            <p className="secure">🔒 Secure payment powered by Paystack</p>
           </form>
         </Modal>
       )}
 
-      {/* ORDERS MODAL */}
-      {activeModal === "orders" && (
-        <Modal onClose={() => setActiveModal(null)}>
-          <div className="modal-header">
+      {/* Orders */}
+      {modal === "orders" && (
+        <Modal onClose={() => setModal(null)}>
+          <div className="modal-head">
             <span>MY ORDERS</span>
             <h2>Your orders.</h2>
-            <p>View your purchases and track delivery progress.</p>
+            <p>View your purchases and track delivery.</p>
           </div>
 
           {orders.length === 0 ? (
-            <div className="empty-state">
+            <div className="empty">
               <div className="empty-icon">📦</div>
               <h3>No orders yet</h3>
               <p>Your completed purchases will appear here.</p>
             </div>
           ) : (
-            <div className="orders-list">
+            <div className="orders">
               {orders.map(order => (
-                <button className="order-card" key={order.id} onClick={() => {
+                <button className="order" key={order.id} onClick={() => {
                   setSelectedOrder(order);
-                  setActiveModal("tracking");
+                  setModal("tracking");
                 }}>
                   <div>
                     <small>{formatDate(order.created_at)}</small>
                     <strong>{order.tracking_number || `Order #${String(order.id).slice(0, 8)}`}</strong>
                     <small>{order.items?.length || 0} item{(order.items?.length || 0) === 1 ? "" : "s"} • {money(order.total)}</small>
                   </div>
-                  <span className={`order-status ${String(order.payment_status).toLowerCase() === "paid" ? "paid" : "pending"}`}>
+                  <span className={`status ${String(order.payment_status).toLowerCase() === "paid" ? "paid" : "pending"}`}>
                     {order.payment_status}
                   </span>
-                  <span className="order-arrow">→</span>
+                  <span className="arrow">→</span>
                 </button>
               ))}
             </div>
@@ -1090,10 +1071,10 @@ export default function App() {
         </Modal>
       )}
 
-      {/* TRACKING MODAL */}
-      {activeModal === "tracking" && selectedOrder && (
-        <Modal onClose={() => setActiveModal(null)}>
-          <div className="modal-header">
+      {/* Tracking */}
+      {modal === "tracking" && selectedOrder && (
+        <Modal onClose={() => setModal(null)}>
+          <div className="modal-head">
             <span>ORDER TRACKING</span>
             <h2>{selectedOrder.tracking_number || "Order tracking"}</h2>
             <p>Keep this tracking number for your delivery.</p>
@@ -1121,7 +1102,7 @@ export default function App() {
           <div className="timeline">
             {[
               ["Order placed", "Your order has been received."],
-              ["Payment confirmed", "Your payment has been successfully confirmed."],
+              ["Payment confirmed", "Your payment has been confirmed."],
               ["Processing", "Your items are being prepared."],
               ["Shipped", "Your order has left our store."],
               ["In transit", "Your package is on its way."],
@@ -1132,7 +1113,7 @@ export default function App() {
               const completed = index <= currentStep;
               return (
                 <div className={`timeline-item ${completed ? "completed" : ""}`} key={title}>
-                  <div className="timeline-dot">{completed ? "✓" : index + 1}</div>
+                  <div className="dot">{completed ? "✓" : index + 1}</div>
                   <div>
                     <strong>{title}</strong>
                     <p>{description}</p>
@@ -1145,7 +1126,7 @@ export default function App() {
           <div className="order-items">
             <h3>Items purchased</h3>
             {(selectedOrder.items || []).length === 0 ? (
-              <p className="text-muted">Order item details are not available yet.</p>
+              <p className="muted">Order item details are not available yet.</p>
             ) : (
               selectedOrder.items.map((item) => (
                 <div className="order-item" key={item.id || `${item.product_id}-${item.quantity}`}>
@@ -1164,7 +1145,7 @@ export default function App() {
             <strong>{money(selectedOrder.total)}</strong>
           </div>
 
-          <div className="delivery-info">
+          <div className="delivery">
             <h3>Delivery address</h3>
             <p><strong>{selectedOrder.customer_name || "—"}</strong></p>
             <p>{selectedOrder.customer_phone || "—"}</p>
@@ -1174,31 +1155,31 @@ export default function App() {
         </Modal>
       )}
 
-      {/* SETTINGS MODAL */}
-      {activeModal === "settings" && user && (
-        <Modal onClose={() => setActiveModal(null)}>
-          <div className="modal-header">
+      {/* Settings */}
+      {modal === "settings" && user && (
+        <Modal onClose={() => setModal(null)}>
+          <div className="modal-head">
             <span>ACCOUNT SETTINGS</span>
             <h2>Your profile.</h2>
-            <p>Manage your customer information and display preferences.</p>
+            <p>Manage your information and preferences.</p>
           </div>
 
-          <div className="form-group">
+          <div className="field">
             <label>Email</label>
             <input value={user.email || ""} readOnly />
           </div>
-          <div className="form-group">
+          <div className="field">
             <label>Full name</label>
             <input value={profile?.full_name || ""} onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))} placeholder="Your full name" />
           </div>
-          <div className="form-group">
+          <div className="field">
             <label>Phone number</label>
             <input value={profile?.phone || ""} onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))} placeholder="08012345678" />
           </div>
 
           <button className="btn-primary full" onClick={async () => {
             if (!profile?.full_name || !profile?.phone) {
-              showNotification("Please fill in all fields.");
+              showNotice("Please fill in all fields.");
               return;
             }
             try {
@@ -1211,26 +1192,25 @@ export default function App() {
               await supabase.auth.updateUser({ 
                 data: { full_name: profile.full_name, phone: profile.phone } 
               });
-              showNotification("Profile updated.");
+              showNotice("Profile updated.");
             } catch (error) {
-              showNotification("Error updating profile.");
+              showNotice("Error updating profile.");
             }
           }}>
             Save profile
           </button>
 
           <div className="settings-divider">
-            <div className="form-group">
+            <div className="field">
               <label>Appearance</label>
               <select value={theme} onChange={(e) => setTheme(e.target.value)}>
-                <option value="device">Use device setting</option>
                 <option value="light">Light mode</option>
                 <option value="dark">Dark mode</option>
               </select>
             </div>
           </div>
 
-          <button className="btn-secondary full" onClick={() => setActiveModal("orders")}>
+          <button className="btn-secondary full" onClick={() => setModal("orders")}>
             View my orders
           </button>
 
@@ -1240,8 +1220,8 @@ export default function App() {
         </Modal>
       )}
 
-      {/* NOTIFICATION */}
-      {notification && <div className="notification">{notification}</div>}
+      {/* Notice */}
+      {notice && <div className="notice">{notice}</div>}
     </div>
   );
 }
