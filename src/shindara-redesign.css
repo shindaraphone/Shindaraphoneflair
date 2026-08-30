@@ -1391,3 +1391,126 @@ html {
   background: var(--primary);
   color: white;
 }
+/* ===== ADD THESE FIXES ===== */
+
+/* Fix input zoom on mobile - prevents zoom when typing */
+input, select, textarea {
+  font-size: 16px !important; /* Prevents iOS zoom */
+}
+
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on mobile */
+  }
+  
+  /* Better admin layout */
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .header {
+    padding: 10px 12px;
+  }
+  
+  .brand strong {
+    font-size: 16px;
+  }
+  
+  .hero-content h1 {
+    font-size: 28px;
+  }
+  
+  .modal-container {
+    padding: 20px;
+    max-height: 95vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .products-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .product-details {
+    padding: 10px 12px;
+  }
+  
+  .product-details h3 {
+    font-size: 12px;
+  }
+  
+  .product-actions strong {
+    font-size: 14px;
+  }
+  
+  .product-actions button {
+    font-size: 10px;
+    padding: 4px 10px;
+  }
+  
+  .modal-container {
+    padding: 16px;
+  }
+}
+
+/* Better admin/desktop layout */
+@media (min-width: 1024px) {
+  .products-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+  
+  .hero-section {
+    padding: 100px 40px;
+  }
+}
+
+/* Fix for profile button showing name */
+.btn-profile {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Make product cards more clickable */
+.product-image-wrapper {
+  cursor: pointer;
+}
+
+.product-image-wrapper:hover {
+  opacity: 0.95;
+}
+
+/* Better modal product preview */
+.modal-product-image {
+  max-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.modal-product-image img {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+/* Fix checkout grid on all screens */
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .checkout-grid {
+    grid-template-columns: 1fr;
+  }
+}
