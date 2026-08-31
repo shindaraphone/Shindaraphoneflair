@@ -938,7 +938,14 @@ function BrandingTab({ settings, reload, showNotice }) {
 export default function Admin() {
   const [loading, setLoading] = useState(true);
 
-  const [tab, setTab] = useState("products");
+  const [tab, setTabState] = useState(
+    () => sessionStorage.getItem("admin-active-tab") || "products"
+  );
+
+  const setTab = useCallback((next) => {
+    setTabState(next);
+    sessionStorage.setItem("admin-active-tab", next);
+  }, []);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
