@@ -215,3 +215,46 @@
 }
 .admin-detail-grid p { color: var(--ink-soft); margin-top: 2px; }
 @media (max-width: 520px) { .admin-detail-grid { grid-template-columns: 1fr; } }
+
+/* ---------- photo / logo upload ---------- */
+
+.admin-photo-upload { display: flex; align-items: center; gap: 16px; }
+
+.admin-photo-preview {
+  width: 74px; height: 74px;
+  border-radius: var(--radius-md);
+  background: var(--case);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-soft);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.admin-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+.admin-logo-preview { background: var(--ink); }
+.admin-logo-preview img { object-fit: contain; padding: 8px; }
+.admin-logo-preview span { color: var(--gold); font-size: 22px; }
+
+.admin-photo-controls { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.admin-upload-btn { cursor: pointer; }
+
+.admin-branding-form { max-width: 460px; }
+
+/* ---------- category reorder ---------- */
+
+.admin-reorder { display: flex; gap: 4px; white-space: nowrap; }
+.admin-reorder button {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.admin-reorder button:hover:not(:disabled) { border-color: var(--gold); }
+.admin-reorder button:disabled { opacity: 0.3; }
+
+.admin-icon-cell { font-size: 18px; text-align: center; width: 40px; }
+
+.admin-brand-logo { height: 26px; width: auto; max-width: 90px; object-fit: contain; }
