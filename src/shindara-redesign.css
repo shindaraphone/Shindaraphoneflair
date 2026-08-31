@@ -48,10 +48,18 @@
 /* ---------- reset / base ---------- */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+*, *::before, *::after { max-width: 100%; }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
 
 body {
+  width: 100%;
+  overflow-x: hidden;
   font-family: var(--font-body);
   background: var(--case);
   color: var(--ink);
@@ -60,10 +68,16 @@ body {
   transition: background 0.25s ease, color 0.25s ease;
 }
 
+img, svg { max-width: 100%; display: block; }
+
 input, select, textarea, button {
   font-family: inherit;
+  /* 16px minimum is intentional: iOS Safari auto-zooms the page on focus
+     for any input under 16px, which is what causes the "page jumps and
+     I have to tap again" bug. Do not shrink this below 16px on mobile. */
   font-size: 16px;
   color: inherit;
+  max-width: 100%;
 }
 
 button { cursor: pointer; background: none; border: none; }
@@ -447,9 +461,29 @@ a { color: inherit; }
   .hero-copy { text-align: left; }
 }
 @media (max-width: 480px) {
+  .hero { padding-top: 24px; padding-bottom: 40px; }
+  .hero-copy h1 { font-size: 32px; max-width: none; }
+  .hero-copy p { font-size: 15px; }
+  .hero-eyebrow { font-size: 12px; margin-bottom: 16px; }
+  .hero-art { height: 300px; }
+  .hero-card { width: 200px; padding: 18px 18px 20px; gap: 18px; }
+  .hero-card-back { width: 200px; height: 250px; }
+  .hero-ring { width: 60px; height: 60px; }
+  .hero-ring-inner { width: 44px; height: 44px; font-size: 16px; }
   .hero-floating { display: none; }
   .hero-buttons { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .hero-trust { gap: 12px 18px; font-size: 12.5px; }
+  .section-heading h2, .hero-copy h1 { line-height: 1.15; }
+  .brand-cta { padding: 60px 20px; }
+  .brand-cta-content h2 { font-size: 26px; }
 }
+@media (max-width: 360px) {
+  .hero-copy h1 { font-size: 28px; }
+  .hero-art { height: 260px; }
+  .hero-card { width: 170px; }
+  .hero-card-back { width: 170px; height: 210px; }
+}
+
 
 /* ---------- service strip (shelf ledge) ---------- */
 
@@ -764,7 +798,16 @@ a { color: inherit; }
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   z-index: 200;
+}
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    align-items: flex-start;
+    padding: 14px 12px 40px;
+  }
 }
 
 .modal {
@@ -780,6 +823,15 @@ a { color: inherit; }
   box-shadow: var(--shadow-pop);
 }
 .modal-wide { max-width: 720px; }
+
+@media (max-width: 640px) {
+  .modal {
+    padding: 26px 18px;
+    border-radius: var(--radius-md);
+    max-height: none;
+    overflow-y: visible;
+  }
+}
 
 .modal-close {
   position: absolute;
@@ -1078,6 +1130,7 @@ a { color: inherit; }
 
 .loading-screen {
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
