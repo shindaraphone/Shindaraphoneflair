@@ -1002,26 +1002,16 @@ const NIGERIA_LOCATIONS = {
    ========================================================= */
 
 
-const CATEGORIES = [
-  "All",
-  "Phone Cases",
-  "Chargers",
-  "Cables",
-  "Power Banks",
-  "Audio",
-  "Smart Watches",
-  "Screen Protectors",
+// Fallback only — used if the categories table is empty or fails to load.
+const FALLBACK_CATEGORIES = [
+  { name: "Phone Cases", icon: "▢" },
+  { name: "Chargers", icon: "⚡" },
+  { name: "Cables", icon: "⌁" },
+  { name: "Power Banks", icon: "▮" },
+  { name: "Audio", icon: "◐" },
+  { name: "Smart Watches", icon: "◔" },
+  { name: "Screen Protectors", icon: "◈" },
 ];
-
-const CATEGORY_GLYPH = {
-  "Phone Cases": "▢",
-  Chargers: "⚡",
-  Cables: "⌁",
-  "Power Banks": "▮",
-  Audio: "◐",
-  "Smart Watches": "◔",
-  "Screen Protectors": "◈",
-};
 
 
 /* =========================================================
@@ -1134,6 +1124,8 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+  const [siteSettings, setSiteSettings] = useState({ logo_url: "", tagline: "" });
 
 
   const [loading, setLoading] = useState(true);
@@ -1247,6 +1239,52 @@ export default function App() {
       setProducts(data || []);
     } catch (error) {
       console.error(error);
+    }
+  }, []);
+
+
+  /* =======================================================
+     CATEGORIES & SITE SETTINGS
+     ======================================================= */
+
+
+  const loadCategories = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order", { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setCategories(data.map((c) => ({ name: c.name, icon: c.icon || "◆" })));
+      }
+    } catch (error) {
+      console.error("Categories:", error);
+      // keep FALLBACK_CATEGORIES on failure
+    }
+  }, []);
+
+
+  const loadSiteSettings = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setSiteSettings({
+          logo_url: data.logo_url || "",
+          tagline: data.tagline || "",
+        });
+      }
+    } catch (error) {
+      console.error("Site settings:", error);
     }
   }, []);
 
@@ -1427,7 +1465,7 @@ export default function App() {
         setUser(currentUser);
 
 
-        await loadProducts();
+        await Promise.all([loadProducts(), loadCategories(), loadSiteSettings()]);
 
 
         if (currentUser) {
@@ -2705,10 +2743,10 @@ export default function App() {
       <div className="announcement">
         <div className="announcement-track">
           <span>
-            Premium phone accessories · Nationwide delivery · Secure Paystack checkout · Shindara PhoneFlair
+            {siteSettings.tagline || "Premium phone accessories are screaming here."} · Nationwide delivery · Secure Paystack checkout
           </span>
           <span aria-hidden="true">
-            Premium phone accessories · Nationwide delivery · Secure Paystack checkout · Shindara PhoneFlair
+            {siteSettings.tagline || "Premium phone accessories are screaming here."} · Nationwide delivery · Secure Paystack checkout
           </span>
         </div>
       </div>
@@ -2719,7 +2757,11 @@ export default function App() {
 
       <header className="header">
         <button className="logo" onClick={() => scrollToSection("top")} aria-label="Shindara home">
-          <span className="logo-symbol">◆</span>
+          {siteSettings.logo_url ? (
+            <img className="logo-image" src={siteSettings.logo_url} alt="Shindara PhoneFlair" />
+          ) : (
+            <span className="logo-symbol">◆</span>
+          )}
           <span className="logo-copy">
             <strong>Shindara</strong>
             <small>PHONEFLAIR</small>
@@ -2938,17 +2980,17 @@ export default function App() {
           </div>
 
           <div className="category-grid">
-            {CATEGORIES.filter((item) => item !== "All").map((item) => (
+            {categories.map((item) => (
               <button
-                className={`category-card ${category === item ? "active" : ""}`}
-                key={item}
+                className={`category-card ${category === item.name ? "active" : ""}`}
+                key={item.name}
                 onClick={() => {
-                  setCategory(item);
+                  setCategory(item.name);
                   scrollToSection("shop");
                 }}
               >
-                <span className="category-number">{CATEGORY_GLYPH[item] || "◆"}</span>
-                <span className="category-name">{item}</span>
+                <span className="category-number">{item.icon || "◆"}</span>
+                <span className="category-name">{item.name}</span>
                 <span className="category-arrow">→</span>
               </button>
             ))}
@@ -2986,13 +3028,19 @@ export default function App() {
           </div>
 
           <div className="filter-row">
-            {CATEGORIES.map((item) => (
+            <button
+              className={category === "All" ? "filter-chip active" : "filter-chip"}
+              onClick={() => setCategory("All")}
+            >
+              All
+            </button>
+            {categories.map((item) => (
               <button
-                key={item}
-                className={category === item ? "filter-chip active" : "filter-chip"}
-                onClick={() => setCategory(item)}
+                key={item.name}
+                className={category === item.name ? "filter-chip active" : "filter-chip"}
+                onClick={() => setCategory(item.name)}
               >
-                {item}
+                {item.name}
               </button>
             ))}
           </div>
@@ -3101,7 +3149,11 @@ export default function App() {
 
           <div className="footer-brand">
             <div className="footer-logo">
-              <span>◆</span>
+              {siteSettings.logo_url ? (
+                <img className="logo-image" src={siteSettings.logo_url} alt="Shindara PhoneFlair" />
+              ) : (
+                <span>◆</span>
+              )}
               <div>
                 <strong>Shindara</strong>
                 <small>PHONEFLAIR</small>
