@@ -2,6 +2,7 @@
 // Supabase + Paystack + Cart + Checkout + Orders + Tracking
 // Mobile-first / responsive / Nigerian states + cities
 
+
 import React, {
   useCallback,
   useEffect,
@@ -12,15 +13,19 @@ import React, {
 import { supabase } from "./supabaseClient.js";
 import "./shindara-redesign.css";
 
+
 /* =========================================================
    CONFIG
    ========================================================= */
 
+
 const PAYSTACK_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
+
 const money = (value) =>
   `₦${Number(value || 0).toLocaleString("en-NG")}`;
+
 
 const generateTrackingNumber = () =>
   `SHP-${Date.now().toString(36).toUpperCase()}-${Math.random()
@@ -28,10 +33,12 @@ const generateTrackingNumber = () =>
     .slice(2, 7)
     .toUpperCase()}`;
 
+
 /* =========================================================
    NIGERIA LOCATIONS
    State -> Local Government Areas / major cities
    ========================================================= */
+
 
 const NIGERIA_LOCATIONS = {
   Abia: [
@@ -50,6 +57,7 @@ const NIGERIA_LOCATIONS = {
     "Umuahia South",
     "Umunneochi",
   ],
+
 
   Adamawa: [
     "Demsa",
@@ -75,6 +83,7 @@ const NIGERIA_LOCATIONS = {
     "Yola North",
     "Yola South",
   ],
+
 
   "Akwa Ibom": [
     "Abak",
@@ -110,6 +119,7 @@ const NIGERIA_LOCATIONS = {
     "Uyo",
   ],
 
+
   Anambra: [
     "Aguata",
     "Anambra East",
@@ -134,6 +144,7 @@ const NIGERIA_LOCATIONS = {
     "Oyi",
   ],
 
+
   Bauchi: [
     "Bauchi",
     "Bogoro",
@@ -156,6 +167,7 @@ const NIGERIA_LOCATIONS = {
     "Zaki",
   ],
 
+
   Bayelsa: [
     "Brass",
     "Ekeremor",
@@ -166,6 +178,7 @@ const NIGERIA_LOCATIONS = {
     "Southern Ijaw",
     "Yenagoa",
   ],
+
 
   Benue: [
     "Ado",
@@ -192,6 +205,7 @@ const NIGERIA_LOCATIONS = {
     "Ushongo",
     "Vandeikya",
   ],
+
 
   Borno: [
     "Abadam",
@@ -223,6 +237,7 @@ const NIGERIA_LOCATIONS = {
     "Shani",
   ],
 
+
   "Cross River": [
     "Abi",
     "Akamkpa",
@@ -243,6 +258,7 @@ const NIGERIA_LOCATIONS = {
     "Yakuur",
     "Yala",
   ],
+
 
   Delta: [
     "Aniocha North",
@@ -272,6 +288,7 @@ const NIGERIA_LOCATIONS = {
     "Warri South West",
   ],
 
+
   Ebonyi: [
     "Abakaliki",
     "Afikpo North",
@@ -286,6 +303,7 @@ const NIGERIA_LOCATIONS = {
     "Ohaukwu",
     "Onicha",
   ],
+
 
   Edo: [
     "Akoko-Edo",
@@ -308,6 +326,7 @@ const NIGERIA_LOCATIONS = {
     "Uhunmwonde",
   ],
 
+
   Ekiti: [
     "Ado Ekiti",
     "Aiyekire",
@@ -327,6 +346,7 @@ const NIGERIA_LOCATIONS = {
     "Moba",
     "Oye",
   ],
+
 
   Enugu: [
     "Aninri",
@@ -348,6 +368,7 @@ const NIGERIA_LOCATIONS = {
     "Uzo-Uwani",
   ],
 
+
   FCT: [
     "Abaji",
     "Bwari",
@@ -367,6 +388,7 @@ const NIGERIA_LOCATIONS = {
     "Wuse",
   ],
 
+
   Gombe: [
     "Akko",
     "Balanga",
@@ -380,6 +402,7 @@ const NIGERIA_LOCATIONS = {
     "Shongom",
     "Yamaltu-Deba",
   ],
+
 
   Imo: [
     "Ahiazu Mbaise",
@@ -409,6 +432,7 @@ const NIGERIA_LOCATIONS = {
     "Owerri West",
     "Unuimo",
   ],
+
 
   Jigawa: [
     "Auyo",
@@ -440,6 +464,7 @@ const NIGERIA_LOCATIONS = {
     "Yankwashi",
   ],
 
+
   Kaduna: [
     "Birnin Gwari",
     "Chikun",
@@ -465,6 +490,7 @@ const NIGERIA_LOCATIONS = {
     "Zangon Kataf",
     "Zaria",
   ],
+
 
   Kano: [
     "Ajingi",
@@ -513,6 +539,7 @@ const NIGERIA_LOCATIONS = {
     "Wudil",
   ],
 
+
   Katsina: [
     "Bakori",
     "Batagarawa",
@@ -550,6 +577,7 @@ const NIGERIA_LOCATIONS = {
     "Zango",
   ],
 
+
   Kebbi: [
     "Aleiro",
     "Arewa",
@@ -576,6 +604,7 @@ const NIGERIA_LOCATIONS = {
     "Zuru",
   ],
 
+
   Kogi: [
     "Adavi",
     "Ajaokuta",
@@ -600,6 +629,7 @@ const NIGERIA_LOCATIONS = {
     "Yagba West",
   ],
 
+
   Kwara: [
     "Asa",
     "Baruten",
@@ -621,6 +651,7 @@ const NIGERIA_LOCATIONS = {
     "Jebba",
     "Lafiagi",
   ],
+
 
   Lagos: [
     "Agege",
@@ -648,6 +679,7 @@ const NIGERIA_LOCATIONS = {
     "Yaba",
   ],
 
+
   Nasarawa: [
     "Akwanga",
     "Awe",
@@ -663,6 +695,7 @@ const NIGERIA_LOCATIONS = {
     "Toto",
     "Wamba",
   ],
+
 
   Niger: [
     "Agaie",
@@ -693,6 +726,7 @@ const NIGERIA_LOCATIONS = {
     "Minna",
   ],
 
+
   Ogun: [
     "Abeokuta North",
     "Abeokuta South",
@@ -721,6 +755,7 @@ const NIGERIA_LOCATIONS = {
     "Ishara",
   ],
 
+
   Ondo: [
     "Akoko North-East",
     "Akoko North-West",
@@ -745,6 +780,7 @@ const NIGERIA_LOCATIONS = {
     "Ondo",
     "Ore",
   ],
+
 
   Osun: [
     "Atakunmosa East",
@@ -780,6 +816,7 @@ const NIGERIA_LOCATIONS = {
     "Ikirun",
     "Ila Orangun",
   ],
+
 
   Oyo: [
     "Afijio",
@@ -821,6 +858,7 @@ const NIGERIA_LOCATIONS = {
     "Ogbomosho",
   ],
 
+
   Plateau: [
     "Barkin Ladi",
     "Bassa",
@@ -841,6 +879,7 @@ const NIGERIA_LOCATIONS = {
     "Wase",
     "Jos",
   ],
+
 
   Rivers: [
     "Abua/Odual",
@@ -867,6 +906,7 @@ const NIGERIA_LOCATIONS = {
     "Port Harcourt",
     "Tai",
   ],
+
 
   Sokoto: [
     "Binji",
@@ -895,6 +935,7 @@ const NIGERIA_LOCATIONS = {
     "Sokoto",
   ],
 
+
   Taraba: [
     "Ardo Kola",
     "Bali",
@@ -913,6 +954,7 @@ const NIGERIA_LOCATIONS = {
     "Yorro",
     "Zing",
   ],
+
 
   Yobe: [
     "Bade",
@@ -934,6 +976,7 @@ const NIGERIA_LOCATIONS = {
     "Yusufari",
   ],
 
+
   Zamfara: [
     "Anka",
     "Bakura",
@@ -953,9 +996,11 @@ const NIGERIA_LOCATIONS = {
   ],
 };
 
+
 /* =========================================================
    CATEGORIES
    ========================================================= */
+
 
 const CATEGORIES = [
   "All",
@@ -968,9 +1013,21 @@ const CATEGORIES = [
   "Screen Protectors",
 ];
 
+const CATEGORY_GLYPH = {
+  "Phone Cases": "▢",
+  Chargers: "⚡",
+  Cables: "⌁",
+  "Power Banks": "▮",
+  Audio: "◐",
+  "Smart Watches": "◔",
+  "Screen Protectors": "◈",
+};
+
+
 /* =========================================================
    HELPERS
    ========================================================= */
+
 
 const getProductImage = (product) =>
   product?.image_url ||
@@ -978,16 +1035,21 @@ const getProductImage = (product) =>
   product?.imageUrl ||
   "";
 
+
 const normalizeCategory = (value) =>
   String(value || "").trim().toLowerCase();
+
 
 const categoryMatches = (product, selectedCategory) => {
   if (selectedCategory === "All") return true;
 
+
   const cat = normalizeCategory(product?.category);
   const target = normalizeCategory(selectedCategory);
 
+
   if (cat.includes(target)) return true;
+
 
   if (
     selectedCategory === "Audio" &&
@@ -998,6 +1060,7 @@ const categoryMatches = (product, selectedCategory) => {
     return true;
   }
 
+
   if (
     selectedCategory === "Smart Watches" &&
     /(smartwatch|smart watch|apple watch|watch)/i.test(
@@ -1007,12 +1070,14 @@ const categoryMatches = (product, selectedCategory) => {
     return true;
   }
 
+
   if (
     selectedCategory === "Phone Cases" &&
     /(case|cover)/i.test(`${product?.name || ""} ${product?.category || ""}`)
   ) {
     return true;
   }
+
 
   if (
     selectedCategory === "Power Banks" &&
@@ -1023,6 +1088,7 @@ const categoryMatches = (product, selectedCategory) => {
     return true;
   }
 
+
   if (
     selectedCategory === "Chargers" &&
     /(charger|charging)/i.test(
@@ -1032,12 +1098,14 @@ const categoryMatches = (product, selectedCategory) => {
     return true;
   }
 
+
   if (
     selectedCategory === "Cables" &&
     /(cable|cord)/i.test(`${product?.name || ""} ${product?.category || ""}`)
   ) {
     return true;
   }
+
 
   if (
     selectedCategory === "Screen Protectors" &&
@@ -1048,34 +1116,43 @@ const categoryMatches = (product, selectedCategory) => {
     return true;
   }
 
+
   return false;
 };
+
 
 /* =========================================================
    APP
    ========================================================= */
 
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
 
+
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
+
 
   const [loading, setLoading] = useState(true);
   const [cartLoading, setCartLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
 
+
   const [modal, setModal] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
+
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
 
+
   const [notice, setNotice] = useState("");
+
 
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
@@ -1083,6 +1160,7 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [authName, setAuthName] = useState("");
   const [authPhone, setAuthPhone] = useState("");
+
 
   const [checkout, setCheckout] = useState({
     name: "",
@@ -1093,7 +1171,9 @@ export default function App() {
     city: "",
   });
 
+
   const [checkoutError, setCheckoutError] = useState("");
+
 
   const [theme, setTheme] = useState(() => {
     try {
@@ -1103,41 +1183,52 @@ export default function App() {
     }
   });
 
+
   const [mobileMenu, setMobileMenu] = useState(false);
 
+
   const noticeTimer = useRef(null);
+
 
   /* =======================================================
      NOTICE
      ======================================================= */
 
+
   const showNotice = useCallback((message) => {
     setNotice(message);
+
 
     if (noticeTimer.current) {
       clearTimeout(noticeTimer.current);
     }
+
 
     noticeTimer.current = setTimeout(() => {
       setNotice("");
     }, 3500);
   }, []);
 
+
   /* =======================================================
      THEME
      ======================================================= */
+
 
   useEffect(() => {
     try {
       localStorage.setItem("theme", theme);
     } catch {}
 
+
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
 
   /* =======================================================
      PRODUCT LOADING
      ======================================================= */
+
 
   const loadProducts = useCallback(async () => {
     try {
@@ -1146,10 +1237,12 @@ export default function App() {
         .select("*")
         .order("created_at", { ascending: false });
 
+
       if (error) {
         console.error("Products:", error);
         return;
       }
+
 
       setProducts(data || []);
     } catch (error) {
@@ -1157,12 +1250,15 @@ export default function App() {
     }
   }, []);
 
+
   /* =======================================================
      PROFILE
      ======================================================= */
 
+
   const loadProfile = useCallback(async (id) => {
     if (!id) return;
+
 
     try {
       const { data, error } = await supabase
@@ -1171,13 +1267,16 @@ export default function App() {
         .eq("id", id)
         .maybeSingle();
 
+
       if (error) {
         console.error("Profile:", error);
         return;
       }
 
+
       if (data) {
         setProfile(data);
+
 
         setCheckout((previous) => ({
           ...previous,
@@ -1191,14 +1290,18 @@ export default function App() {
     }
   }, []);
 
+
   /* =======================================================
      CART
      ======================================================= */
 
+
   const loadCart = useCallback(async (id) => {
     if (!id) return;
 
+
     setCartLoading(true);
+
 
     try {
       const { data, error } = await supabase
@@ -1209,16 +1312,19 @@ export default function App() {
         `)
         .eq("user_id", id);
 
+
       if (error) {
         console.error("Cart:", error);
         setCart([]);
         return;
       }
 
+
       const formatted = (data || [])
         .filter((item) => item.products)
         .map((item) => {
           const product = item.products;
+
 
           return {
             ...item,
@@ -1228,6 +1334,7 @@ export default function App() {
           };
         });
 
+
       setCart(formatted);
     } catch (error) {
       console.error(error);
@@ -1236,12 +1343,15 @@ export default function App() {
     }
   }, []);
 
+
   /* =======================================================
      ORDERS
      ======================================================= */
 
+
   const loadOrders = useCallback(async (id) => {
     if (!id) return;
+
 
     try {
       const { data, error } = await supabase
@@ -1250,13 +1360,16 @@ export default function App() {
         .eq("user_id", id)
         .order("created_at", { ascending: false });
 
+
       if (error) {
         console.error("Orders:", error);
         setOrders([]);
         return;
       }
 
+
       const orderData = data || [];
+
 
       const completeOrders = await Promise.all(
         orderData.map(async (order) => {
@@ -1268,9 +1381,11 @@ export default function App() {
             `)
             .eq("order_id", order.id);
 
+
           if (itemsError) {
             console.error("Order items:", itemsError);
           }
+
 
           return {
             ...order,
@@ -1279,18 +1394,22 @@ export default function App() {
         })
       );
 
+
       setOrders(completeOrders);
     } catch (error) {
       console.error(error);
     }
   }, []);
 
+
   /* =======================================================
      INITIALIZATION
      ======================================================= */
 
+
   useEffect(() => {
     let mounted = true;
+
 
     const initialize = async () => {
       try {
@@ -1298,13 +1417,18 @@ export default function App() {
           data: { session },
         } = await supabase.auth.getSession();
 
+
         if (!mounted) return;
+
 
         const currentUser = session?.user || null;
 
+
         setUser(currentUser);
 
+
         await loadProducts();
+
 
         if (currentUser) {
           await Promise.all([
@@ -1322,14 +1446,18 @@ export default function App() {
       }
     };
 
+
     initialize();
+
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user || null;
 
+
       setUser(currentUser);
+
 
       if (currentUser) {
         await Promise.all([
@@ -1344,9 +1472,11 @@ export default function App() {
       }
     });
 
+
     return () => {
       mounted = false;
       subscription?.unsubscribe();
+
 
       if (noticeTimer.current) {
         clearTimeout(noticeTimer.current);
@@ -1354,9 +1484,11 @@ export default function App() {
     };
   }, [loadProducts, loadProfile, loadCart, loadOrders]);
 
+
   /* =======================================================
      CART COMPUTED
      ======================================================= */
+
 
   const cartTotal = useMemo(
     () =>
@@ -1367,6 +1499,7 @@ export default function App() {
     [cart]
   );
 
+
   const cartCount = useMemo(
     () =>
       cart.reduce(
@@ -1376,9 +1509,11 @@ export default function App() {
     [cart]
   );
 
+
   /* =======================================================
      ADD TO CART
      ======================================================= */
+
 
   const addToCart = useCallback(
     async (product) => {
@@ -1389,31 +1524,38 @@ export default function App() {
         return;
       }
 
+
       const stock = Number(product?.stock || 0);
+
 
       if (stock <= 0) {
         showNotice("This product is currently sold out.");
         return;
       }
 
+
       try {
         const existing = cart.find(
           (item) => item.product_id === product.id
         );
 
+
         if (existing) {
           const nextQuantity = Number(existing.quantity || 0) + 1;
+
 
           if (nextQuantity > stock) {
             showNotice(`Only ${stock} available.`);
             return;
           }
 
+
           const { error } = await supabase
             .from("cart_items")
             .update({ quantity: nextQuantity })
             .eq("id", existing.id)
             .eq("user_id", user.id);
+
 
           if (error) throw error;
         } else {
@@ -1425,8 +1567,10 @@ export default function App() {
               quantity: 1,
             });
 
+
           if (error) throw error;
         }
+
 
         await loadCart(user.id);
         showNotice(`${product.name} added to your bag.`);
@@ -1438,16 +1582,20 @@ export default function App() {
     [user, cart, loadCart, showNotice]
   );
 
+
   /* =======================================================
      UPDATE QUANTITY
      ======================================================= */
+
 
   const updateQuantity = useCallback(
     async (item, change) => {
       if (!user || !item) return;
 
+
       const current = Number(item.quantity || 0);
       const next = current + change;
+
 
       try {
         if (next <= 0) {
@@ -1457,16 +1605,20 @@ export default function App() {
             .eq("id", item.id)
             .eq("user_id", user.id);
 
+
           await loadCart(user.id);
           return;
         }
 
+
         const stock = Number(item.product?.stock || 0);
+
 
         if (next > stock) {
           showNotice(`Only ${stock} available.`);
           return;
         }
+
 
         const { error } = await supabase
           .from("cart_items")
@@ -1474,7 +1626,9 @@ export default function App() {
           .eq("id", item.id)
           .eq("user_id", user.id);
 
+
         if (error) throw error;
+
 
         await loadCart(user.id);
       } catch (error) {
@@ -1485,13 +1639,16 @@ export default function App() {
     [user, loadCart, showNotice]
   );
 
+
   /* =======================================================
      REMOVE CART ITEM
      ======================================================= */
 
+
   const removeFromCart = useCallback(
     async (item) => {
       if (!user || !item) return;
+
 
       try {
         const { error } = await supabase
@@ -1500,7 +1657,9 @@ export default function App() {
           .eq("id", item.id)
           .eq("user_id", user.id);
 
+
         if (error) throw error;
+
 
         await loadCart(user.id);
         showNotice("Item removed.");
@@ -1512,12 +1671,15 @@ export default function App() {
     [user, loadCart, showNotice]
   );
 
+
   /* =======================================================
      CLEAR CART
      ======================================================= */
 
+
   const clearCart = useCallback(async () => {
     if (!user) return false;
+
 
     try {
       const { error } = await supabase
@@ -1525,7 +1687,9 @@ export default function App() {
         .delete()
         .eq("user_id", user.id);
 
+
       if (error) throw error;
+
 
       setCart([]);
       return true;
@@ -1535,43 +1699,53 @@ export default function App() {
     }
   }, [user]);
 
+
   /* =======================================================
      AUTH
      ======================================================= */
+
 
   const resetAuthForm = useCallback(() => {
     setAuthError("");
   }, []);
 
+
   const handleAuth = useCallback(
     async (event) => {
       event.preventDefault();
 
+
       setAuthLoading(true);
       setAuthError("");
+
 
       try {
         const email = authEmail.trim().toLowerCase();
         const password = authPassword;
+
 
         if (!email || !password) {
           setAuthError("Please enter your email and password.");
           return;
         }
 
+
         if (password.length < 6) {
           setAuthError("Password must be at least 6 characters.");
           return;
         }
 
+
         if (authMode === "signup") {
           const name = authName.trim();
           const phone = authPhone.trim();
+
 
           if (!name || !phone) {
             setAuthError("Please enter your full name and phone number.");
             return;
           }
+
 
           const { data, error } = await supabase.auth.signUp({
             email,
@@ -1584,7 +1758,9 @@ export default function App() {
             },
           });
 
+
           if (error) throw error;
+
 
           if (data?.user) {
             const { error: profileError } = await supabase
@@ -1596,10 +1772,12 @@ export default function App() {
                 phone,
               });
 
+
             if (profileError) {
               console.warn("Profile creation:", profileError);
             }
           }
+
 
           if (data?.session) {
             setModal(null);
@@ -1616,7 +1794,9 @@ export default function App() {
               password,
             });
 
+
           if (error) throw error;
+
 
           if (data?.user) {
             setModal(null);
@@ -1626,11 +1806,14 @@ export default function App() {
       } catch (error) {
         console.error("Auth:", error);
 
+
         let message = error?.message || "Something went wrong.";
+
 
         if (/invalid login credentials/i.test(message)) {
           message = "Incorrect email or password.";
         }
+
 
         setAuthError(message);
       } finally {
@@ -1647,13 +1830,16 @@ export default function App() {
     ]
   );
 
+
   /* =======================================================
      GOOGLE LOGIN
      ======================================================= */
 
+
   const handleGoogleLogin = useCallback(async () => {
     setAuthLoading(true);
     setAuthError("");
+
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -1663,6 +1849,7 @@ export default function App() {
         },
       });
 
+
       if (error) throw error;
     } catch (error) {
       console.error(error);
@@ -1671,9 +1858,11 @@ export default function App() {
     }
   }, []);
 
+
   /* =======================================================
      LOGOUT
      ======================================================= */
+
 
   const logout = useCallback(async () => {
     try {
@@ -1682,18 +1871,22 @@ export default function App() {
       console.error(error);
     }
 
+
     setUser(null);
     setProfile(null);
     setCart([]);
     setOrders([]);
     setModal(null);
 
+
     showNotice("You have been signed out.");
   }, [showNotice]);
+
 
   /* =======================================================
      PAYSTACK SCRIPT
      ======================================================= */
+
 
   const loadPaystack = useCallback(() => {
     return new Promise((resolve, reject) => {
@@ -1702,12 +1895,15 @@ export default function App() {
         return;
       }
 
+
       const existing = document.querySelector(
         'script[src="https://js.paystack.co/v1/inline.js"]'
       );
 
+
       if (existing) {
         let elapsed = 0;
+
 
         const interval = setInterval(() => {
           if (window.PaystackPop) {
@@ -1715,7 +1911,9 @@ export default function App() {
             resolve(true);
           }
 
+
           elapsed += 200;
+
 
           if (elapsed >= 10000) {
             clearInterval(interval);
@@ -1723,13 +1921,17 @@ export default function App() {
           }
         }, 200);
 
+
         return;
       }
 
+
       const script = document.createElement("script");
+
 
       script.src = "https://js.paystack.co/v1/inline.js";
       script.async = true;
+
 
       script.onload = () => {
         if (window.PaystackPop) {
@@ -1739,6 +1941,7 @@ export default function App() {
         }
       };
 
+
       script.onerror = () => {
         reject(
           new Error(
@@ -1747,21 +1950,26 @@ export default function App() {
         );
       };
 
+
       document.head.appendChild(script);
     });
   }, []);
+
 
   /* =======================================================
      CREATE ORDER AFTER PAYMENT
      ======================================================= */
 
+
   const saveSuccessfulOrder = useCallback(
     async (paymentReference) => {
       if (!user) throw new Error("Customer session missing.");
 
+
       if (!cart.length) {
         throw new Error("Your cart is empty.");
       }
+
 
       /* Prevent duplicate order */
       const { data: existingOrder, error: duplicateError } =
@@ -1771,19 +1979,24 @@ export default function App() {
           .eq("payment_reference", paymentReference)
           .maybeSingle();
 
+
       if (duplicateError) {
         console.warn("Duplicate check:", duplicateError);
       }
+
 
       if (existingOrder) {
         await clearCart();
         await loadOrders(user.id);
 
+
         return existingOrder;
       }
 
+
       /* Verify stock one more time */
       const productIds = cart.map((item) => item.product_id);
+
 
       const { data: latestProducts, error: latestError } =
         await supabase
@@ -1791,15 +2004,19 @@ export default function App() {
           .select("*")
           .in("id", productIds);
 
+
       if (latestError) throw latestError;
+
 
       for (const item of cart) {
         const latestProduct = latestProducts?.find(
           (product) => product.id === item.product_id
         );
 
+
         const stock = Number(latestProduct?.stock || 0);
         const quantity = Number(item.quantity || 0);
+
 
         if (!latestProduct || stock < quantity) {
           throw new Error(
@@ -1808,7 +2025,9 @@ export default function App() {
         }
       }
 
+
       const trackingNumber = generateTrackingNumber();
+
 
       const orderPayload = {
         user_id: user.id,
@@ -1825,6 +2044,7 @@ export default function App() {
         tracking_number: trackingNumber,
       };
 
+
       const {
         data: order,
         error: orderError,
@@ -1834,12 +2054,14 @@ export default function App() {
         .select()
         .single();
 
+
       if (orderError || !order) {
         throw new Error(
           orderError?.message ||
             `Order could not be saved. Payment reference: ${paymentReference}`
         );
       }
+
 
       const orderItems = cart.map((item) => ({
         order_id: order.id,
@@ -1848,11 +2070,13 @@ export default function App() {
         price: Number(item.product?.price || 0),
       }));
 
+
       const {
         error: itemsError,
       } = await supabase
         .from("order_items")
         .insert(orderItems);
+
 
       if (itemsError) {
         console.error("Order items:", itemsError);
@@ -1860,6 +2084,7 @@ export default function App() {
           `Order was created but items could not be saved. Reference: ${paymentReference}`
         );
       }
+
 
       /*
        * Reduce stock.
@@ -1871,10 +2096,13 @@ export default function App() {
           (product) => product.id === item.product_id
         );
 
+
         if (!latestProduct) continue;
+
 
         const oldStock = Number(latestProduct.stock || 0);
         const quantity = Number(item.quantity || 0);
+
 
         await supabase
           .from("products")
@@ -1884,13 +2112,16 @@ export default function App() {
           .eq("id", item.product_id);
       }
 
+
       /* Only clear cart after order + items have been saved */
       await clearCart();
+
 
       await Promise.all([
         loadOrders(user.id),
         loadProducts(),
       ]);
+
 
       return order;
     },
@@ -1905,9 +2136,11 @@ export default function App() {
     ]
   );
 
+
   /* =======================================================
      PAYMENT SUCCESS
      ======================================================= */
+
 
   const handlePaymentSuccess = useCallback(
     async (response) => {
@@ -1915,6 +2148,7 @@ export default function App() {
         response?.reference ||
         response?.trxref ||
         "";
+
 
       if (!reference) {
         setProcessing(false);
@@ -1924,21 +2158,27 @@ export default function App() {
         return;
       }
 
+
       try {
         setCheckoutError("Confirming your payment...");
 
+
         const order = await saveSuccessfulOrder(reference);
+
 
         setSelectedOrder(order);
         setProcessing(false);
         setCheckoutError("");
         setModal("tracking");
 
+
         showNotice("Payment successful! Your order is confirmed.");
       } catch (error) {
         console.error("Payment order:", error);
 
+
         setProcessing(false);
+
 
         setCheckoutError(
           `Payment was received, but your order could not be completed automatically. Payment reference: ${reference}`
@@ -1948,36 +2188,45 @@ export default function App() {
     [saveSuccessfulOrder, showNotice]
   );
 
+
   /* =======================================================
      PAYMENT CLOSED
      ======================================================= */
 
+
   const handlePaymentClose = useCallback(() => {
     if (!processing) return;
+
 
     setProcessing(false);
     setCheckoutError("Payment window was closed.");
   }, [processing]);
 
+
   /* =======================================================
      START PAYMENT
      ======================================================= */
+
 
   const handlePayment = useCallback(
     async (event) => {
       event.preventDefault();
 
+
       if (processing) return;
+
 
       if (!user) {
         setCheckoutError("Please sign in before checkout.");
         return;
       }
 
+
       if (!cart.length) {
         setCheckoutError("Your cart is empty.");
         return;
       }
+
 
       const required = [
         ["name", "full name"],
@@ -1988,6 +2237,7 @@ export default function App() {
         ["city", "city"],
       ];
 
+
       for (const [field, label] of required) {
         if (!String(checkout[field] || "").trim()) {
           setCheckoutError(`Please enter your ${label}.`);
@@ -1995,33 +2245,41 @@ export default function App() {
         }
       }
 
+
       if (!/^\S+@\S+\.\S+$/.test(checkout.email.trim())) {
         setCheckoutError("Please enter a valid email address.");
         return;
       }
 
+
       const phoneDigits = checkout.phone.replace(/\D/g, "");
+
 
       if (phoneDigits.length < 10) {
         setCheckoutError("Please enter a valid Nigerian phone number.");
         return;
       }
 
+
       /* Fresh stock validation */
       try {
         const ids = cart.map((item) => item.product_id);
+
 
         const { data: freshProducts, error } = await supabase
           .from("products")
           .select("*")
           .in("id", ids);
 
+
         if (error) throw error;
+
 
         for (const item of cart) {
           const fresh = freshProducts?.find(
             (product) => product.id === item.product_id
           );
+
 
           if (
             !fresh ||
@@ -2030,6 +2288,7 @@ export default function App() {
             setCheckoutError(
               `${item.product?.name || "A product"} does not have enough stock.`
             );
+
 
             await loadCart(user.id);
             return;
@@ -2043,11 +2302,14 @@ export default function App() {
         return;
       }
 
+
       setProcessing(true);
       setCheckoutError("Opening secure payment...");
 
+
       try {
         await loadPaystack();
+
 
         if (!window.PaystackPop) {
           throw new Error(
@@ -2055,17 +2317,21 @@ export default function App() {
           );
         }
 
+
         const reference =
           `SHP-${user.id.slice(0, 8)}-${Date.now()}-${Math.random()
             .toString(36)
             .slice(2, 7)
             .toUpperCase()}`;
 
+
         const amount = Math.round(Number(cartTotal) * 100);
+
 
         if (!amount || amount <= 0) {
           throw new Error("Invalid payment amount.");
         }
+
 
         const config = {
           key: PAYSTACK_KEY,
@@ -2073,6 +2339,7 @@ export default function App() {
           amount,
           currency: "NGN",
           ref: reference,
+
 
           metadata: {
             custom_fields: [
@@ -2104,28 +2371,36 @@ export default function App() {
             ],
           },
 
+
           callback: (response) => {
             handlePaymentSuccess(response);
           },
+
 
           onClose: () => {
             handlePaymentClose();
           },
         };
 
+
         const handler = window.PaystackPop.setup(config);
+
 
         if (!handler) {
           throw new Error("Paystack could not initialize.");
         }
 
+
         setCheckoutError("");
+
 
         handler.openIframe();
       } catch (error) {
         console.error("Paystack:", error);
 
+
         setProcessing(false);
+
 
         setCheckoutError(
           error?.message ||
@@ -2146,20 +2421,25 @@ export default function App() {
     ]
   );
 
+
   /* =======================================================
      PROFILE SAVE
      ======================================================= */
 
+
   const saveProfile = useCallback(async () => {
     if (!user) return;
 
+
     const fullName = profile?.full_name?.trim() || "";
     const phone = profile?.phone?.trim() || "";
+
 
     if (!fullName || !phone) {
       showNotice("Please enter your full name and phone number.");
       return;
     }
+
 
     try {
       const { error } = await supabase
@@ -2171,7 +2451,9 @@ export default function App() {
           phone,
         });
 
+
       if (error) throw error;
+
 
       await supabase.auth.updateUser({
         data: {
@@ -2180,6 +2462,7 @@ export default function App() {
         },
       });
 
+
       setCheckout((previous) => ({
         ...previous,
         name: fullName,
@@ -2187,7 +2470,9 @@ export default function App() {
         email: user.email || previous.email,
       }));
 
+
       await loadProfile(user.id);
+
 
       showNotice("Profile updated successfully.");
     } catch (error) {
@@ -2196,15 +2481,19 @@ export default function App() {
     }
   }, [user, profile, loadProfile, showNotice]);
 
+
   /* =======================================================
      FILTERED PRODUCTS
      ======================================================= */
 
+
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
 
+
     return products.filter((product) => {
       const matchesCategory = categoryMatches(product, category);
+
 
       const searchable = [
         product?.name,
@@ -2214,19 +2503,24 @@ export default function App() {
         .map((value) => String(value || "").toLowerCase())
         .join(" ");
 
+
       const matchesSearch =
         !query || searchable.includes(query);
+
 
       return matchesCategory && matchesSearch;
     });
   }, [products, category, search]);
 
+
   /* =======================================================
      FORMAT DATE
      ======================================================= */
 
+
   const formatDate = useCallback((date) => {
     if (!date) return "—";
+
 
     try {
       return new Date(date).toLocaleString("en-NG", {
@@ -2238,20 +2532,25 @@ export default function App() {
     }
   }, []);
 
+
   /* =======================================================
      TRACKING STEP
      ======================================================= */
+
 
   const getTrackingStep = useCallback((order) => {
     const payment = String(
       order?.payment_status || "pending"
     ).toLowerCase();
 
+
     const status = String(
       order?.status || "pending"
     ).toLowerCase();
 
+
     if (payment !== "paid") return 0;
+
 
     if (
       ["pending", "paid", "confirmed"].includes(status)
@@ -2259,21 +2558,26 @@ export default function App() {
       return 1;
     }
 
+
     if (status === "processing") return 2;
     if (status === "shipped") return 3;
     if (status === "in_transit") return 3;
     if (status === "out_for_delivery") return 4;
     if (status === "delivered") return 5;
 
+
     return 2;
   }, []);
+
 
   /* =======================================================
      SCROLL
      ======================================================= */
 
+
   const scrollToSection = useCallback((id) => {
     setMobileMenu(false);
+
 
     setTimeout(() => {
       document
@@ -2285,9 +2589,11 @@ export default function App() {
     }, 50);
   }, []);
 
+
   /* =======================================================
      OPEN CHECKOUT
      ======================================================= */
+
 
   const openCheckout = useCallback(() => {
     if (!cart.length) {
@@ -2295,7 +2601,9 @@ export default function App() {
       return;
     }
 
+
     setCheckoutError("");
+
 
     setCheckout((previous) => ({
       ...previous,
@@ -2313,12 +2621,15 @@ export default function App() {
         "",
     }));
 
+
     setModal("checkout");
   }, [cart.length, profile, user, showNotice]);
+
 
   /* =======================================================
      MODAL COMPONENT
      ======================================================= */
+
 
   const Modal = ({ children, onClose, wide = false }) => {
     return (
@@ -2343,38 +2654,46 @@ export default function App() {
             ×
           </button>
 
+
           {children}
         </div>
       </div>
     );
   };
 
+
   /* =======================================================
      LOADING SCREEN
      ======================================================= */
+
 
   if (loading) {
     return (
       <div className="loading-screen">
         <div className="loading-mark">S</div>
 
+
         <div className="loading-brand">
           <strong>SHINDARA</strong>
           <span>PHONEFLAIR</span>
         </div>
 
+
         <div className="loading-line">
           <span />
         </div>
+
 
         <p>Preparing your shopping experience...</p>
       </div>
     );
   }
 
+
   /* =======================================================
      RENDER
      ======================================================= */
+
 
   return (
     <div className="app">
@@ -2386,13 +2705,10 @@ export default function App() {
       <div className="announcement">
         <div className="announcement-track">
           <span>
-            ✦ PREMIUM PHONE ACCESSORIES ✦ FAST NATIONWIDE DELIVERY ✦
-            SECURE PAYMENTS ✦ SHOP SHINDARA PHONEFLAIR ✦
+            Premium phone accessories · Nationwide delivery · Secure Paystack checkout · Shindara PhoneFlair
           </span>
-
           <span aria-hidden="true">
-            ✦ PREMIUM PHONE ACCESSORIES ✦ FAST NATIONWIDE DELIVERY ✦
-            SECURE PAYMENTS ✦ SHOP SHINDARA PHONEFLAIR ✦
+            Premium phone accessories · Nationwide delivery · Secure Paystack checkout · Shindara PhoneFlair
           </span>
         </div>
       </div>
@@ -2402,26 +2718,30 @@ export default function App() {
           =================================================== */}
 
       <header className="header">
-
-        <button
-          className="logo"
-          onClick={() => scrollToSection("top")}
-          aria-label="SHINDARA home"
-        >
+        <button className="logo" onClick={() => scrollToSection("top")} aria-label="Shindara home">
           <span className="logo-symbol">◆</span>
-
           <span className="logo-copy">
-            <strong>SHINDARA</strong>
+            <strong>Shindara</strong>
             <small>PHONEFLAIR</small>
           </span>
         </button>
 
         <nav className={`nav ${mobileMenu ? "nav-open" : ""}`}>
-          <button onClick={() => scrollToSection("shop")}>
+          <button
+            onClick={() => {
+              setMobileMenu(false);
+              scrollToSection("shop");
+            }}
+          >
             Shop
           </button>
 
-          <button onClick={() => scrollToSection("categories")}>
+          <button
+            onClick={() => {
+              setMobileMenu(false);
+              scrollToSection("categories");
+            }}
+          >
             Categories
           </button>
 
@@ -2438,7 +2758,6 @@ export default function App() {
         </nav>
 
         <div className="header-actions">
-
           <button
             className="header-account"
             onClick={() => {
@@ -2451,14 +2770,9 @@ export default function App() {
               }
             }}
           >
-            <span className="header-account-icon">
-              {user ? "◉" : "↗"}
-            </span>
-
+            <span className="header-account-icon">{user ? "◉" : "↗"}</span>
             <span className="account-label">
-              {user
-                ? profile?.full_name?.split(" ")[0] || "Account"
-                : "Sign in"}
+              {user ? profile?.full_name?.split(" ")[0] || "Account" : "Sign in"}
             </span>
           </button>
 
@@ -2471,18 +2785,12 @@ export default function App() {
                 showNotice("Sign in to access your bag.");
                 return;
               }
-
               setModal("cart");
             }}
-            aria-label="Shopping cart"
+            aria-label="Shopping bag"
           >
             <span>Bag</span>
-
-            {cartCount > 0 && (
-              <b className="cart-count">
-                {cartCount}
-              </b>
-            )}
+            {cartCount > 0 && <b className="cart-count">{cartCount}</b>}
           </button>
 
           <button
@@ -2492,15 +2800,14 @@ export default function App() {
           >
             {mobileMenu ? "×" : "☰"}
           </button>
-
         </div>
       </header>
 
-      {/* ===================================================
-          HERO
-          =================================================== */}
-
       <main>
+
+        {/* =================================================
+            HERO
+            ================================================= */}
 
         <section className="hero" id="top">
 
@@ -2511,43 +2818,34 @@ export default function App() {
 
             <div className="hero-eyebrow">
               <span className="hero-dot" />
-              THE SHINDARA EDIT
+              Shindara, with flair
             </div>
 
             <h1>
-              Everyday tech,
-              <br />
-              <em>elevated.</em>
+              Everyday tech, <em>elevated.</em>
             </h1>
 
             <p>
-              Premium phone accessories designed to make
-              your everyday setup look better, work smarter,
-              and feel unmistakably yours.
+              Cases, chargers, cables and more, chosen for people who
+              treat their setup like it matters. Add a little Shindara
+              flair to the things you touch every day.
             </p>
 
             <div className="hero-buttons">
-              <button
-                className="btn-primary hero-btn"
-                onClick={() => scrollToSection("shop")}
-              >
+              <button className="btn-primary hero-btn" onClick={() => scrollToSection("shop")}>
                 Shop the collection
                 <span>→</span>
               </button>
 
-              <button
-                className="btn-text"
-                onClick={() => scrollToSection("categories")}
-              >
-                Explore categories
-                <span>↘</span>
+              <button className="btn-text" onClick={() => scrollToSection("categories")}>
+                Browse categories
               </button>
             </div>
 
             <div className="hero-trust">
-              <span>✓ Curated quality</span>
-              <span>✓ Nationwide delivery</span>
-              <span>✓ Secure checkout</span>
+              <span>Curated quality</span>
+              <span>Nationwide delivery</span>
+              <span>Secure checkout</span>
             </div>
 
           </div>
@@ -2557,39 +2855,34 @@ export default function App() {
             <div className="hero-card-back" />
 
             <div className="hero-card">
-
               <div className="hero-card-top">
                 <span>SHINDARA</span>
-                <span>01 / 01</span>
+                <span>PHONEFLAIR</span>
               </div>
 
               <div className="hero-card-center">
                 <div className="hero-ring">
-                  <div className="hero-ring-inner">
-                    S
-                  </div>
+                  <div className="hero-ring-inner">S</div>
                 </div>
-
-                <strong>PHONEFLAIR</strong>
-                <span>BETTER ACCESSORIES.</span>
+                <strong>The everyday edit</strong>
+                <span>BETTER ACCESSORIES</span>
               </div>
 
               <div className="hero-card-bottom">
-                <span>THE EVERYDAY EDIT</span>
+                <span>SINCE DAY ONE</span>
                 <span>✦</span>
               </div>
-
             </div>
 
             <div className="hero-floating hero-floating-one">
-              <span>01</span>
-              <strong>Premium</strong>
-              <small>Accessories</small>
+              <span>Handpicked</span>
+              <strong>Premium builds</strong>
+              <small>Not mass-market filler</small>
             </div>
 
             <div className="hero-floating hero-floating-two">
-              <strong>SHINDARA</strong>
-              <small>Phoneflair</small>
+              <strong>Fast delivery</strong>
+              <small>Across all 36 states</small>
             </div>
 
           </div>
@@ -2601,90 +2894,64 @@ export default function App() {
             ================================================= */}
 
         <section className="service-strip">
-
           <div>
-            <span>01</span>
+            <span>◆</span>
             <strong>Premium quality</strong>
             <small>Products worth keeping.</small>
           </div>
 
           <div>
-            <span>02</span>
+            <span>🔒</span>
             <strong>Secure checkout</strong>
             <small>Powered by Paystack.</small>
           </div>
 
           <div>
-            <span>03</span>
+            <span>🚚</span>
             <strong>Nationwide delivery</strong>
             <small>We deliver across Nigeria.</small>
           </div>
 
           <div>
-            <span>04</span>
+            <span>◎</span>
             <strong>Order tracking</strong>
             <small>Follow your order.</small>
           </div>
-
         </section>
 
         {/* =================================================
             CATEGORIES
             ================================================= */}
 
-        <section
-          className="categories-section"
-          id="categories"
-        >
+        <section className="categories-section" id="categories">
 
           <div className="section-heading">
             <div>
-              <span className="section-kicker">
-                SHOP BY CATEGORY
-              </span>
-
-              <h2>
-                Find your
-                <em> essential.</em>
-              </h2>
+              <span className="section-kicker">Shop by category</span>
+              <h2>Find your <em>essential.</em></h2>
             </div>
 
             <p>
-              From everyday charging essentials to
-              statement accessories, find something
-              made for your setup.
+              From everyday charging essentials to statement accessories,
+              find something made for your setup.
             </p>
           </div>
 
           <div className="category-grid">
-
-            {CATEGORIES.filter((item) => item !== "All").map(
-              (item, index) => (
-                <button
-                  className={`category-card ${
-                    category === item ? "active" : ""
-                  }`}
-                  key={item}
-                  onClick={() => {
-                    setCategory(item);
-                    scrollToSection("shop");
-                  }}
-                >
-                  <span className="category-number">
-                    0{index + 1}
-                  </span>
-
-                  <span className="category-name">
-                    {item}
-                  </span>
-
-                  <span className="category-arrow">
-                    →
-                  </span>
-                </button>
-              )
-            )}
-
+            {CATEGORIES.filter((item) => item !== "All").map((item) => (
+              <button
+                className={`category-card ${category === item ? "active" : ""}`}
+                key={item}
+                onClick={() => {
+                  setCategory(item);
+                  scrollToSection("shop");
+                }}
+              >
+                <span className="category-number">{CATEGORY_GLYPH[item] || "◆"}</span>
+                <span className="category-name">{item}</span>
+                <span className="category-arrow">→</span>
+              </button>
+            ))}
           </div>
         </section>
 
@@ -2695,78 +2962,46 @@ export default function App() {
         <section className="shop-section" id="shop">
 
           <div className="shop-header">
-
             <div>
-              <span className="section-kicker">
-                THE COLLECTION
-              </span>
-
-              <h2>
-                Featured
-                <em> products.</em>
-              </h2>
+              <span className="section-kicker">The collection</span>
+              <h2>Featured <em>products.</em></h2>
             </div>
 
             <div className="shop-tools">
-
               <div className="search-box">
                 <span>⌕</span>
-
                 <input
                   type="search"
                   value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
+                  onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search products..."
                 />
-
                 {search && (
-                  <button
-                    onClick={() => setSearch("")}
-                    aria-label="Clear search"
-                  >
+                  <button onClick={() => setSearch("")} aria-label="Clear search">
                     ×
                   </button>
                 )}
               </div>
-
             </div>
-
           </div>
 
           <div className="filter-row">
-
             {CATEGORIES.map((item) => (
               <button
                 key={item}
-                className={
-                  category === item
-                    ? "filter-chip active"
-                    : "filter-chip"
-                }
+                className={category === item ? "filter-chip active" : "filter-chip"}
                 onClick={() => setCategory(item)}
               >
                 {item}
               </button>
             ))}
-
           </div>
 
           {filteredProducts.length === 0 ? (
             <div className="empty-shop">
-
-              <div className="empty-shop-icon">
-                ⌕
-              </div>
-
+              <div className="empty-shop-icon">⌕</div>
               <h3>No products found.</h3>
-
-              <p>
-                Try another search or choose a different
-                category.
-              </p>
-
+              <p>Try another search or choose a different category.</p>
               <button
                 className="btn-secondary"
                 onClick={() => {
@@ -2776,22 +3011,16 @@ export default function App() {
               >
                 View everything
               </button>
-
             </div>
           ) : (
             <div className="product-grid">
-
               {filteredProducts.map((product) => {
 
                 const stock = Number(product.stock || 0);
                 const image = getProductImage(product);
 
                 return (
-                  <article
-                    className="product-card"
-                    key={product.id}
-                  >
-
+                  <article className="product-card" key={product.id}>
                     <button
                       className="product-visual"
                       onClick={() => {
@@ -2799,77 +3028,42 @@ export default function App() {
                         setModal("product");
                       }}
                     >
-
                       {image ? (
-                        <img
-                          src={image}
-                          alt={product.name}
-                          loading="lazy"
-                        />
+                        <img src={image} alt={product.name} loading="lazy" />
                       ) : (
                         <div className="product-placeholder">
                           <span>S</span>
                         </div>
                       )}
 
-                      <span className="product-view">
-                        View
-                      </span>
+                      <span className="product-view">View</span>
 
-                      {stock <= 0 && (
-                        <span className="sold-out">
-                          SOLD OUT
-                        </span>
-                      )}
-
+                      {stock <= 0 && <span className="sold-out">Sold out</span>}
                       {stock > 0 && stock <= 5 && (
-                        <span className="low-stock">
-                          ONLY {stock} LEFT
-                        </span>
+                        <span className="low-stock">Only {stock} left</span>
                       )}
-
                     </button>
 
                     <div className="product-content">
-
-                      <span className="product-category">
-                        {product.category || "SHINDARA"}
-                      </span>
-
+                      <span className="product-category">{product.category || "Shindara"}</span>
                       <h3>{product.name}</h3>
-
-                      <p>
-                        {product.description ||
-                          "Premium tech essential for everyday use."}
-                      </p>
+                      <p>{product.description || "Premium tech essential for everyday use."}</p>
 
                       <div className="product-footer">
-
-                        <strong className="product-price">
-                          {money(product.price)}
-                        </strong>
-
+                        <strong className="product-price">{money(product.price)}</strong>
                         <button
                           className="product-add"
                           disabled={stock <= 0}
-                          onClick={() =>
-                            addToCart(product)
-                          }
+                          onClick={() => addToCart(product)}
                         >
-                          {stock <= 0
-                            ? "Sold out"
-                            : "Add to bag"}
+                          {stock <= 0 ? "Sold out" : "Add to bag"}
                           <span>+</span>
                         </button>
-
                       </div>
-
                     </div>
-
                   </article>
                 );
               })}
-
             </div>
           )}
 
@@ -2880,37 +3074,20 @@ export default function App() {
             ================================================= */}
 
         <section className="brand-cta">
-
-          <div className="brand-cta-pattern">
-            ✦ SHINDARA ✦ PHONEFLAIR ✦
-          </div>
+          <div className="brand-cta-pattern">SHINDARA · PHONEFLAIR · SHINDARA · PHONEFLAIR</div>
 
           <div className="brand-cta-content">
-
-            <span className="section-kicker">
-              SHINDARA PHONEFLAIR
-            </span>
-
+            <span className="section-kicker">Shindara Phoneflair</span>
             <h2>
               Better accessories.
               <br />
               <em>Better everyday.</em>
             </h2>
-
-            <p>
-              Your phone is part of your everyday life.
-              Give it accessories that belong there.
-            </p>
-
-            <button
-              className="btn-light"
-              onClick={() => scrollToSection("shop")}
-            >
-              Shop now →
+            <p>Your phone is part of your everyday life. Give it accessories that belong there.</p>
+            <button className="btn-light" onClick={() => scrollToSection("shop")}>
+              Shop now
             </button>
-
           </div>
-
         </section>
 
       </main>
@@ -2920,38 +3097,24 @@ export default function App() {
           =================================================== */}
 
       <footer className="footer">
-
         <div className="footer-main">
 
           <div className="footer-brand">
-
             <div className="footer-logo">
               <span>◆</span>
-
               <div>
-                <strong>SHINDARA</strong>
+                <strong>Shindara</strong>
                 <small>PHONEFLAIR</small>
               </div>
             </div>
-
-            <p>
-              Premium phone accessories for people
-              who care about the details.
-            </p>
-
-            <button
-              className="footer-shop"
-              onClick={() => scrollToSection("shop")}
-            >
-              Shop collection →
+            <p>Premium phone accessories for people who care about the details.</p>
+            <button className="footer-shop" onClick={() => scrollToSection("shop")}>
+              Shop collection
             </button>
-
           </div>
 
           <div className="footer-column">
-
             <h4>Shop</h4>
-
             <button
               onClick={() => {
                 setCategory("All");
@@ -2960,7 +3123,6 @@ export default function App() {
             >
               All products
             </button>
-
             <button
               onClick={() => {
                 setCategory("Phone Cases");
@@ -2969,7 +3131,6 @@ export default function App() {
             >
               Phone Cases
             </button>
-
             <button
               onClick={() => {
                 setCategory("Chargers");
@@ -2978,7 +3139,6 @@ export default function App() {
             >
               Chargers
             </button>
-
             <button
               onClick={() => {
                 setCategory("Power Banks");
@@ -2987,26 +3147,6 @@ export default function App() {
             >
               Power Banks
             </button>
-
-          </div>
-
-          <div className="footer-column">
-
-            <h4>Account</h4>
-
-            <button
-              onClick={() => {
-                if (user) {
-                  setModal("settings");
-                } else {
-                  setAuthMode("login");
-                  setModal("auth");
-                }
-              }}
-            >
-              My account
-            </button>
-
             <button
               onClick={() => {
                 if (!user) {
@@ -3019,7 +3159,6 @@ export default function App() {
             >
               My orders
             </button>
-
             <button
               onClick={() => {
                 if (!user) {
@@ -3032,41 +3171,21 @@ export default function App() {
             >
               My bag
             </button>
-
           </div>
 
           <div className="footer-column">
-
             <h4>Connect</h4>
-
-            <button>
-              Instagram
-            </button>
-
-            <button>
-              TikTok
-            </button>
-
-            <button>
-              Contact us
-            </button>
-
+            <button>Instagram</button>
+            <button>TikTok</button>
+            <button>Contact us</button>
           </div>
 
         </div>
 
         <div className="footer-bottom">
-
-          <span>
-            © {new Date().getFullYear()} SHINDARA PHONEFLAIR
-          </span>
-
-          <span>
-            Built for better everyday tech.
-          </span>
-
+          <span>© {new Date().getFullYear()} Shindara PhoneFlair</span>
+          <span>Built for better everyday tech.</span>
         </div>
-
       </footer>
 
       {/* ===================================================
@@ -3075,75 +3194,46 @@ export default function App() {
 
       {modal === "product" && selectedProduct && (
         <Modal onClose={() => setModal(null)}>
-
           <div className="product-modal">
-
             <div className="product-modal-image">
-
               {getProductImage(selectedProduct) ? (
-                <img
-                  src={getProductImage(selectedProduct)}
-                  alt={selectedProduct.name}
-                />
+                <img src={getProductImage(selectedProduct)} alt={selectedProduct.name} />
               ) : (
                 <div className="product-placeholder large">
                   <span>S</span>
                 </div>
               )}
-
             </div>
 
             <div className="product-modal-content">
-
-              <span className="modal-kicker">
-                {selectedProduct.category ||
-                  "SHINDARA PRODUCT"}
-              </span>
-
+              <span className="modal-kicker">{selectedProduct.category || "Shindara product"}</span>
               <h2>{selectedProduct.name}</h2>
-
               <p className="product-modal-description">
-                {selectedProduct.description ||
-                  "Premium tech essential designed for everyday use."}
+                {selectedProduct.description || "Premium tech essential designed for everyday use."}
               </p>
-
-              <div className="product-modal-price">
-                {money(selectedProduct.price)}
-              </div>
+              <div className="product-modal-price">{money(selectedProduct.price)}</div>
 
               <div className="product-modal-stock">
-
-                <span>
-                  Availability
-                </span>
-
+                <span>Availability</span>
                 <strong>
                   {Number(selectedProduct.stock || 0) > 0
                     ? `${selectedProduct.stock} available`
                     : "Sold out"}
                 </strong>
-
               </div>
 
               <button
                 className="btn-primary full"
-                disabled={
-                  Number(selectedProduct.stock || 0) <= 0
-                }
+                disabled={Number(selectedProduct.stock || 0) <= 0}
                 onClick={() => {
                   addToCart(selectedProduct);
                   setModal(null);
                 }}
               >
-                {Number(selectedProduct.stock || 0) > 0
-                  ? "Add to bag →"
-                  : "Sold out"}
+                {Number(selectedProduct.stock || 0) > 0 ? "Add to bag" : "Sold out"}
               </button>
-
             </div>
-
           </div>
-
         </Modal>
       )}
 
@@ -3153,66 +3243,41 @@ export default function App() {
 
       {modal === "auth" && (
         <Modal onClose={() => setModal(null)}>
-
           <div className="modal-head">
-
-            <span className="modal-kicker">
-              SHINDARA PHONEFLAIR
-            </span>
-
-            <h2>
-              {authMode === "login"
-                ? "Welcome back."
-                : "Create your account."}
-            </h2>
-
+            <span className="modal-kicker">Shindara PhoneFlair</span>
+            <h2>{authMode === "login" ? "Welcome back." : "Create your account."}</h2>
             <p>
               {authMode === "login"
                 ? "Sign in to manage your bag and orders."
                 : "Create an account to start shopping."}
             </p>
-
           </div>
 
           {authError && (
-            <div
-              className={`message ${
-                /created|verification/i.test(authError)
-                  ? "success"
-                  : "error"
-              }`}
-            >
+            <div className={`message ${/created|verification/i.test(authError) ? "success" : "error"}`}>
               {authError}
             </div>
           )}
 
-          <button
-            className="google-button"
-            disabled={authLoading}
-            onClick={handleGoogleLogin}
-          >
+          <button className="google-button" disabled={authLoading} onClick={handleGoogleLogin}>
             <span>G</span>
             Continue with Google
           </button>
 
           <div className="or-divider">
             <span />
-            <b>OR</b>
+            <b>or</b>
             <span />
           </div>
 
           <form onSubmit={handleAuth}>
-
             {authMode === "signup" && (
               <>
                 <div className="field">
                   <label>Full name</label>
-
                   <input
                     value={authName}
-                    onChange={(event) =>
-                      setAuthName(event.target.value)
-                    }
+                    onChange={(event) => setAuthName(event.target.value)}
                     placeholder="Your full name"
                     autoComplete="name"
                   />
@@ -3220,12 +3285,9 @@ export default function App() {
 
                 <div className="field">
                   <label>Phone number</label>
-
                   <input
                     value={authPhone}
-                    onChange={(event) =>
-                      setAuthPhone(event.target.value)
-                    }
+                    onChange={(event) => setAuthPhone(event.target.value)}
                     placeholder="08012345678"
                     inputMode="tel"
                     autoComplete="tel"
@@ -3236,13 +3298,10 @@ export default function App() {
 
             <div className="field">
               <label>Email address</label>
-
               <input
                 type="email"
                 value={authEmail}
-                onChange={(event) =>
-                  setAuthEmail(event.target.value)
-                }
+                onChange={(event) => setAuthEmail(event.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
               />
@@ -3250,45 +3309,24 @@ export default function App() {
 
             <div className="field">
               <label>Password</label>
-
               <input
                 type="password"
                 value={authPassword}
-                onChange={(event) =>
-                  setAuthPassword(event.target.value)
-                }
+                onChange={(event) => setAuthPassword(event.target.value)}
                 placeholder="At least 6 characters"
-                autoComplete={
-                  authMode === "login"
-                    ? "current-password"
-                    : "new-password"
-                }
+                autoComplete={authMode === "login" ? "current-password" : "new-password"}
               />
             </div>
 
-            <button
-              className="btn-primary full"
-              type="submit"
-              disabled={authLoading}
-            >
-              {authLoading
-                ? "Please wait..."
-                : authMode === "login"
-                ? "Sign in →"
-                : "Create account →"}
+            <button className="btn-primary full" type="submit" disabled={authLoading}>
+              {authLoading ? "Please wait..." : authMode === "login" ? "Sign in" : "Create account"}
             </button>
-
           </form>
 
           <button
             className="switch-auth"
             onClick={() => {
-              setAuthMode(
-                authMode === "login"
-                  ? "signup"
-                  : "login"
-              );
-
+              setAuthMode(authMode === "login" ? "signup" : "login");
               setAuthError("");
             }}
           >
@@ -3296,7 +3334,6 @@ export default function App() {
               ? "Don't have an account? Create one"
               : "Already have an account? Sign in"}
           </button>
-
         </Modal>
       )}
 
@@ -3306,20 +3343,12 @@ export default function App() {
 
       {modal === "cart" && (
         <Modal onClose={() => setModal(null)} wide>
-
           <div className="modal-head">
-
-            <span className="modal-kicker">
-              YOUR BAG
-            </span>
-
+            <span className="modal-kicker">Your bag</span>
             <h2>Shopping bag.</h2>
-
             <p>
-              {cartCount} item
-              {cartCount !== 1 ? "s" : ""} selected.
+              {cartCount} item{cartCount !== 1 ? "s" : ""} selected.
             </p>
-
           </div>
 
           {cartLoading ? (
@@ -3329,17 +3358,9 @@ export default function App() {
             </div>
           ) : cart.length === 0 ? (
             <div className="modal-empty">
-
-              <div className="empty-bag">
-                🛍
-              </div>
-
+              <div className="empty-bag">🛍</div>
               <h3>Your bag is empty.</h3>
-
-              <p>
-                Find something you love and add it here.
-              </p>
-
+              <p>Find something you love and add it here.</p>
               <button
                 className="btn-primary"
                 onClick={() => {
@@ -3347,127 +3368,63 @@ export default function App() {
                   scrollToSection("shop");
                 }}
               >
-                Continue shopping →
+                Continue shopping
               </button>
-
             </div>
           ) : (
             <>
-
               <div className="cart-list">
-
                 {cart.map((item) => (
-                  <div
-                    className="cart-item"
-                    key={item.id}
-                  >
-
+                  <div className="cart-item" key={item.id}>
                     <div className="cart-item-image">
-
                       {getProductImage(item.product) ? (
-                        <img
-                          src={getProductImage(item.product)}
-                          alt={item.product?.name || ""}
-                        />
+                        <img src={getProductImage(item.product)} alt={item.product?.name || ""} />
                       ) : (
                         <span>S</span>
                       )}
-
                     </div>
 
                     <div className="cart-item-info">
-
-                      <span>
-                        {item.product?.category ||
-                          "SHINDARA"}
-                      </span>
-
-                      <h4>
-                        {item.product?.name}
-                      </h4>
-
-                      <strong>
-                        {money(item.product?.price)}
-                      </strong>
-
+                      <span>{item.product?.category || "Shindara"}</span>
+                      <h4>{item.product?.name}</h4>
+                      <strong>{money(item.product?.price)}</strong>
                     </div>
 
                     <div className="cart-item-controls">
-
                       <div className="quantity">
-
-                        <button
-                          onClick={() =>
-                            updateQuantity(item, -1)
-                          }
-                        >
-                          −
-                        </button>
-
-                        <span>
-                          {item.quantity}
-                        </span>
-
-                        <button
-                          onClick={() =>
-                            updateQuantity(item, 1)
-                          }
-                        >
-                          +
-                        </button>
-
+                        <button onClick={() => updateQuantity(item, -1)}>−</button>
+                        <span>{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item, 1)}>+</button>
                       </div>
 
-                      <strong>
-                        {money(item.subtotal)}
-                      </strong>
+                      <strong>{money(item.subtotal)}</strong>
 
-                      <button
-                        className="remove"
-                        onClick={() =>
-                          removeFromCart(item)
-                        }
-                      >
+                      <button className="remove" onClick={() => removeFromCart(item)}>
                         Remove
                       </button>
-
                     </div>
-
                   </div>
                 ))}
-
               </div>
 
               <div className="cart-summary">
-
                 <div>
                   <span>Items</span>
                   <strong>{cartCount}</strong>
                 </div>
-
                 <div className="cart-grand-total">
                   <span>Total</span>
-                  <strong>
-                    {money(cartTotal)}
-                  </strong>
+                  <strong>{money(cartTotal)}</strong>
                 </div>
-
               </div>
 
-              <button
-                className="btn-primary full"
-                onClick={openCheckout}
-              >
-                Continue to checkout →
+              <button className="btn-primary full" onClick={openCheckout}>
+                Continue to checkout
               </button>
 
-              <p className="checkout-note">
-                🔒 Secure payment powered by Paystack
-              </p>
-
+              <p className="checkout-note">🔒 Secure payment powered by Paystack</p>
             </>
           )}
-
         </Modal>
       )}
 
@@ -3484,55 +3441,31 @@ export default function App() {
           }}
           wide
         >
-
           <div className="modal-head">
-
-            <span className="modal-kicker">
-              SECURE CHECKOUT
-            </span>
-
+            <span className="modal-kicker">Secure checkout</span>
             <h2>Where should we deliver?</h2>
-
-            <p>
-              Enter your details below and complete
-              payment securely.
-            </p>
-
+            <p>Enter your details below and complete payment securely.</p>
           </div>
 
           {checkoutError && (
-            <div
-              className={`message ${
-                /successful|confirmed/i.test(
-                  checkoutError
-                )
-                  ? "success"
-                  : "error"
-              }`}
-            >
+            <div className={`message ${/successful|confirmed/i.test(checkoutError) ? "success" : "error"}`}>
               {checkoutError}
             </div>
           )}
 
           <form onSubmit={handlePayment}>
-
             <div className="checkout-section-title">
-              <span>01</span>
+              <span>1</span>
               Customer details
             </div>
 
             <div className="checkout-grid">
-
               <div className="field">
                 <label>Full name</label>
-
                 <input
                   value={checkout.name}
                   onChange={(event) =>
-                    setCheckout((previous) => ({
-                      ...previous,
-                      name: event.target.value,
-                    }))
+                    setCheckout((previous) => ({ ...previous, name: event.target.value }))
                   }
                   placeholder="Your full name"
                   required
@@ -3542,14 +3475,10 @@ export default function App() {
 
               <div className="field">
                 <label>Phone number</label>
-
                 <input
                   value={checkout.phone}
                   onChange={(event) =>
-                    setCheckout((previous) => ({
-                      ...previous,
-                      phone: event.target.value,
-                    }))
+                    setCheckout((previous) => ({ ...previous, phone: event.target.value }))
                   }
                   placeholder="08012345678"
                   inputMode="tel"
@@ -3560,34 +3489,27 @@ export default function App() {
 
               <div className="field field-full">
                 <label>Email address</label>
-
                 <input
                   type="email"
                   value={checkout.email}
                   onChange={(event) =>
-                    setCheckout((previous) => ({
-                      ...previous,
-                      email: event.target.value,
-                    }))
+                    setCheckout((previous) => ({ ...previous, email: event.target.value }))
                   }
                   placeholder="you@example.com"
                   required
                   disabled={processing}
                 />
               </div>
-
             </div>
 
             <div className="checkout-section-title">
-              <span>02</span>
+              <span>2</span>
               Delivery location
             </div>
 
             <div className="checkout-grid">
-
               <div className="field">
                 <label>State</label>
-
                 <select
                   value={checkout.state}
                   onChange={(event) =>
@@ -3600,19 +3522,11 @@ export default function App() {
                   required
                   disabled={processing}
                 >
-                  <option value="">
-                    Select your state
-                  </option>
-
+                  <option value="">Select your state</option>
                   {Object.keys(NIGERIA_LOCATIONS)
-                    .sort((a, b) =>
-                      a.localeCompare(b)
-                    )
+                    .sort((a, b) => a.localeCompare(b))
                     .map((state) => (
-                      <option
-                        value={state}
-                        key={state}
-                      >
+                      <option value={state} key={state}>
                         {state}
                       </option>
                     ))}
@@ -3620,42 +3534,23 @@ export default function App() {
               </div>
 
               <div className="field">
-                <label>
-                  City / LGA
-                </label>
-
+                <label>City / LGA</label>
                 <select
                   value={checkout.city}
                   onChange={(event) =>
-                    setCheckout((previous) => ({
-                      ...previous,
-                      city: event.target.value,
-                    }))
+                    setCheckout((previous) => ({ ...previous, city: event.target.value }))
                   }
                   required
-                  disabled={
-                    processing ||
-                    !checkout.state
-                  }
+                  disabled={processing || !checkout.state}
                 >
                   <option value="">
-                    {checkout.state
-                      ? "Select city / LGA"
-                      : "Select state first"}
+                    {checkout.state ? "Select city / LGA" : "Select state first"}
                   </option>
-
-                  {(NIGERIA_LOCATIONS[
-                    checkout.state
-                  ] || [])
+                  {(NIGERIA_LOCATIONS[checkout.state] || [])
                     .slice()
-                    .sort((a, b) =>
-                      a.localeCompare(b)
-                    )
+                    .sort((a, b) => a.localeCompare(b))
                     .map((city) => (
-                      <option
-                        value={city}
-                        key={city}
-                      >
+                      <option value={city} key={city}>
                         {city}
                       </option>
                     ))}
@@ -3664,14 +3559,10 @@ export default function App() {
 
               <div className="field field-full">
                 <label>Full delivery address</label>
-
                 <textarea
                   value={checkout.address}
                   onChange={(event) =>
-                    setCheckout((previous) => ({
-                      ...previous,
-                      address: event.target.value,
-                    }))
+                    setCheckout((previous) => ({ ...previous, address: event.target.value }))
                   }
                   placeholder="House number, street name, landmark..."
                   rows="3"
@@ -3679,68 +3570,41 @@ export default function App() {
                   disabled={processing}
                 />
               </div>
-
             </div>
 
             <div className="checkout-section-title">
-              <span>03</span>
+              <span>3</span>
               Order summary
             </div>
 
             <div className="checkout-summary">
-
               {cart.map((item) => (
                 <div key={item.id}>
                   <span>
-                    {item.product?.name} ×{" "}
-                    {item.quantity}
+                    {item.product?.name} × {item.quantity}
                   </span>
-
-                  <strong>
-                    {money(item.subtotal)}
-                  </strong>
+                  <strong>{money(item.subtotal)}</strong>
                 </div>
               ))}
 
               <div className="checkout-total">
                 <span>Total to pay</span>
-
-                <strong>
-                  {money(cartTotal)}
-                </strong>
+                <strong>{money(cartTotal)}</strong>
               </div>
-
             </div>
 
-            <button
-              className="btn-primary pay-button"
-              type="submit"
-              disabled={processing}
-            >
-              {processing
-                ? "Opening secure payment..."
-                : `Pay ${money(cartTotal)} →`}
+            <button className="btn-primary full pay-button" type="submit" disabled={processing}>
+              {processing ? "Opening secure payment..." : `Pay ${money(cartTotal)}`}
             </button>
 
             <div className="payment-security">
-
               <span>🔒</span>
-
               <div>
-                <strong>
-                  Secure payment
-                </strong>
-
-                <small>
-                  Your payment is securely processed
-                  by Paystack.
-                </small>
+                <strong>Secure payment</strong>
+                <small>Your payment is securely processed by Paystack.</small>
               </div>
-
             </div>
-
           </form>
-
         </Modal>
       )}
 
@@ -3750,35 +3614,17 @@ export default function App() {
 
       {modal === "orders" && (
         <Modal onClose={() => setModal(null)} wide>
-
           <div className="modal-head">
-
-            <span className="modal-kicker">
-              YOUR ACCOUNT
-            </span>
-
+            <span className="modal-kicker">Your account</span>
             <h2>Your orders.</h2>
-
-            <p>
-              Track every SHINDARA purchase from
-              payment to delivery.
-            </p>
-
+            <p>Track every Shindara purchase from payment to delivery.</p>
           </div>
 
           {orders.length === 0 ? (
             <div className="modal-empty">
-
-              <div className="empty-bag">
-                📦
-              </div>
-
+              <div className="empty-bag">📦</div>
               <h3>No orders yet.</h3>
-
-              <p>
-                Your completed purchases will appear here.
-              </p>
-
+              <p>Your completed purchases will appear here.</p>
               <button
                 className="btn-primary"
                 onClick={() => {
@@ -3786,13 +3632,11 @@ export default function App() {
                   scrollToSection("shop");
                 }}
               >
-                Start shopping →
+                Start shopping
               </button>
-
             </div>
           ) : (
             <div className="orders-list">
-
               {orders.map((order) => (
                 <button
                   className="order-card"
@@ -3802,57 +3646,33 @@ export default function App() {
                     setModal("tracking");
                   }}
                 >
-
                   <div className="order-card-main">
-
-                    <span>
-                      {formatDate(order.created_at)}
-                    </span>
-
+                    <span>{formatDate(order.created_at)}</span>
                     <h3>
-                      {order.tracking_number ||
-                        `Order #${String(
-                          order.id
-                        ).slice(0, 8)}`}
+                      {order.tracking_number || `Order #${String(order.id).slice(0, 8)}`}
                     </h3>
-
                     <p>
-                      {order.items?.length || 0} item
-                      {order.items?.length !== 1
-                        ? "s"
-                        : ""}{" "}
+                      {order.items?.length || 0} item{order.items?.length !== 1 ? "s" : ""}{" "}
                       · {money(order.total)}
                     </p>
-
                   </div>
 
                   <div className="order-card-status">
-
                     <span
                       className={
-                        String(
-                          order.payment_status
-                        ).toLowerCase() === "paid"
+                        String(order.payment_status).toLowerCase() === "paid"
                           ? "status-paid"
                           : "status-pending"
                       }
                     >
-                      {String(
-                        order.payment_status ||
-                          "pending"
-                      ).toUpperCase()}
+                      {String(order.payment_status || "pending").toUpperCase()}
                     </span>
-
                     <strong>→</strong>
-
                   </div>
-
                 </button>
               ))}
-
             </div>
           )}
-
         </Modal>
       )}
 
@@ -3862,218 +3682,94 @@ export default function App() {
 
       {modal === "tracking" && selectedOrder && (
         <Modal onClose={() => setModal("orders")} wide>
-
           <div className="modal-head">
-
-            <span className="modal-kicker">
-              ORDER TRACKING
-            </span>
-
-            <h2>
-              {selectedOrder.tracking_number ||
-                "Order"}
-            </h2>
-
-            <p>
-              Keep this tracking number for your
-              delivery reference.
-            </p>
-
+            <span className="modal-kicker">Order tracking</span>
+            <h2>{selectedOrder.tracking_number || "Order"}</h2>
+            <p>Keep this tracking number for your delivery reference.</p>
           </div>
 
           <div className="tracking-overview">
-
             <div>
               <span>Payment</span>
-
-              <strong>
-                {String(
-                  selectedOrder.payment_status ||
-                    "pending"
-                ).toUpperCase()}
-              </strong>
+              <strong>{String(selectedOrder.payment_status || "pending").toUpperCase()}</strong>
             </div>
 
             <div>
               <span>Order status</span>
-
               <strong>
-                {String(
-                  selectedOrder.status ||
-                    "pending"
-                )
-                  .replace(/_/g, " ")
-                  .toUpperCase()}
+                {String(selectedOrder.status || "pending").replace(/_/g, " ").toUpperCase()}
               </strong>
             </div>
 
             <div>
               <span>Order date</span>
-
-              <strong>
-                {formatDate(
-                  selectedOrder.created_at
-                )}
-              </strong>
+              <strong>{formatDate(selectedOrder.created_at)}</strong>
             </div>
 
             <div>
               <span>Payment reference</span>
-
-              <strong className="reference">
-                {selectedOrder.payment_reference ||
-                  "—"}
-              </strong>
+              <strong className="reference">{selectedOrder.payment_reference || "—"}</strong>
             </div>
-
           </div>
 
           <div className="tracking-timeline">
-
             {[
-              [
-                "Order placed",
-                "We've received your order.",
-              ],
-              [
-                "Payment confirmed",
-                "Your payment has been confirmed.",
-              ],
-              [
-                "Processing",
-                "Your items are being prepared.",
-              ],
-              [
-                "Shipped",
-                "Your order is on the way.",
-              ],
-              [
-                "Out for delivery",
-                "Your delivery is almost there.",
-              ],
-              [
-                "Delivered",
-                "Your order has arrived.",
-              ],
+              ["Order placed", "We've received your order."],
+              ["Payment confirmed", "Your payment has been confirmed."],
+              ["Processing", "Your items are being prepared."],
+              ["Shipped", "Your order is on the way."],
+              ["Out for delivery", "Your delivery is almost there."],
+              ["Delivered", "Your order has arrived."],
             ].map(([title, description], index) => {
 
-              const step =
-                getTrackingStep(selectedOrder);
-
-              const completed =
-                index <= step;
+              const step = getTrackingStep(selectedOrder);
+              const completed = index <= step;
 
               return (
-                <div
-                  className={`timeline-item ${
-                    completed ? "completed" : ""
-                  }`}
-                  key={title}
-                >
-
-                  <div className="timeline-marker">
-                    {completed
-                      ? "✓"
-                      : index + 1}
-                  </div>
-
+                <div className={`timeline-item ${completed ? "completed" : ""}`} key={title}>
+                  <div className="timeline-marker">{completed ? "✓" : index + 1}</div>
                   <div className="timeline-copy">
-
                     <h4>{title}</h4>
-
                     <p>{description}</p>
-
                   </div>
-
                 </div>
               );
             })}
-
           </div>
 
           <div className="tracking-items">
+            <div className="tracking-section-title">Items in this order</div>
 
-            <div className="tracking-section-title">
-              Items in this order
-            </div>
-
-            {(selectedOrder.items || []).map(
-              (item) => (
-                <div
-                  className="tracking-item"
-                  key={
-                    item.id ||
-                    `${item.product_id}-${item.quantity}`
-                  }
-                >
-
-                  <div>
-                    <strong>
-                      {item.products?.name ||
-                        item.product?.name ||
-                        "Product"}
-                    </strong>
-
-                    <span>
-                      Qty {item.quantity} ×{" "}
-                      {money(item.price)}
-                    </span>
-                  </div>
-
-                  <strong>
-                    {money(
-                      Number(item.price || 0) *
-                        Number(item.quantity || 0)
-                    )}
-                  </strong>
-
+            {(selectedOrder.items || []).map((item) => (
+              <div
+                className="tracking-item"
+                key={item.id || `${item.product_id}-${item.quantity}`}
+              >
+                <div>
+                  <strong>{item.products?.name || item.product?.name || "Product"}</strong>
+                  <span>
+                    Qty {item.quantity} × {money(item.price)}
+                  </span>
                 </div>
-              )
-            )}
-
+                <strong>{money(Number(item.price || 0) * Number(item.quantity || 0))}</strong>
+              </div>
+            ))}
           </div>
 
           <div className="tracking-grand-total">
-
             <span>Total paid</span>
-
-            <strong>
-              {money(selectedOrder.total)}
-            </strong>
-
+            <strong>{money(selectedOrder.total)}</strong>
           </div>
 
           <div className="delivery-card">
-
-            <div className="tracking-section-title">
-              Delivery address
-            </div>
-
-            <strong>
-              {selectedOrder.customer_name ||
-                "—"}
-            </strong>
-
+            <div className="tracking-section-title">Delivery address</div>
+            <strong>{selectedOrder.customer_name || "—"}</strong>
+            <span>{selectedOrder.customer_phone || "—"}</span>
+            <span>{selectedOrder.delivery_address || "—"}</span>
             <span>
-              {selectedOrder.customer_phone ||
-                "—"}
+              {selectedOrder.delivery_city || "—"}, {selectedOrder.delivery_state || "—"}
             </span>
-
-            <span>
-              {selectedOrder.delivery_address ||
-                "—"}
-            </span>
-
-            <span>
-              {selectedOrder.delivery_city ||
-                "—"}
-              ,{" "}
-              {selectedOrder.delivery_state ||
-                "—"}
-            </span>
-
           </div>
-
         </Modal>
       )}
 
@@ -4083,49 +3779,27 @@ export default function App() {
 
       {modal === "settings" && user && (
         <Modal onClose={() => setModal(null)}>
-
           <div className="modal-head">
-
-            <span className="modal-kicker">
-              ACCOUNT
-            </span>
-
-            <h2>Your profile.</h2>
-
-            <p>
-              Keep your details up to date for faster
-              checkout.
-            </p>
-
+            <span className="modal-kicker">Your account</span>
+            <h2>Account settings.</h2>
+            <p>Update your details for faster checkout.</p>
           </div>
 
           <div className="profile-avatar">
-            {(profile?.full_name ||
-              user.email ||
-              "S")
-              .charAt(0)
-              .toUpperCase()}
+            {(profile?.full_name || user.email || "S").charAt(0).toUpperCase()}
           </div>
 
           <div className="field">
             <label>Email</label>
-
-            <input
-              value={user.email || ""}
-              readOnly
-            />
+            <input value={user.email || ""} readOnly />
           </div>
 
           <div className="field">
             <label>Full name</label>
-
             <input
               value={profile?.full_name || ""}
               onChange={(event) =>
-                setProfile((previous) => ({
-                  ...(previous || {}),
-                  full_name: event.target.value,
-                }))
+                setProfile((previous) => ({ ...(previous || {}), full_name: event.target.value }))
               }
               placeholder="Your full name"
             />
@@ -4133,79 +3807,47 @@ export default function App() {
 
           <div className="field">
             <label>Phone number</label>
-
             <input
               value={profile?.phone || ""}
               onChange={(event) =>
-                setProfile((previous) => ({
-                  ...(previous || {}),
-                  phone: event.target.value,
-                }))
+                setProfile((previous) => ({ ...(previous || {}), phone: event.target.value }))
               }
               placeholder="08012345678"
               inputMode="tel"
             />
           </div>
 
-          <button
-            className="btn-primary full"
-            onClick={saveProfile}
-          >
-            Save profile →
+          <button className="btn-primary full" onClick={saveProfile}>
+            Save profile
           </button>
 
           <div className="settings-block">
-
-            <div className="settings-block-title">
-              Appearance
-            </div>
+            <div className="settings-block-title">Appearance</div>
 
             <div className="appearance-switch">
-
               <button
-                className={
-                  theme === "light"
-                    ? "active"
-                    : ""
-                }
-                onClick={() =>
-                  setTheme("light")
-                }
+                className={theme === "light" ? "active" : ""}
+                onClick={() => setTheme("light")}
               >
                 ☀ Light
               </button>
 
               <button
-                className={
-                  theme === "dark"
-                    ? "active"
-                    : ""
-                }
-                onClick={() =>
-                  setTheme("dark")
-                }
+                className={theme === "dark" ? "active" : ""}
+                onClick={() => setTheme("dark")}
               >
                 ◐ Dark
               </button>
-
             </div>
-
           </div>
 
-          <button
-            className="btn-secondary full"
-            onClick={() => setModal("orders")}
-          >
+          <button className="btn-secondary full" onClick={() => setModal("orders")}>
             View my orders
           </button>
 
-          <button
-            className="logout-button"
-            onClick={logout}
-          >
+          <button className="logout-button" onClick={logout}>
             Sign out
           </button>
-
         </Modal>
       )}
 
