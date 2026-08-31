@@ -11,15 +11,8 @@ import "./admin-panel.css";
    CONFIG
    ========================================================= */
 
-const CATEGORIES = [
-  "Phone Cases",
-  "Chargers",
-  "Cables",
-  "Power Banks",
-  "Audio",
-  "Smart Watches",
-  "Screen Protectors",
-];
+// ⚠️ Set this to your actual Supabase Storage bucket name for product photos.
+const STORAGE_BUCKET = "product-images";
 
 const ORDER_STATUSES = [
   "pending",
@@ -73,9 +66,10 @@ function Modal({ children, onClose, wide }) {
    PRODUCTS TAB
    ========================================================= */
 
-function ProductsTab({ products, reload, showNotice }) {
+function ProductsTab({ products, categories, reload, showNotice }) {
   const [editing, setEditing] = useState(null); // product being edited, or {} for new
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -89,7 +83,41 @@ function ProductsTab({ products, reload, showNotice }) {
   }, [products, search]);
 
   const openNew = () =>
-    setEditing({ name: "", category: CATEGORIES[0], price: "", stock: "", description: "", image_url: "" });
+    setEditing({
+      name: "",
+      category: categories[0]?.name || "",
+      price: "",
+      stock: "",
+      description: "",
+      image_url: "",
+    });
+
+  const uploadPhoto = useCallback(
+    async (file) => {
+      if (!file) return;
+      setUploading(true);
+
+      try {
+        const ext = file.name.split(".").pop();
+        const path = `products/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, file, { cacheControl: "3600", upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+
+        setEditing((p) => ({ ...p, image_url: data.publicUrl }));
+      } catch (err) {
+        showNotice(err.message || "Could not upload photo.");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [showNotice]
+  );
 
   const save = useCallback(
     async (event) => {
@@ -242,9 +270,9 @@ function ProductsTab({ products, reload, showNotice }) {
                 value={editing.category}
                 onChange={(event) => setEditing((p) => ({ ...p, category: event.target.value }))}
               >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {categories.map((cat) => (
+                  <option key={cat.name} value={cat.name}>
+                    {cat.name}
                   </option>
                 ))}
               </select>
@@ -284,18 +312,43 @@ function ProductsTab({ products, reload, showNotice }) {
             </div>
 
             <div className="field">
-              <label>Image URL</label>
-              <input
-                value={editing.image_url}
-                onChange={(event) => setEditing((p) => ({ ...p, image_url: event.target.value }))}
-                placeholder="https://..."
-              />
-              <small className="admin-hint">
-                Paste an image link for now — direct photo upload is a planned upgrade.
-              </small>
+              <label>Product photo</label>
+
+              <div className="admin-photo-upload">
+                <div className="admin-photo-preview">
+                  {editing.image_url ? (
+                    <img src={editing.image_url} alt="Preview" />
+                  ) : (
+                    <span>No photo</span>
+                  )}
+                </div>
+
+                <div className="admin-photo-controls">
+                  <label className="btn-secondary admin-upload-btn">
+                    {uploading ? "Uploading..." : editing.image_url ? "Replace photo" : "Upload photo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      disabled={uploading}
+                      onChange={(event) => uploadPhoto(event.target.files?.[0])}
+                    />
+                  </label>
+
+                  {editing.image_url && (
+                    <button
+                      type="button"
+                      className="admin-danger"
+                      onClick={() => setEditing((p) => ({ ...p, image_url: "" }))}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <button className="btn-primary full" type="submit" disabled={saving}>
+            <button className="btn-primary full" type="submit" disabled={saving || uploading}>
               {saving ? "Saving..." : editing.id ? "Save changes" : "Add product"}
             </button>
           </form>
@@ -560,6 +613,323 @@ function CustomersTab({ customers }) {
 }
 
 /* =========================================================
+   CATEGORIES TAB
+   ========================================================= */
+
+function CategoriesTab({ categories, reload, showNotice }) {
+  const [editing, setEditing] = useState(null); // {} for new, or a category row
+  const [saving, setSaving] = useState(false);
+
+  const save = useCallback(
+    async (event) => {
+      event.preventDefault();
+      setSaving(true);
+
+      const payload = {
+        name: editing.name.trim(),
+        icon: editing.icon.trim() || "◆",
+      };
+
+      try {
+        let error;
+        if (editing.id) {
+          ({ error } = await supabase.from("categories").update(payload).eq("id", editing.id));
+        } else {
+          const nextOrder =
+            categories.length > 0 ? Math.max(...categories.map((c) => c.sort_order || 0)) + 1 : 1;
+          ({ error } = await supabase
+            .from("categories")
+            .insert({ ...payload, sort_order: nextOrder }));
+        }
+
+        if (error) throw error;
+
+        showNotice(editing.id ? "Category updated." : "Category added.");
+        setEditing(null);
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not save category.");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [editing, categories, reload, showNotice]
+  );
+
+  const remove = useCallback(
+    async (category) => {
+      if (
+        !window.confirm(
+          `Delete "${category.name}"? Products already in this category will keep the label but it won't be selectable anymore.`
+        )
+      )
+        return;
+
+      try {
+        const { error } = await supabase.from("categories").delete().eq("id", category.id);
+        if (error) throw error;
+        showNotice("Category deleted.");
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not delete category.");
+      }
+    },
+    [reload, showNotice]
+  );
+
+  const move = useCallback(
+    async (index, direction) => {
+      const target = index + direction;
+      if (target < 0 || target >= categories.length) return;
+
+      const a = categories[index];
+      const b = categories[target];
+
+      try {
+        await Promise.all([
+          supabase.from("categories").update({ sort_order: b.sort_order }).eq("id", a.id),
+          supabase.from("categories").update({ sort_order: a.sort_order }).eq("id", b.id),
+        ]);
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not reorder categories.");
+      }
+    },
+    [categories, reload, showNotice]
+  );
+
+  return (
+    <div className="admin-panel">
+      <div className="admin-panel-head">
+        <div>
+          <h2>Categories</h2>
+          <p>{categories.length} categor{categories.length !== 1 ? "ies" : "y"}. Order here matches the storefront.</p>
+        </div>
+        <div className="admin-panel-actions">
+          <button className="btn-primary" onClick={() => setEditing({ name: "", icon: "◆" })}>
+            + Add category
+          </button>
+        </div>
+      </div>
+
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Icon</th>
+              <th>Name</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {categories.map((cat, index) => (
+              <tr key={cat.id}>
+                <td className="admin-reorder">
+                  <button
+                    disabled={index === 0}
+                    onClick={() => move(index, -1)}
+                    aria-label="Move up"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    disabled={index === categories.length - 1}
+                    onClick={() => move(index, 1)}
+                    aria-label="Move down"
+                  >
+                    ↓
+                  </button>
+                </td>
+                <td className="admin-icon-cell">{cat.icon || "◆"}</td>
+                <td>{cat.name}</td>
+                <td className="admin-row-actions">
+                  <button className="btn-text" onClick={() => setEditing(cat)}>
+                    Edit
+                  </button>
+                  <button className="admin-danger" onClick={() => remove(cat)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+
+            {categories.length === 0 && (
+              <tr>
+                <td colSpan={4} className="admin-empty-row">
+                  No categories yet — add your first one.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {editing && (
+        <Modal onClose={() => setEditing(null)}>
+          <div className="modal-head">
+            <span className="modal-kicker">{editing.id ? "Edit category" : "New category"}</span>
+            <h2>{editing.id ? editing.name : "Add a category"}</h2>
+          </div>
+
+          <form onSubmit={save}>
+            <div className="field">
+              <label>Category name</label>
+              <input
+                value={editing.name}
+                onChange={(event) => setEditing((p) => ({ ...p, name: event.target.value }))}
+                placeholder="e.g. Wireless Earbuds"
+                required
+              />
+            </div>
+
+            <div className="field">
+              <label>Icon</label>
+              <input
+                value={editing.icon}
+                onChange={(event) => setEditing((p) => ({ ...p, icon: event.target.value }))}
+                placeholder="Any single character or emoji, e.g. ⚡ or 🎧"
+                maxLength={4}
+              />
+              <small className="admin-hint">
+                Shows on the category tile on your homepage. Paste any symbol or emoji.
+              </small>
+            </div>
+
+            <button className="btn-primary full" type="submit" disabled={saving}>
+              {saving ? "Saving..." : editing.id ? "Save changes" : "Add category"}
+            </button>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   BRANDING TAB
+   ========================================================= */
+
+function BrandingTab({ settings, reload, showNotice }) {
+  const [logoUrl, setLogoUrl] = useState(settings.logo_url || "");
+  const [tagline, setTagline] = useState(settings.tagline || "");
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const uploadLogo = useCallback(
+    async (file) => {
+      if (!file) return;
+      setUploading(true);
+
+      try {
+        const ext = file.name.split(".").pop();
+        const path = `branding/logo-${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, file, { cacheControl: "3600", upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+        setLogoUrl(data.publicUrl);
+      } catch (err) {
+        showNotice(err.message || "Could not upload logo.");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [showNotice]
+  );
+
+  const save = useCallback(
+    async (event) => {
+      event.preventDefault();
+      setSaving(true);
+
+      try {
+        const { error } = await supabase
+          .from("site_settings")
+          .update({ logo_url: logoUrl.trim(), tagline: tagline.trim() })
+          .eq("id", 1);
+
+        if (error) throw error;
+
+        showNotice("Branding updated.");
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not save branding.");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [logoUrl, tagline, reload, showNotice]
+  );
+
+  return (
+    <div className="admin-panel">
+      <div className="admin-panel-head">
+        <div>
+          <h2>Branding</h2>
+          <p>Your logo and homepage statement — changes appear on the storefront immediately.</p>
+        </div>
+      </div>
+
+      <form className="admin-branding-form" onSubmit={save}>
+        <div className="field">
+          <label>Logo</label>
+
+          <div className="admin-photo-upload">
+            <div className="admin-photo-preview admin-logo-preview">
+              {logoUrl ? <img src={logoUrl} alt="Logo preview" /> : <span>◆</span>}
+            </div>
+
+            <div className="admin-photo-controls">
+              <label className="btn-secondary admin-upload-btn">
+                {uploading ? "Uploading..." : logoUrl ? "Replace logo" : "Upload logo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  disabled={uploading}
+                  onChange={(event) => uploadLogo(event.target.files?.[0])}
+                />
+              </label>
+
+              {logoUrl && (
+                <button type="button" className="admin-danger" onClick={() => setLogoUrl("")}>
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+          <small className="admin-hint">
+            A wide logo (roughly 200×60px, transparent PNG or SVG) fits best in the header.
+          </small>
+        </div>
+
+        <div className="field">
+          <label>Homepage statement</label>
+          <textarea
+            rows="2"
+            value={tagline}
+            onChange={(event) => setTagline(event.target.value)}
+            placeholder="Premium phone accessories, done properly."
+          />
+          <small className="admin-hint">
+            Shown as the bold statement banner partway down your homepage.
+          </small>
+        </div>
+
+        <button className="btn-primary full" type="submit" disabled={saving || uploading}>
+          {saving ? "Saving..." : "Save branding"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/* =========================================================
    ADMIN APP
    (auth + admin verification already handled by ProtectedAdmin.jsx —
    this component assumes it's only ever rendered for a verified admin)
@@ -572,6 +942,8 @@ export default function Admin() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [settings, setSettings] = useState({ logo_url: "", tagline: "" });
   const [notice, setNotice] = useState("");
 
   const showNotice = useCallback((message) => {
@@ -639,18 +1011,51 @@ export default function Admin() {
     );
   }, []);
 
+  const loadCategories = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.error("Categories:", error);
+      return;
+    }
+    setCategories(data || []);
+  }, []);
+
+  const loadSettings = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("site_settings")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Settings:", error);
+      return;
+    }
+    setSettings({ logo_url: data?.logo_url || "", tagline: data?.tagline || "" });
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      await Promise.all([loadProducts(), loadOrders(), loadCustomers()]);
+      await Promise.all([
+        loadProducts(),
+        loadOrders(),
+        loadCustomers(),
+        loadCategories(),
+        loadSettings(),
+      ]);
       if (mounted) setLoading(false);
     })();
 
     return () => {
       mounted = false;
     };
-  }, [loadProducts, loadOrders, loadCustomers]);
+  }, [loadProducts, loadOrders, loadCustomers, loadCategories, loadSettings]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -671,7 +1076,11 @@ export default function Admin() {
     <div className="admin-app">
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <span>◆</span>
+          {settings.logo_url ? (
+            <img className="admin-brand-logo" src={settings.logo_url} alt="Logo" />
+          ) : (
+            <span>◆</span>
+          )}
           <div>
             <strong>Shindara</strong>
             <small>ADMIN</small>
@@ -682,11 +1091,17 @@ export default function Admin() {
           <button className={tab === "products" ? "active" : ""} onClick={() => setTab("products")}>
             Products
           </button>
+          <button className={tab === "categories" ? "active" : ""} onClick={() => setTab("categories")}>
+            Categories
+          </button>
           <button className={tab === "orders" ? "active" : ""} onClick={() => setTab("orders")}>
             Orders
           </button>
           <button className={tab === "customers" ? "active" : ""} onClick={() => setTab("customers")}>
             Customers
+          </button>
+          <button className={tab === "branding" ? "active" : ""} onClick={() => setTab("branding")}>
+            Branding
           </button>
         </nav>
 
@@ -697,12 +1112,23 @@ export default function Admin() {
 
       <main className="admin-main">
         {tab === "products" && (
-          <ProductsTab products={products} reload={loadProducts} showNotice={showNotice} />
+          <ProductsTab
+            products={products}
+            categories={categories}
+            reload={loadProducts}
+            showNotice={showNotice}
+          />
+        )}
+        {tab === "categories" && (
+          <CategoriesTab categories={categories} reload={loadCategories} showNotice={showNotice} />
         )}
         {tab === "orders" && (
           <OrdersTab orders={orders} reload={loadOrders} showNotice={showNotice} />
         )}
         {tab === "customers" && <CustomersTab customers={customers} />}
+        {tab === "branding" && (
+          <BrandingTab settings={settings} reload={loadSettings} showNotice={showNotice} />
+        )}
       </main>
 
       {notice && (
