@@ -3,7 +3,7 @@
 // Route this in behind /admin — see wiring notes at the bottom of this file.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "./supabaseClient.js";
+import { supabase } from "./supabaseClient";
 import "./shindara-redesign.css";
 import "./admin-panel.css";
 
@@ -65,77 +65,6 @@ function Modal({ children, onClose, wide }) {
         </button>
         {children}
       </div>
-    </div>
-  );
-}
-
-/* =========================================================
-   LOGIN GATE
-   ========================================================= */
-
-function AdminLogin({ onSignedIn }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = useCallback(
-    async (event) => {
-      event.preventDefault();
-      setError("");
-      setLoading(true);
-
-      try {
-        const { data, error: signInError } =
-          await supabase.auth.signInWithPassword({ email, password });
-
-        if (signInError) throw signInError;
-
-        onSignedIn(data.user);
-      } catch (err) {
-        setError(err.message || "Could not sign in.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [email, password, onSignedIn]
-  );
-
-  return (
-    <div className="admin-gate">
-      <form className="admin-gate-card" onSubmit={handleSubmit}>
-        <span className="modal-kicker">Shindara PhoneFlair</span>
-        <h2>Admin sign in</h2>
-        <p>Staff access only.</p>
-
-        {error && <div className="message error">{error}</div>}
-
-        <div className="field">
-          <label>Email address</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@shindara.com"
-            required
-          />
-        </div>
-
-        <div className="field">
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Password"
-            required
-          />
-        </div>
-
-        <button className="btn-primary full" type="submit" disabled={loading}>
-          {loading ? "Signing in..." : "Sign in"}
-        </button>
-      </form>
     </div>
   );
 }
@@ -632,11 +561,11 @@ function CustomersTab({ customers }) {
 
 /* =========================================================
    ADMIN APP
+   (auth + admin verification already handled by ProtectedAdmin.jsx —
+   this component assumes it's only ever rendered for a verified admin)
    ========================================================= */
 
 export default function Admin() {
-  const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(null); // null = checking, false = denied, true = allowed
   const [loading, setLoading] = useState(true);
 
   const [tab, setTab] = useState("products");
@@ -648,27 +577,6 @@ export default function Admin() {
   const showNotice = useCallback((message) => {
     setNotice(message);
     setTimeout(() => setNotice(""), 3000);
-  }, []);
-
-  const checkAdmin = useCallback(async (currentUser) => {
-    if (!currentUser) {
-      setIsAdmin(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", currentUser.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Admin check:", error);
-      setIsAdmin(false);
-      return;
-    }
-
-    setIsAdmin(Boolean(data?.is_admin));
   }, []);
 
   const loadProducts = useCallback(async () => {
@@ -731,50 +639,23 @@ export default function Admin() {
     );
   }, []);
 
-  const loadAll = useCallback(async () => {
-    await Promise.all([loadProducts(), loadOrders(), loadCustomers()]);
-  }, [loadProducts, loadOrders, loadCustomers]);
-
   useEffect(() => {
     let mounted = true;
 
-    const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!mounted) return;
-
-      const currentUser = session?.user || null;
-      setUser(currentUser);
-      await checkAdmin(currentUser);
-      setLoading(false);
-    };
-
-    init();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user || null;
-      setUser(currentUser);
-      await checkAdmin(currentUser);
-    });
+    (async () => {
+      await Promise.all([loadProducts(), loadOrders(), loadCustomers()]);
+      if (mounted) setLoading(false);
+    })();
 
     return () => {
       mounted = false;
-      subscription?.unsubscribe();
     };
-  }, [checkAdmin]);
-
-  useEffect(() => {
-    if (isAdmin) loadAll();
-  }, [isAdmin, loadAll]);
+  }, [loadProducts, loadOrders, loadCustomers]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setIsAdmin(false);
+    // ProtectedAdmin.jsx listens for the SIGNED_OUT auth event and will
+    // swap back to AdminLogin on its own — nothing else to do here.
   }, []);
 
   if (loading) {
@@ -783,22 +664,6 @@ export default function Admin() {
         <div className="loading-mark">S</div>
         <p>Loading admin portal...</p>
       </div>
-    );
-  }
-
-  if (!user || !isAdmin) {
-    return (
-      <>
-        <AdminLogin onSignedIn={(signedInUser) => checkAdmin(signedInUser)} />
-        {user && isAdmin === false && (
-          <div className="admin-denied">
-            <p>This account doesn't have admin access.</p>
-            <button className="btn-secondary" onClick={logout}>
-              Sign out
-            </button>
-          </div>
-        )}
-      </>
     );
   }
 
@@ -854,29 +719,38 @@ export default function Admin() {
    WIRING NOTES (not executed — read before deploying)
    =========================================================
 
-   1. Database: add a boolean column `is_admin` (default false) to
-      your `profiles` table in Supabase, then set it to true for
-      your own account:
-        update profiles set is_admin = true where email = 'you@example.com';
+   This file is rendered by your existing ProtectedAdmin.jsx, which
+   already handles: checking the session, checking profiles.is_admin,
+   showing AdminLogin.jsx when needed, and rendering <Admin /> only
+   once verified. This file assumes that's already true and just
+   renders the dashboard — it does no auth checking of its own.
 
-   2. Routing: this file renders the whole admin portal as one
-      component. Point a route at it. If you're on Vite/CRA without
-      a router yet, the simplest option is a path check in your
-      entry file:
+   Files this depends on, all in src/:
+     - ProtectedAdmin.jsx  (yours — the auth gate, unchanged)
+     - AdminLogin.jsx      (rebuilt to match ProtectedAdmin's
+                             `onLogin` prop — just a sign-in form)
+     - Admin.js            (this file — the dashboard)
+     - admin-panel.css     (layout: sidebar, tables, forms)
+     - shindara-redesign.css (shared design tokens/components)
 
-        // main.jsx / index.js
-        import Admin from "./Admin.js";
-        import App from "./App.js";
+   Route /admin at <ProtectedAdmin /> (not <Admin /> directly), e.g.:
 
-        const isAdminRoute = window.location.pathname.startsWith("/admin");
-        root.render(isAdminRoute ? <Admin /> : <App />);
+     // main.jsx / index.js, if you don't have react-router yet
+     import ProtectedAdmin from "./ProtectedAdmin.jsx";
+     import App from "./App.js";
 
-      If you already use react-router, add:
-        <Route path="/admin/*" element={<Admin />} />
+     const isAdminRoute = window.location.pathname.startsWith("/admin");
+     root.render(isAdminRoute ? <ProtectedAdmin /> : <App />);
 
-   3. Supabase Row Level Security: make sure your `products`,
-      `orders`, and `order_items` tables allow UPDATE/INSERT/DELETE
-      for authenticated users where profiles.is_admin = true — the
-      admin UI can't bypass RLS, so writes will silently fail (or
-      error) if policies aren't in place for admin accounts.
+     // or with react-router:
+     <Route path="/admin/*" element={<ProtectedAdmin />} />
+
+   Database: make sure `profiles.is_admin` exists (boolean, default
+   false) and is `true` for your own account:
+     update profiles set is_admin = true where email = 'you@example.com';
+
+   Supabase Row Level Security: `products`, `orders`, and
+   `order_items` need UPDATE/INSERT/DELETE policies for authenticated
+   users where profiles.is_admin = true — the admin UI can't bypass
+   RLS, so writes will silently fail if policies aren't in place.
    ========================================================= */
