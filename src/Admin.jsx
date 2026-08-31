@@ -909,15 +909,15 @@ function BrandingTab({ settings, reload, showNotice }) {
         </div>
 
         <div className="field">
-          <label>Homepage statement</label>
+          <label>Top banner text</label>
           <textarea
             rows="2"
             value={tagline}
             onChange={(event) => setTagline(event.target.value)}
-            placeholder="Premium phone accessories, done properly."
+            placeholder="Premium phone accessories are screaming here."
           />
           <small className="admin-hint">
-            Shown as the bold statement banner partway down your homepage.
+            Shown in the scrolling banner at the very top of every page.
           </small>
         </div>
 
