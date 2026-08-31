@@ -2742,12 +2742,8 @@ export default function App() {
 
       <div className="announcement">
         <div className="announcement-track">
-          <span>
-            {siteSettings.tagline || "Premium phone accessories are screaming here."} · Nationwide delivery · Secure Paystack checkout
-          </span>
-          <span aria-hidden="true">
-            {siteSettings.tagline || "Premium phone accessories are screaming here."} · Nationwide delivery · Secure Paystack checkout
-          </span>
+          <span>{siteSettings.tagline || "Premium phone accessories are screaming here."}</span>
+          <span aria-hidden="true">{siteSettings.tagline || "Premium phone accessories are screaming here."}</span>
         </div>
       </div>
 
