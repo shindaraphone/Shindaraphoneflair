@@ -269,3 +269,5 @@
 .admin-icon-cell { font-size: 18px; text-align: center; width: 40px; }
 
 .admin-brand-logo { height: 26px; width: auto; max-width: 90px; object-fit: contain; }
+
+.admin-section-title { margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--line); }
