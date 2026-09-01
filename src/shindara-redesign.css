@@ -523,19 +523,19 @@ a { color: inherit; }
   margin: 0 auto;
   padding: 0 clamp(20px, 5vw, 56px);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
 }
 
 .category-card {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 20px 18px;
+  padding: 14px 12px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 26px;
+  gap: 14px;
   text-align: left;
   transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
@@ -544,17 +544,17 @@ a { color: inherit; }
 .category-card.active .category-name, .category-card.active .category-arrow { color: var(--case); }
 
 .category-number {
-  width: 40px; height: 40px;
-  border-radius: 11px;
+  width: 32px; height: 32px;
+  border-radius: 9px;
   background: var(--teal-soft);
   color: var(--teal);
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 15px;
 }
 .category-card.active .category-number { background: rgba(255,255,255,0.12); color: var(--gold-soft); }
 
-.category-name { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
-.category-arrow { color: var(--gold); font-size: 15px; margin-top: -18px; align-self: flex-end; }
+.category-name { font-family: var(--font-display); font-weight: 600; font-size: 13px; }
+.category-arrow { color: var(--gold); font-size: 13px; margin-top: -6px; align-self: flex-end; }
 
 /* ---------- shop / product grid ---------- */
 
@@ -625,8 +625,8 @@ a { color: inherit; }
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
 }
 
 .product-card {
@@ -685,37 +685,38 @@ a { color: inherit; }
 .sold-out { background: var(--ink); color: var(--case); }
 .low-stock { background: var(--flair); color: #fff; }
 
-.product-content { padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.product-content { padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .product-category {
   align-self: flex-start;
-  font-size: 11.5px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--teal);
   background: var(--teal-soft);
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 999px;
   margin-bottom: 2px;
 }
-.product-content h3 { font-size: 16px; }
-.product-content p { font-size: 13.5px; color: var(--ink-soft); flex: 1; }
+.product-content h3 { font-size: 13.5px; }
+.product-content p { font-size: 11.5px; color: var(--ink-soft); flex: 1; }
 
 .product-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
-  padding-top: 12px;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 8px;
   border-top: 1px dashed var(--line);
+  flex-wrap: wrap;
 }
-.product-price { font-family: var(--font-display); font-size: 17px; }
+.product-price { font-family: var(--font-display); font-size: 14px; }
 .product-add {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 4px;
   background: var(--ink);
   color: var(--case);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 9px 14px;
+  padding: 6px 10px;
   border-radius: 999px;
   transition: background 0.18s ease;
 }
@@ -1186,23 +1187,12 @@ a { color: inherit; }
 
   /* section rhythm — cut generous desktop whitespace down */
   .categories-section { padding: 40px 0; }
-  .category-grid { gap: 10px; }
-  .category-card { padding: 14px 14px; gap: 16px; }
-  .category-number { width: 34px; height: 34px; font-size: 15px; }
-  .category-name { font-size: 13.5px; }
 
   .shop-section { padding: 16px 16px 50px; }
   .section-kicker { font-size: 11.5px; padding: 5px 11px; margin-bottom: 10px; }
   .section-heading { margin-bottom: 24px; gap: 8px; }
   .section-heading h2 { font-size: 24px; }
   .section-heading p { font-size: 13.5px; }
-
-  .product-grid { gap: 14px; }
-  .product-content { padding: 12px 12px 14px; gap: 4px; }
-  .product-content h3 { font-size: 14.5px; }
-  .product-content p { font-size: 12.5px; }
-  .product-price { font-size: 15px; }
-  .product-add { padding: 7px 11px; font-size: 12px; }
 
   .service-strip { padding: 18px 16px; gap: 14px 0; }
   .service-strip span { font-size: 16px; }
