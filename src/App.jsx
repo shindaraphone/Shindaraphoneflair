@@ -2118,6 +2118,7 @@ export default function App() {
       const orderItems = cart.map((item) => ({
         order_id: order.id,
         product_id: item.product_id,
+        product_name: item.product?.name || "Product",
         quantity: Number(item.quantity),
         price: Number(item.product?.price || 0),
       }));
