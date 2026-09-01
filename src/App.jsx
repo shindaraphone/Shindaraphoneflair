@@ -2759,19 +2759,18 @@ export default function App() {
   if (loading) {
     return (
       <div className="loading-screen">
-        <div className="loading-mark">S</div>
+        <div className="loading-glow" />
 
+        <div className="loading-mark-wrap">
+          <div className="loading-mark">◆</div>
+        </div>
 
         <div className="loading-brand">
-          <strong>SHINDARA</strong>
+          <strong>Shindara</strong>
           <span>PHONEFLAIR</span>
         </div>
 
-
-        <div className="loading-line">
-          <span />
-        </div>
-
+        <div className="loading-underline" />
 
         <p>Preparing your shopping experience...</p>
       </div>
