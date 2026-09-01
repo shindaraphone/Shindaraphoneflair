@@ -949,6 +949,21 @@ a { color: inherit; }
 }
 .field input[readOnly] { opacity: 0.65; }
 
+.password-field { position: relative; }
+.password-field input { padding-right: 60px; }
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  border-radius: 999px;
+}
+.password-toggle:hover { color: var(--flair); }
+
 .switch-auth { display: block; text-align: center; width: 100%; margin-top: 16px; font-size: 13.5px; color: var(--ink-soft); }
 .switch-auth:hover { color: var(--flair); }
 
