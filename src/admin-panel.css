@@ -271,3 +271,42 @@
 .admin-brand-logo { height: 26px; width: auto; max-width: 90px; object-fit: contain; }
 
 .admin-section-title { margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--line); }
+
+/* ---------- delivery fees ---------- */
+
+.admin-fees-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.admin-fee-row {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-fee-row label { font-size: 13.5px; font-weight: 500; }
+
+.admin-fee-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  flex-shrink: 0;
+}
+.admin-fee-input span { font-size: 13px; color: var(--ink-soft); }
+.admin-fee-input input {
+  width: 80px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  padding: 4px 0;
+}
