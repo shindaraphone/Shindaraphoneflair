@@ -1295,7 +1295,15 @@ export default function Admin() {
   if (loading) {
     return (
       <div className="loading-screen">
-        <div className="loading-mark">S</div>
+        <div className="loading-glow" />
+        <div className="loading-mark-wrap">
+          <div className="loading-mark">◆</div>
+        </div>
+        <div className="loading-brand">
+          <strong>Shindara</strong>
+          <span>ADMIN</span>
+        </div>
+        <div className="loading-underline" />
         <p>Loading admin portal...</p>
       </div>
     );
