@@ -364,14 +364,21 @@ function ProductsTab({ products, categories, reload, showNotice }) {
 
 function OrdersTab({ orders, reload, showNotice }) {
   const [selected, setSelected] = useState(null);
+  const [note, setNote] = useState("");
   const [filter, setFilter] = useState("all");
   const [saving, setSaving] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
 
   const filtered = useMemo(() => {
     if (filter === "all") return orders;
     if (filter === "unpaid") return orders.filter((o) => o.payment_status !== "paid");
     return orders.filter((o) => o.status === filter);
   }, [orders, filter]);
+
+  const openOrder = (order) => {
+    setSelected(order);
+    setNote(order.status_note || "");
+  };
 
   const updateOrder = useCallback(
     async (id, changes) => {
@@ -390,6 +397,24 @@ function OrdersTab({ orders, reload, showNotice }) {
     },
     [reload, showNotice]
   );
+
+  const saveNote = useCallback(async () => {
+    setSavingNote(true);
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status_note: note.trim() })
+        .eq("id", selected.id);
+      if (error) throw error;
+      showNotice("Note sent to customer.");
+      await reload();
+      setSelected((prev) => (prev ? { ...prev, status_note: note.trim() } : prev));
+    } catch (err) {
+      showNotice(err.message || "Could not save note.");
+    } finally {
+      setSavingNote(false);
+    }
+  }, [note, selected, reload, showNotice]);
 
   return (
     <div className="admin-panel">
@@ -446,7 +471,7 @@ function OrdersTab({ orders, reload, showNotice }) {
                 </td>
                 <td>{formatDate(order.created_at)}</td>
                 <td className="admin-row-actions">
-                  <button className="btn-text" onClick={() => setSelected(order)}>
+                  <button className="btn-text" onClick={() => openOrder(order)}>
                     View
                   </button>
                 </td>
@@ -538,6 +563,29 @@ function OrdersTab({ orders, reload, showNotice }) {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="field">
+            <label>Delivery note for customer</label>
+            <textarea
+              rows="2"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="e.g. Your package left our Lagos warehouse and should arrive within 2 days."
+              disabled={savingNote}
+            />
+            <small className="admin-hint">
+              Shows on the customer's tracking page. Leave blank to show nothing extra.
+            </small>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ marginTop: "10px" }}
+              disabled={savingNote}
+              onClick={saveNote}
+            >
+              {savingNote ? "Saving..." : "Save note"}
+            </button>
           </div>
         </Modal>
       )}
@@ -813,6 +861,9 @@ function CategoriesTab({ categories, reload, showNotice }) {
 function BrandingTab({ settings, reload, showNotice }) {
   const [logoUrl, setLogoUrl] = useState(settings.logo_url || "");
   const [tagline, setTagline] = useState(settings.tagline || "");
+  const [instagramUrl, setInstagramUrl] = useState(settings.instagram_url || "");
+  const [tiktokUrl, setTiktokUrl] = useState(settings.tiktok_url || "");
+  const [supportEmail, setSupportEmail] = useState(settings.support_email || "");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -850,7 +901,13 @@ function BrandingTab({ settings, reload, showNotice }) {
       try {
         const { error } = await supabase
           .from("site_settings")
-          .update({ logo_url: logoUrl.trim(), tagline: tagline.trim() })
+          .update({
+            logo_url: logoUrl.trim(),
+            tagline: tagline.trim(),
+            instagram_url: instagramUrl.trim(),
+            tiktok_url: tiktokUrl.trim(),
+            support_email: supportEmail.trim(),
+          })
           .eq("id", 1);
 
         if (error) throw error;
@@ -863,7 +920,7 @@ function BrandingTab({ settings, reload, showNotice }) {
         setSaving(false);
       }
     },
-    [logoUrl, tagline, reload, showNotice]
+    [logoUrl, tagline, instagramUrl, tiktokUrl, supportEmail, reload, showNotice]
   );
 
   return (
@@ -871,7 +928,7 @@ function BrandingTab({ settings, reload, showNotice }) {
       <div className="admin-panel-head">
         <div>
           <h2>Branding</h2>
-          <p>Your logo and homepage statement — changes appear on the storefront immediately.</p>
+          <p>Your logo, homepage statement, and contact links — changes appear on the storefront immediately.</p>
         </div>
       </div>
 
@@ -921,10 +978,191 @@ function BrandingTab({ settings, reload, showNotice }) {
           </small>
         </div>
 
+        <div className="settings-block-title admin-section-title">Contact links</div>
+
+        <div className="field">
+          <label>Instagram URL</label>
+          <input
+            value={instagramUrl}
+            onChange={(event) => setInstagramUrl(event.target.value)}
+            placeholder="https://instagram.com/shindaraphoneflair"
+          />
+        </div>
+
+        <div className="field">
+          <label>TikTok URL</label>
+          <input
+            value={tiktokUrl}
+            onChange={(event) => setTiktokUrl(event.target.value)}
+            placeholder="https://tiktok.com/@shindaraphoneflair"
+          />
+        </div>
+
+        <div className="field">
+          <label>Support email</label>
+          <input
+            type="email"
+            value={supportEmail}
+            onChange={(event) => setSupportEmail(event.target.value)}
+            placeholder="support@shindaraphoneflair.com"
+          />
+        </div>
+        <small className="admin-hint">
+          Leave any of these blank to hide that link on the storefront footer.
+        </small>
+
         <button className="btn-primary full" type="submit" disabled={saving || uploading}>
           {saving ? "Saving..." : "Save branding"}
         </button>
       </form>
+    </div>
+  );
+}
+
+/* =========================================================
+   NOTIFICATIONS TAB
+   ========================================================= */
+
+function NotificationsTab({ notifications, reload, showNotice }) {
+  const [message, setMessage] = useState("");
+  const [type, setType] = useState("info");
+  const [saving, setSaving] = useState(false);
+
+  const create = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!message.trim()) return;
+      setSaving(true);
+
+      try {
+        const { error } = await supabase
+          .from("notifications")
+          .insert({ message: message.trim(), type, active: true });
+
+        if (error) throw error;
+
+        showNotice("Notification posted.");
+        setMessage("");
+        setType("info");
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not post notification.");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [message, type, reload, showNotice]
+  );
+
+  const toggleActive = useCallback(
+    async (note) => {
+      try {
+        const { error } = await supabase
+          .from("notifications")
+          .update({ active: !note.active })
+          .eq("id", note.id);
+        if (error) throw error;
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not update notification.");
+      }
+    },
+    [reload, showNotice]
+  );
+
+  const remove = useCallback(
+    async (note) => {
+      if (!window.confirm("Delete this notification?")) return;
+      try {
+        const { error } = await supabase.from("notifications").delete().eq("id", note.id);
+        if (error) throw error;
+        showNotice("Notification deleted.");
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not delete notification.");
+      }
+    },
+    [reload, showNotice]
+  );
+
+  return (
+    <div className="admin-panel">
+      <div className="admin-panel-head">
+        <div>
+          <h2>Notifications</h2>
+          <p>Messages shown to customers in the bell icon on your storefront — use this for maintenance notices or heads-ups.</p>
+        </div>
+      </div>
+
+      <form className="admin-branding-form" onSubmit={create}>
+        <div className="field">
+          <label>Message</label>
+          <textarea
+            rows="2"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="e.g. We're doing scheduled maintenance tonight from 11pm-1am — the site may be briefly unavailable."
+            required
+          />
+        </div>
+
+        <div className="field">
+          <label>Type</label>
+          <select value={type} onChange={(event) => setType(event.target.value)}>
+            <option value="info">Info</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="alert">Alert</option>
+          </select>
+        </div>
+
+        <button className="btn-primary full" type="submit" disabled={saving}>
+          {saving ? "Posting..." : "Post notification"}
+        </button>
+      </form>
+
+      <div className="admin-table-wrap" style={{ marginTop: "24px" }}>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Message</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {notifications.map((note) => (
+              <tr key={note.id}>
+                <td>{note.message}</td>
+                <td>
+                  <span className="admin-tag">{note.type}</span>
+                </td>
+                <td>
+                  <span className={note.active ? "status-paid" : "status-pending"}>
+                    {note.active ? "ACTIVE" : "HIDDEN"}
+                  </span>
+                </td>
+                <td className="admin-row-actions">
+                  <button className="btn-text" onClick={() => toggleActive(note)}>
+                    {note.active ? "Hide" : "Show"}
+                  </button>
+                  <button className="admin-danger" onClick={() => remove(note)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+
+            {notifications.length === 0 && (
+              <tr>
+                <td colSpan={4} className="admin-empty-row">
+                  No notifications posted yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -950,7 +1188,14 @@ export default function Admin() {
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [settings, setSettings] = useState({ logo_url: "", tagline: "" });
+  const [settings, setSettings] = useState({
+    logo_url: "",
+    tagline: "",
+    instagram_url: "",
+    tiktok_url: "",
+    support_email: "",
+  });
+  const [notifications, setNotifications] = useState([]);
   const [notice, setNotice] = useState("");
 
   const showNotice = useCallback((message) => {
@@ -1042,7 +1287,26 @@ export default function Admin() {
       console.error("Settings:", error);
       return;
     }
-    setSettings({ logo_url: data?.logo_url || "", tagline: data?.tagline || "" });
+    setSettings({
+      logo_url: data?.logo_url || "",
+      tagline: data?.tagline || "",
+      instagram_url: data?.instagram_url || "",
+      tiktok_url: data?.tiktok_url || "",
+      support_email: data?.support_email || "",
+    });
+  }, []);
+
+  const loadNotifications = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Notifications:", error);
+      return;
+    }
+    setNotifications(data || []);
   }, []);
 
   useEffect(() => {
@@ -1055,6 +1319,7 @@ export default function Admin() {
         loadCustomers(),
         loadCategories(),
         loadSettings(),
+        loadNotifications(),
       ]);
       if (mounted) setLoading(false);
     })();
@@ -1062,7 +1327,7 @@ export default function Admin() {
     return () => {
       mounted = false;
     };
-  }, [loadProducts, loadOrders, loadCustomers, loadCategories, loadSettings]);
+  }, [loadProducts, loadOrders, loadCustomers, loadCategories, loadSettings, loadNotifications]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -1110,6 +1375,9 @@ export default function Admin() {
           <button className={tab === "branding" ? "active" : ""} onClick={() => setTab("branding")}>
             Branding
           </button>
+          <button className={tab === "notifications" ? "active" : ""} onClick={() => setTab("notifications")}>
+            Notifications
+          </button>
         </nav>
 
         <button className="logout-button" onClick={logout}>
@@ -1135,6 +1403,13 @@ export default function Admin() {
         {tab === "customers" && <CustomersTab customers={customers} />}
         {tab === "branding" && (
           <BrandingTab settings={settings} reload={loadSettings} showNotice={showNotice} />
+        )}
+        {tab === "notifications" && (
+          <NotificationsTab
+            notifications={notifications}
+            reload={loadNotifications}
+            showNotice={showNotice}
+          />
         )}
       </main>
 
