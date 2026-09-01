@@ -1125,7 +1125,15 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
-  const [siteSettings, setSiteSettings] = useState({ logo_url: "", tagline: "" });
+  const [siteSettings, setSiteSettings] = useState({
+    logo_url: "",
+    tagline: "",
+    instagram_url: "",
+    tiktok_url: "",
+    support_email: "",
+  });
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
 
   const [loading, setLoading] = useState(true);
@@ -1281,10 +1289,30 @@ export default function App() {
         setSiteSettings({
           logo_url: data.logo_url || "",
           tagline: data.tagline || "",
+          instagram_url: data.instagram_url || "",
+          tiktok_url: data.tiktok_url || "",
+          support_email: data.support_email || "",
         });
       }
     } catch (error) {
       console.error("Site settings:", error);
+    }
+  }, []);
+
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setNotifications(data || []);
+    } catch (error) {
+      console.error("Notifications:", error);
     }
   }, []);
 
@@ -1465,7 +1493,12 @@ export default function App() {
         setUser(currentUser);
 
 
-        await Promise.all([loadProducts(), loadCategories(), loadSiteSettings()]);
+        await Promise.all([
+          loadProducts(),
+          loadCategories(),
+          loadSiteSettings(),
+          loadNotifications(),
+        ]);
 
 
         if (currentUser) {
@@ -2796,6 +2829,36 @@ export default function App() {
         </nav>
 
         <div className="header-actions">
+          <div className="notif-wrap">
+            <button
+              className="header-notif"
+              onClick={() => setNotificationsOpen((value) => !value)}
+              aria-label="Notifications"
+            >
+              <span>🔔</span>
+              {notifications.length > 0 && (
+                <b className="notif-count">{notifications.length}</b>
+              )}
+            </button>
+
+            {notificationsOpen && (
+              <div className="notif-panel">
+                <div className="notif-panel-head">Updates</div>
+
+                {notifications.length === 0 ? (
+                  <p className="notif-empty">Nothing new right now.</p>
+                ) : (
+                  notifications.map((note) => (
+                    <div className={`notif-item notif-${note.type}`} key={note.id}>
+                      <span className="notif-dot" />
+                      <p>{note.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             className="header-account"
             onClick={() => {
@@ -3223,9 +3286,34 @@ export default function App() {
 
           <div className="footer-column">
             <h4>Connect</h4>
-            <button>Instagram</button>
-            <button>TikTok</button>
-            <button>Contact us</button>
+            {siteSettings.instagram_url && (
+              <a
+                className="footer-link"
+                href={siteSettings.instagram_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Instagram
+              </a>
+            )}
+            {siteSettings.tiktok_url && (
+              <a
+                className="footer-link"
+                href={siteSettings.tiktok_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                TikTok
+              </a>
+            )}
+            {siteSettings.support_email && (
+              <a className="footer-link" href={`mailto:${siteSettings.support_email}`}>
+                Contact us
+              </a>
+            )}
+            {!siteSettings.instagram_url && !siteSettings.tiktok_url && !siteSettings.support_email && (
+              <span className="footer-link-placeholder">Contact links coming soon</span>
+            )}
           </div>
 
         </div>
@@ -3784,6 +3872,13 @@ export default function App() {
               );
             })}
           </div>
+
+          {selectedOrder.status_note && (
+            <div className="tracking-note">
+              <span>📦</span>
+              <p>{selectedOrder.status_note}</p>
+            </div>
+          )}
 
           <div className="tracking-items">
             <div className="tracking-section-title">Items in this order</div>
