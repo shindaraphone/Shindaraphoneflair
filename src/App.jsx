@@ -1157,6 +1157,7 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [authName, setAuthName] = useState("");
   const [authPhone, setAuthPhone] = useState("");
 
@@ -3397,13 +3398,23 @@ export default function App() {
 
             <div className="field">
               <label>Password</label>
-              <input
-                type="password"
-                value={authPassword}
-                onChange={(event) => setAuthPassword(event.target.value)}
-                placeholder="At least 6 characters"
-                autoComplete={authMode === "login" ? "current-password" : "new-password"}
-              />
+              <div className="password-field">
+                <input
+                  type={showAuthPassword ? "text" : "password"}
+                  value={authPassword}
+                  onChange={(event) => setAuthPassword(event.target.value)}
+                  placeholder="At least 6 characters"
+                  autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowAuthPassword((value) => !value)}
+                  aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                >
+                  {showAuthPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
             <button className="btn-primary full" type="submit" disabled={authLoading}>
