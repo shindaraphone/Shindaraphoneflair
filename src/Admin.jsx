@@ -24,6 +24,14 @@ const ORDER_STATUSES = [
   "delivered",
 ];
 
+const NIGERIA_STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue",
+  "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT",
+  "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi",
+  "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo",
+  "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara",
+];
+
 const money = (value) => `₦${Number(value || 0).toLocaleString("en-NG")}`;
 
 const formatDate = (value) => {
@@ -1020,6 +1028,101 @@ function BrandingTab({ settings, reload, showNotice }) {
 }
 
 /* =========================================================
+   DELIVERY FEES TAB
+   ========================================================= */
+
+function DeliveryFeesTab({ fees, reload, showNotice }) {
+  const [values, setValues] = useState(() => {
+    const initial = {};
+    NIGERIA_STATES.forEach((state) => {
+      initial[state] = fees[state] !== undefined ? String(fees[state]) : "";
+    });
+    return initial;
+  });
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredStates = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return NIGERIA_STATES;
+    return NIGERIA_STATES.filter((s) => s.toLowerCase().includes(q));
+  }, [search]);
+
+  const saveAll = useCallback(
+    async (event) => {
+      event.preventDefault();
+      setSaving(true);
+
+      try {
+        const rows = NIGERIA_STATES.map((state) => ({
+          state,
+          fee: Number(values[state]) || 0,
+        }));
+
+        const { error } = await supabase
+          .from("delivery_fees")
+          .upsert(rows, { onConflict: "state" });
+
+        if (error) throw error;
+
+        showNotice("Delivery fees updated.");
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not save delivery fees.");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [values, reload, showNotice]
+  );
+
+  return (
+    <div className="admin-panel">
+      <div className="admin-panel-head">
+        <div>
+          <h2>Delivery fees</h2>
+          <p>Set a delivery fee per state — it's added to the customer's total automatically at checkout.</p>
+        </div>
+        <div className="admin-panel-actions">
+          <input
+            className="admin-search"
+            placeholder="Search states..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+      </div>
+
+      <form onSubmit={saveAll}>
+        <div className="admin-fees-grid">
+          {filteredStates.map((state) => (
+            <div className="admin-fee-row" key={state}>
+              <label>{state}</label>
+              <div className="admin-fee-input">
+                <span>₦</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={values[state]}
+                  onChange={(event) =>
+                    setValues((prev) => ({ ...prev, [state]: event.target.value }))
+                  }
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button className="btn-primary full" type="submit" disabled={saving} style={{ marginTop: "20px" }}>
+          {saving ? "Saving..." : "Save all delivery fees"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/* =========================================================
    ADMIN APP
    (auth + admin verification already handled by ProtectedAdmin.jsx —
    this component assumes it's only ever rendered for a verified admin)
@@ -1047,6 +1150,7 @@ export default function Admin() {
     tiktok_url: "",
     support_email: "",
   });
+  const [deliveryFees, setDeliveryFees] = useState({});
   const [notice, setNotice] = useState("");
 
   const showNotice = useCallback((message) => {
@@ -1147,6 +1251,21 @@ export default function Admin() {
     });
   }, []);
 
+  const loadDeliveryFees = useCallback(async () => {
+    const { data, error } = await supabase.from("delivery_fees").select("*");
+
+    if (error) {
+      console.error("Delivery fees:", error);
+      return;
+    }
+
+    const map = {};
+    (data || []).forEach((row) => {
+      map[row.state] = row.fee;
+    });
+    setDeliveryFees(map);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -1157,6 +1276,7 @@ export default function Admin() {
         loadCustomers(),
         loadCategories(),
         loadSettings(),
+        loadDeliveryFees(),
       ]);
       if (mounted) setLoading(false);
     })();
@@ -1164,7 +1284,7 @@ export default function Admin() {
     return () => {
       mounted = false;
     };
-  }, [loadProducts, loadOrders, loadCustomers, loadCategories, loadSettings]);
+  }, [loadProducts, loadOrders, loadCustomers, loadCategories, loadSettings, loadDeliveryFees]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -1212,6 +1332,9 @@ export default function Admin() {
           <button className={tab === "branding" ? "active" : ""} onClick={() => setTab("branding")}>
             Branding
           </button>
+          <button className={tab === "delivery" ? "active" : ""} onClick={() => setTab("delivery")}>
+            Delivery Fees
+          </button>
         </nav>
 
         <button className="logout-button" onClick={logout}>
@@ -1237,6 +1360,9 @@ export default function Admin() {
         {tab === "customers" && <CustomersTab customers={customers} />}
         {tab === "branding" && (
           <BrandingTab settings={settings} reload={loadSettings} showNotice={showNotice} />
+        )}
+        {tab === "delivery" && (
+          <DeliveryFeesTab fees={deliveryFees} reload={loadDeliveryFees} showNotice={showNotice} />
         )}
       </main>
 
