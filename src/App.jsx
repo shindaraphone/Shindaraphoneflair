@@ -1132,6 +1132,7 @@ export default function App() {
     tiktok_url: "",
     support_email: "",
   });
+  const [deliveryFees, setDeliveryFees] = useState({});
 
 
 
@@ -1296,6 +1297,23 @@ export default function App() {
       }
     } catch (error) {
       console.error("Site settings:", error);
+    }
+  }, []);
+
+
+  const loadDeliveryFees = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from("delivery_fees").select("*");
+
+      if (error) throw error;
+
+      const map = {};
+      (data || []).forEach((row) => {
+        map[row.state] = Number(row.fee) || 0;
+      });
+      setDeliveryFees(map);
+    } catch (error) {
+      console.error("Delivery fees:", error);
     }
   }, []);
 
@@ -1480,6 +1498,7 @@ export default function App() {
           loadProducts(),
           loadCategories(),
           loadSiteSettings(),
+          loadDeliveryFees(),
         ]);
 
 
@@ -1550,6 +1569,18 @@ export default function App() {
         0
       ),
     [cart]
+  );
+
+
+  const deliveryFee = useMemo(
+    () => Number(deliveryFees[checkout.state] || 0),
+    [deliveryFees, checkout.state]
+  );
+
+
+  const orderTotal = useMemo(
+    () => cartTotal + deliveryFee,
+    [cartTotal, deliveryFee]
   );
 
 
@@ -2090,7 +2121,8 @@ export default function App() {
         delivery_address: checkout.address.trim(),
         delivery_state: checkout.state,
         delivery_city: checkout.city,
-        total: Number(cartTotal),
+        delivery_fee: Number(deliveryFee),
+        total: Number(orderTotal),
         payment_status: "paid",
         payment_reference: paymentReference,
         status: "processing",
@@ -2184,6 +2216,8 @@ export default function App() {
       cart,
       checkout,
       cartTotal,
+      deliveryFee,
+      orderTotal,
       clearCart,
       loadOrders,
       loadProducts,
@@ -2379,7 +2413,7 @@ export default function App() {
             .toUpperCase()}`;
 
 
-        const amount = Math.round(Number(cartTotal) * 100);
+        const amount = Math.round(Number(orderTotal) * 100);
 
 
         if (!amount || amount <= 0) {
@@ -2468,6 +2502,7 @@ export default function App() {
       cart,
       checkout,
       cartTotal,
+      orderTotal,
       loadCart,
       loadPaystack,
       handlePaymentSuccess,
@@ -3512,10 +3547,12 @@ export default function App() {
                   <strong>{cartCount}</strong>
                 </div>
                 <div className="cart-grand-total">
-                  <span>Total</span>
+                  <span>Subtotal</span>
                   <strong>{money(cartTotal)}</strong>
                 </div>
               </div>
+
+              <p className="checkout-note">Delivery fee is calculated at checkout based on your state.</p>
 
               <button className="btn-primary full" onClick={openCheckout}>
                 Continue to checkout
@@ -3686,14 +3723,19 @@ export default function App() {
                 </div>
               ))}
 
+              <div>
+                <span>Delivery{checkout.state ? ` to ${checkout.state}` : ""}</span>
+                <strong>{checkout.state ? money(deliveryFee) : "Select a state"}</strong>
+              </div>
+
               <div className="checkout-total">
                 <span>Total to pay</span>
-                <strong>{money(cartTotal)}</strong>
+                <strong>{money(orderTotal)}</strong>
               </div>
             </div>
 
             <button className="btn-primary full pay-button" type="submit" disabled={processing}>
-              {processing ? "Opening secure payment..." : `Pay ${money(cartTotal)}`}
+              {processing ? "Opening secure payment..." : `Pay ${money(orderTotal)}`}
             </button>
 
             <div className="payment-security">
@@ -3861,6 +3903,13 @@ export default function App() {
               </div>
             ))}
           </div>
+
+          {Number(selectedOrder.delivery_fee) > 0 && (
+            <div className="tracking-item">
+              <span>Delivery fee</span>
+              <strong>{money(selectedOrder.delivery_fee)}</strong>
+            </div>
+          )}
 
           <div className="tracking-grand-total">
             <span>Total paid</span>
