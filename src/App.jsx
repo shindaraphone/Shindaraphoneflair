@@ -2133,7 +2133,7 @@ export default function App() {
       if (itemsError) {
         console.error("Order items:", itemsError);
         throw new Error(
-          `Order was created but items could not be saved. Reference: ${paymentReference}`
+          `Order was created but items could not be saved. Reference: ${paymentReference}. Details: ${itemsError.message}`
         );
       }
 
