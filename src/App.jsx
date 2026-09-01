@@ -1132,8 +1132,7 @@ export default function App() {
     tiktok_url: "",
     support_email: "",
   });
-  const [notifications, setNotifications] = useState([]);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
 
 
   const [loading, setLoading] = useState(true);
@@ -1296,23 +1295,6 @@ export default function App() {
       }
     } catch (error) {
       console.error("Site settings:", error);
-    }
-  }, []);
-
-
-  const loadNotifications = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("active", true)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      setNotifications(data || []);
-    } catch (error) {
-      console.error("Notifications:", error);
     }
   }, []);
 
@@ -1497,7 +1479,6 @@ export default function App() {
           loadProducts(),
           loadCategories(),
           loadSiteSettings(),
-          loadNotifications(),
         ]);
 
 
@@ -2829,36 +2810,6 @@ export default function App() {
         </nav>
 
         <div className="header-actions">
-          <div className="notif-wrap">
-            <button
-              className="header-notif"
-              onClick={() => setNotificationsOpen((value) => !value)}
-              aria-label="Notifications"
-            >
-              <span>🔔</span>
-              {notifications.length > 0 && (
-                <b className="notif-count">{notifications.length}</b>
-              )}
-            </button>
-
-            {notificationsOpen && (
-              <div className="notif-panel">
-                <div className="notif-panel-head">Updates</div>
-
-                {notifications.length === 0 ? (
-                  <p className="notif-empty">Nothing new right now.</p>
-                ) : (
-                  notifications.map((note) => (
-                    <div className={`notif-item notif-${note.type}`} key={note.id}>
-                      <span className="notif-dot" />
-                      <p>{note.message}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
           <button
             className="header-account"
             onClick={() => {
