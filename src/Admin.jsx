@@ -1020,154 +1020,6 @@ function BrandingTab({ settings, reload, showNotice }) {
 }
 
 /* =========================================================
-   NOTIFICATIONS TAB
-   ========================================================= */
-
-function NotificationsTab({ notifications, reload, showNotice }) {
-  const [message, setMessage] = useState("");
-  const [type, setType] = useState("info");
-  const [saving, setSaving] = useState(false);
-
-  const create = useCallback(
-    async (event) => {
-      event.preventDefault();
-      if (!message.trim()) return;
-      setSaving(true);
-
-      try {
-        const { error } = await supabase
-          .from("notifications")
-          .insert({ message: message.trim(), type, active: true });
-
-        if (error) throw error;
-
-        showNotice("Notification posted.");
-        setMessage("");
-        setType("info");
-        await reload();
-      } catch (err) {
-        showNotice(err.message || "Could not post notification.");
-      } finally {
-        setSaving(false);
-      }
-    },
-    [message, type, reload, showNotice]
-  );
-
-  const toggleActive = useCallback(
-    async (note) => {
-      try {
-        const { error } = await supabase
-          .from("notifications")
-          .update({ active: !note.active })
-          .eq("id", note.id);
-        if (error) throw error;
-        await reload();
-      } catch (err) {
-        showNotice(err.message || "Could not update notification.");
-      }
-    },
-    [reload, showNotice]
-  );
-
-  const remove = useCallback(
-    async (note) => {
-      if (!window.confirm("Delete this notification?")) return;
-      try {
-        const { error } = await supabase.from("notifications").delete().eq("id", note.id);
-        if (error) throw error;
-        showNotice("Notification deleted.");
-        await reload();
-      } catch (err) {
-        showNotice(err.message || "Could not delete notification.");
-      }
-    },
-    [reload, showNotice]
-  );
-
-  return (
-    <div className="admin-panel">
-      <div className="admin-panel-head">
-        <div>
-          <h2>Notifications</h2>
-          <p>Messages shown to customers in the bell icon on your storefront — use this for maintenance notices or heads-ups.</p>
-        </div>
-      </div>
-
-      <form className="admin-branding-form" onSubmit={create}>
-        <div className="field">
-          <label>Message</label>
-          <textarea
-            rows="2"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="e.g. We're doing scheduled maintenance tonight from 11pm-1am — the site may be briefly unavailable."
-            required
-          />
-        </div>
-
-        <div className="field">
-          <label>Type</label>
-          <select value={type} onChange={(event) => setType(event.target.value)}>
-            <option value="info">Info</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="alert">Alert</option>
-          </select>
-        </div>
-
-        <button className="btn-primary full" type="submit" disabled={saving}>
-          {saving ? "Posting..." : "Post notification"}
-        </button>
-      </form>
-
-      <div className="admin-table-wrap" style={{ marginTop: "24px" }}>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Message</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {notifications.map((note) => (
-              <tr key={note.id}>
-                <td>{note.message}</td>
-                <td>
-                  <span className="admin-tag">{note.type}</span>
-                </td>
-                <td>
-                  <span className={note.active ? "status-paid" : "status-pending"}>
-                    {note.active ? "ACTIVE" : "HIDDEN"}
-                  </span>
-                </td>
-                <td className="admin-row-actions">
-                  <button className="btn-text" onClick={() => toggleActive(note)}>
-                    {note.active ? "Hide" : "Show"}
-                  </button>
-                  <button className="admin-danger" onClick={() => remove(note)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-
-            {notifications.length === 0 && (
-              <tr>
-                <td colSpan={4} className="admin-empty-row">
-                  No notifications posted yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
    ADMIN APP
    (auth + admin verification already handled by ProtectedAdmin.jsx —
    this component assumes it's only ever rendered for a verified admin)
@@ -1195,7 +1047,6 @@ export default function Admin() {
     tiktok_url: "",
     support_email: "",
   });
-  const [notifications, setNotifications] = useState([]);
   const [notice, setNotice] = useState("");
 
   const showNotice = useCallback((message) => {
@@ -1296,19 +1147,6 @@ export default function Admin() {
     });
   }, []);
 
-  const loadNotifications = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Notifications:", error);
-      return;
-    }
-    setNotifications(data || []);
-  }, []);
-
   useEffect(() => {
     let mounted = true;
 
@@ -1319,7 +1157,6 @@ export default function Admin() {
         loadCustomers(),
         loadCategories(),
         loadSettings(),
-        loadNotifications(),
       ]);
       if (mounted) setLoading(false);
     })();
@@ -1327,7 +1164,7 @@ export default function Admin() {
     return () => {
       mounted = false;
     };
-  }, [loadProducts, loadOrders, loadCustomers, loadCategories, loadSettings, loadNotifications]);
+  }, [loadProducts, loadOrders, loadCustomers, loadCategories, loadSettings]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -1375,9 +1212,6 @@ export default function Admin() {
           <button className={tab === "branding" ? "active" : ""} onClick={() => setTab("branding")}>
             Branding
           </button>
-          <button className={tab === "notifications" ? "active" : ""} onClick={() => setTab("notifications")}>
-            Notifications
-          </button>
         </nav>
 
         <button className="logout-button" onClick={logout}>
@@ -1403,13 +1237,6 @@ export default function Admin() {
         {tab === "customers" && <CustomersTab customers={customers} />}
         {tab === "branding" && (
           <BrandingTab settings={settings} reload={loadSettings} showNotice={showNotice} />
-        )}
-        {tab === "notifications" && (
-          <NotificationsTab
-            notifications={notifications}
-            reload={loadNotifications}
-            showNotice={showNotice}
-          />
         )}
       </main>
 
