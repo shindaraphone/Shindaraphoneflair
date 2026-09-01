@@ -2233,7 +2233,7 @@ export default function App() {
 
 
         setCheckoutError(
-          `Payment was received, but your order could not be completed automatically. Payment reference: ${reference}`
+          `Payment was received, but your order could not be completed automatically. Payment reference: ${reference}. Details: ${error?.message || "unknown error"}`
         );
       }
     },
