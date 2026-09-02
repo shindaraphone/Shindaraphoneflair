@@ -1123,6 +1123,126 @@ function DeliveryFeesTab({ fees, reload, showNotice }) {
 }
 
 /* =========================================================
+   ANALYTICS TAB
+   ========================================================= */
+
+function AnalyticsTab({ orders, products }) {
+  const stats = useMemo(() => {
+    const paidOrders = orders.filter(
+      (o) => String(o.payment_status).toLowerCase() === "paid"
+    );
+
+    const revenue = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const avgOrder = paidOrders.length > 0 ? revenue / paidOrders.length : 0;
+
+    const productCounts = {};
+    paidOrders.forEach((order) => {
+      (order.items || []).forEach((item) => {
+        const name = item.products?.name || item.product_name || "Unknown";
+        const qty = Number(item.quantity || 0);
+        productCounts[name] = (productCounts[name] || 0) + qty;
+      });
+    });
+
+    const topProducts = Object.entries(productCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    const lowStock = products
+      .filter((p) => Number(p.stock || 0) <= 5)
+      .sort((a, b) => Number(a.stock || 0) - Number(b.stock || 0))
+      .slice(0, 6);
+
+    const statusCounts = {};
+    orders.forEach((o) => {
+      const s = o.status || "pending";
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
+    });
+
+    return { revenue, avgOrder, paidCount: paidOrders.length, topProducts, lowStock, statusCounts };
+  }, [orders, products]);
+
+  return (
+    <div className="admin-panel">
+      <div className="admin-panel-head">
+        <div>
+          <h2>Overview</h2>
+          <p>A snapshot of how the store is doing, based on your paid orders.</p>
+        </div>
+      </div>
+
+      <div className="admin-stat-grid">
+        <div className="admin-stat-card">
+          <span>Total revenue</span>
+          <strong>{money(stats.revenue)}</strong>
+        </div>
+        <div className="admin-stat-card">
+          <span>Paid orders</span>
+          <strong>{stats.paidCount}</strong>
+        </div>
+        <div className="admin-stat-card">
+          <span>Average order value</span>
+          <strong>{money(stats.avgOrder)}</strong>
+        </div>
+        <div className="admin-stat-card">
+          <span>Products in catalog</span>
+          <strong>{products.length}</strong>
+        </div>
+      </div>
+
+      <div className="admin-analytics-grid">
+        <div className="admin-analytics-block">
+          <div className="settings-block-title">Top selling products</div>
+          {stats.topProducts.length === 0 ? (
+            <p className="admin-hint">No sales yet.</p>
+          ) : (
+            <div className="admin-rank-list">
+              {stats.topProducts.map(([name, qty], index) => (
+                <div className="admin-rank-row" key={name}>
+                  <span className="admin-rank-number">{index + 1}</span>
+                  <span className="admin-rank-name">{name}</span>
+                  <strong>{qty} sold</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="admin-analytics-block">
+          <div className="settings-block-title">Low stock</div>
+          {stats.lowStock.length === 0 ? (
+            <p className="admin-hint">Nothing running low.</p>
+          ) : (
+            <div className="admin-rank-list">
+              {stats.lowStock.map((p) => (
+                <div className="admin-rank-row" key={p.id}>
+                  <span className="admin-rank-name">{p.name}</span>
+                  <strong className={Number(p.stock) === 0 ? "admin-stock low" : "admin-stock"}>
+                    {p.stock} left
+                  </strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="admin-analytics-block">
+          <div className="settings-block-title">Orders by status</div>
+          <div className="admin-rank-list">
+            {Object.entries(stats.statusCounts).map(([status, count]) => (
+              <div className="admin-rank-row" key={status}>
+                <span className="admin-rank-name">{status.replace(/_/g, " ")}</span>
+                <strong>{count}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
    ADMIN APP
    (auth + admin verification already handled by ProtectedAdmin.jsx —
    this component assumes it's only ever rendered for a verified admin)
@@ -1132,7 +1252,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
 
   const [tab, setTabState] = useState(
-    () => sessionStorage.getItem("admin-active-tab") || "products"
+    () => sessionStorage.getItem("admin-active-tab") || "overview"
   );
 
   const setTab = useCallback((next) => {
@@ -1325,6 +1445,9 @@ export default function Admin() {
         </div>
 
         <nav className="admin-nav">
+          <button className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
+            Overview
+          </button>
           <button className={tab === "products" ? "active" : ""} onClick={() => setTab("products")}>
             Products
           </button>
@@ -1351,6 +1474,7 @@ export default function Admin() {
       </aside>
 
       <main className="admin-main">
+        {tab === "overview" && <AnalyticsTab orders={orders} products={products} />}
         {tab === "products" && (
           <ProductsTab
             products={products}
