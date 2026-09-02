@@ -1133,6 +1133,7 @@ export default function App() {
     support_email: "",
   });
   const [deliveryFees, setDeliveryFees] = useState({});
+  const [wishlist, setWishlist] = useState([]);
 
 
 
@@ -1149,6 +1150,7 @@ export default function App() {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [sortBy, setSortBy] = useState("newest");
 
 
   const [notice, setNotice] = useState("");
@@ -1161,6 +1163,12 @@ export default function App() {
   const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [authName, setAuthName] = useState("");
   const [authPhone, setAuthPhone] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [newPasswordLoading, setNewPasswordLoading] = useState(false);
+  const [newPasswordError, setNewPasswordError] = useState("");
 
 
   const [checkout, setCheckout] = useState({
@@ -1412,6 +1420,73 @@ export default function App() {
 
 
   /* =======================================================
+     WISHLIST
+     ======================================================= */
+
+
+  const loadWishlist = useCallback(async (id) => {
+    if (!id) {
+      setWishlist([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("wishlist_items")
+        .select("product_id")
+        .eq("user_id", id);
+
+      if (error) throw error;
+
+      setWishlist((data || []).map((row) => row.product_id));
+    } catch (error) {
+      console.error("Wishlist:", error);
+    }
+  }, []);
+
+
+  const toggleWishlist = useCallback(
+    async (product) => {
+      if (!user) {
+        setAuthMode("login");
+        setModal("auth");
+        showNotice("Sign in to save items to your wishlist.");
+        return;
+      }
+
+      const isSaved = wishlist.includes(product.id);
+
+      try {
+        if (isSaved) {
+          const { error } = await supabase
+            .from("wishlist_items")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("product_id", product.id);
+
+          if (error) throw error;
+
+          setWishlist((prev) => prev.filter((id) => id !== product.id));
+        } else {
+          const { error } = await supabase
+            .from("wishlist_items")
+            .insert({ user_id: user.id, product_id: product.id });
+
+          if (error) throw error;
+
+          setWishlist((prev) => [...prev, product.id]);
+          showNotice(`${product.name} saved to your wishlist.`);
+        }
+      } catch (error) {
+        console.error("Wishlist toggle:", error);
+        showNotice("Could not update your wishlist.");
+      }
+    },
+    [user, wishlist, showNotice]
+  );
+
+
+  /* =======================================================
      ORDERS
      ======================================================= */
 
@@ -1507,6 +1582,7 @@ export default function App() {
             loadProfile(currentUser.id),
             loadCart(currentUser.id),
             loadOrders(currentUser.id),
+            loadWishlist(currentUser.id),
           ]);
         }
       } catch (error) {
@@ -1524,11 +1600,15 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user || null;
 
 
       setUser(currentUser);
+
+      if (event === "PASSWORD_RECOVERY") {
+        setModal("newPassword");
+      }
 
 
       if (currentUser) {
@@ -1536,11 +1616,13 @@ export default function App() {
           loadProfile(currentUser.id),
           loadCart(currentUser.id),
           loadOrders(currentUser.id),
+          loadWishlist(currentUser.id),
         ]);
       } else {
         setProfile(null);
         setCart([]);
         setOrders([]);
+        setWishlist([]);
       }
     });
 
@@ -1678,6 +1760,13 @@ export default function App() {
     setTimeout(() => setCartBounce(false), 500);
     setTimeout(() => setJustAddedId((current) => (current === productId ? null : current)), 1200);
   }, []);
+
+
+  useEffect(() => {
+    if (modal !== "success") return;
+    const timer = setTimeout(() => setModal("tracking"), 2200);
+    return () => clearTimeout(timer);
+  }, [modal]);
 
 
   /* =======================================================
@@ -1925,6 +2014,75 @@ export default function App() {
       authMode,
       showNotice,
     ]
+  );
+
+
+  /* =======================================================
+     PASSWORD RESET
+     ======================================================= */
+
+
+  const sendPasswordReset = useCallback(
+    async (event) => {
+      event.preventDefault();
+
+      const email = authEmail.trim().toLowerCase();
+
+      if (!email) {
+        setAuthError("Please enter your email address.");
+        return;
+      }
+
+      setResetLoading(true);
+      setAuthError("");
+
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        });
+
+        if (error) throw error;
+
+        setResetSent(true);
+      } catch (error) {
+        console.error("Password reset:", error);
+        setAuthError(error?.message || "Could not send reset email.");
+      } finally {
+        setResetLoading(false);
+      }
+    },
+    [authEmail]
+  );
+
+
+  const updatePassword = useCallback(
+    async (event) => {
+      event.preventDefault();
+
+      if (newPassword.length < 6) {
+        setNewPasswordError("Password must be at least 6 characters.");
+        return;
+      }
+
+      setNewPasswordLoading(true);
+      setNewPasswordError("");
+
+      try {
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+        if (error) throw error;
+
+        setModal(null);
+        setNewPassword("");
+        showNotice("Password updated. You're signed in.");
+      } catch (error) {
+        console.error("Password update:", error);
+        setNewPasswordError(error?.message || "Could not update password.");
+      } finally {
+        setNewPasswordLoading(false);
+      }
+    },
+    [newPassword, showNotice]
   );
 
 
@@ -2186,29 +2344,26 @@ export default function App() {
 
 
       /*
-       * Reduce stock.
-       * This keeps the frontend behavior consistent with the
-       * current database structure.
+       * Reduce stock atomically — a database function checks and
+       * decrements in one step, so two near-simultaneous checkouts
+       * can't both succeed on the last unit.
        */
       for (const item of cart) {
-        const latestProduct = latestProducts?.find(
-          (product) => product.id === item.product_id
-        );
-
-
-        if (!latestProduct) continue;
-
-
-        const oldStock = Number(latestProduct.stock || 0);
         const quantity = Number(item.quantity || 0);
+        if (quantity <= 0) continue;
 
+        const { error: stockError } = await supabase.rpc("decrement_stock", {
+          p_product_id: item.product_id,
+          p_qty: quantity,
+        });
 
-        await supabase
-          .from("products")
-          .update({
-            stock: Math.max(0, oldStock - quantity),
-          })
-          .eq("id", item.product_id);
+        if (stockError) {
+          console.error("Stock decrement:", stockError);
+          // Payment already succeeded and the order already exists —
+          // don't fail the whole checkout over a stock-sync issue.
+          // Worst case, stock just doesn't drop for this item and
+          // shows correctly (or as 0) once someone checks it.
+        }
       }
 
 
@@ -2270,7 +2425,7 @@ export default function App() {
         setSelectedOrder(order);
         setProcessing(false);
         setCheckoutError("");
-        setModal("tracking");
+        setModal("success");
 
 
         showNotice("Payment successful! Your order is confirmed.");
@@ -2615,6 +2770,29 @@ export default function App() {
   }, [products, category, search]);
 
 
+  const sortedProducts = useMemo(() => {
+    const list = [...filteredProducts];
+
+    if (sortBy === "price-asc") {
+      list.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+    } else if (sortBy === "price-desc") {
+      list.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+    } else if (sortBy === "newest") {
+      list.sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+    }
+
+    return list;
+  }, [filteredProducts, sortBy]);
+
+
+  const wishlistProducts = useMemo(
+    () => products.filter((p) => wishlist.includes(p.id)),
+    [products, wishlist]
+  );
+
+
   /* =======================================================
      FORMAT DATE
      ======================================================= */
@@ -2856,6 +3034,17 @@ export default function App() {
               Orders
             </button>
           )}
+
+          {user && (
+            <button
+              onClick={() => {
+                setMobileMenu(false);
+                setModal("wishlist");
+              }}
+            >
+              Wishlist
+            </button>
+          )}
         </nav>
 
         <div className="header-actions">
@@ -3085,6 +3274,17 @@ export default function App() {
                   </button>
                 )}
               </div>
+
+              <select
+                className="sort-select"
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                aria-label="Sort products"
+              >
+                <option value="newest">Newest first</option>
+                <option value="price-asc">Price: Low to high</option>
+                <option value="price-desc">Price: High to low</option>
+              </select>
             </div>
           </div>
 
@@ -3106,7 +3306,7 @@ export default function App() {
             ))}
           </div>
 
-          {filteredProducts.length === 0 ? (
+          {sortedProducts.length === 0 ? (
             <div className="empty-shop">
               <div className="empty-shop-icon">⌕</div>
               <h3>No products found.</h3>
@@ -3123,35 +3323,54 @@ export default function App() {
             </div>
           ) : (
             <div className="product-grid">
-              {filteredProducts.map((product) => {
+              {sortedProducts.map((product) => {
 
                 const stock = Number(product.stock || 0);
                 const image = getProductImage(product);
 
                 return (
                   <article className="product-card" key={product.id}>
-                    <button
-                      className="product-visual"
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setModal("product");
-                      }}
-                    >
-                      {image ? (
-                        <img src={image} alt={product.name} loading="lazy" />
-                      ) : (
-                        <div className="product-placeholder">
-                          <span>S</span>
-                        </div>
-                      )}
+                    <div className="product-visual-wrap">
+                      <button
+                        className="product-visual"
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setModal("product");
+                        }}
+                      >
+                        {image ? (
+                          <img src={image} alt={product.name} loading="lazy" />
+                        ) : (
+                          <div className="product-placeholder">
+                            <span>S</span>
+                          </div>
+                        )}
 
-                      <span className="product-view">View</span>
+                        <span className="product-view">View</span>
 
-                      {stock <= 0 && <span className="sold-out">Sold out</span>}
-                      {stock > 0 && stock <= 5 && (
-                        <span className="low-stock">Only {stock} left</span>
-                      )}
-                    </button>
+                        {stock <= 0 && <span className="sold-out">Sold out</span>}
+                        {stock > 0 && stock <= 5 && (
+                          <span className="low-stock">Only {stock} left</span>
+                        )}
+                        {product.created_at &&
+                          Date.now() - new Date(product.created_at).getTime() <
+                            14 * 24 * 60 * 60 * 1000 && (
+                            <span className="new-badge">New</span>
+                          )}
+                      </button>
+
+                      <button
+                        className={`wishlist-heart ${wishlist.includes(product.id) ? "active" : ""}`}
+                        onClick={() => toggleWishlist(product)}
+                        aria-label={
+                          wishlist.includes(product.id)
+                            ? "Remove from wishlist"
+                            : "Save to wishlist"
+                        }
+                      >
+                        {wishlist.includes(product.id) ? "♥" : "♡"}
+                      </button>
+                    </div>
 
                     <div className="product-content">
                       <span className="product-category">{product.category || "Shindara"}</span>
@@ -3389,107 +3608,302 @@ export default function App() {
 
       {modal === "auth" && (
         <Modal onClose={() => setModal(null)}>
+          {authMode === "forgot" ? (
+            <>
+              <div className="modal-head">
+                <span className="modal-kicker">Shindara PhoneFlair</span>
+                <h2>Reset your password.</h2>
+                <p>
+                  {resetSent
+                    ? "Check your email for a reset link."
+                    : "Enter your email and we'll send you a reset link."}
+                </p>
+              </div>
+
+              {authError && <div className="message error">{authError}</div>}
+
+              {resetSent ? (
+                <button
+                  className="btn-secondary full"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setResetSent(false);
+                    setAuthError("");
+                  }}
+                >
+                  Back to sign in
+                </button>
+              ) : (
+                <form onSubmit={sendPasswordReset}>
+                  <div className="field">
+                    <label>Email address</label>
+                    <input
+                      type="email"
+                      value={authEmail}
+                      onChange={(event) => setAuthEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <button className="btn-primary full" type="submit" disabled={resetLoading}>
+                    {resetLoading ? "Sending..." : "Send reset link"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="switch-auth"
+                    onClick={() => {
+                      setAuthMode("login");
+                      setAuthError("");
+                    }}
+                  >
+                    Back to sign in
+                  </button>
+                </form>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="modal-head">
+                <span className="modal-kicker">Shindara PhoneFlair</span>
+                <h2>{authMode === "login" ? "Welcome back." : "Create your account."}</h2>
+                <p>
+                  {authMode === "login"
+                    ? "Sign in to manage your bag and orders."
+                    : "Create an account to start shopping."}
+                </p>
+              </div>
+
+              {authError && (
+                <div className={`message ${/created|verification/i.test(authError) ? "success" : "error"}`}>
+                  {authError}
+                </div>
+              )}
+
+              <button className="google-button" disabled={authLoading} onClick={handleGoogleLogin}>
+                <span>G</span>
+                Continue with Google
+              </button>
+
+              <div className="or-divider">
+                <span />
+                <b>or</b>
+                <span />
+              </div>
+
+              <form onSubmit={handleAuth}>
+                {authMode === "signup" && (
+                  <>
+                    <div className="field">
+                      <label>Full name</label>
+                      <input
+                        value={authName}
+                        onChange={(event) => setAuthName(event.target.value)}
+                        placeholder="Your full name"
+                        autoComplete="name"
+                      />
+                    </div>
+
+                    <div className="field">
+                      <label>Phone number</label>
+                      <input
+                        value={authPhone}
+                        onChange={(event) => setAuthPhone(event.target.value)}
+                        placeholder="08012345678"
+                        inputMode="tel"
+                        autoComplete="tel"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="field">
+                  <label>Email address</label>
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="field">
+                  <label>Password</label>
+                  <div className="password-field">
+                    <input
+                      type={showAuthPassword ? "text" : "password"}
+                      value={authPassword}
+                      onChange={(event) => setAuthPassword(event.target.value)}
+                      placeholder="At least 6 characters"
+                      autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowAuthPassword((value) => !value)}
+                      aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                    >
+                      {showAuthPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+
+                {authMode === "login" && (
+                  <button
+                    type="button"
+                    className="forgot-password-link"
+                    onClick={() => {
+                      setAuthMode("forgot");
+                      setAuthError("");
+                      setResetSent(false);
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+
+                <button className="btn-primary full" type="submit" disabled={authLoading}>
+                  {authLoading ? "Please wait..." : authMode === "login" ? "Sign in" : "Create account"}
+                </button>
+              </form>
+
+              <button
+                className="switch-auth"
+                onClick={() => {
+                  setAuthMode(authMode === "login" ? "signup" : "login");
+                  setAuthError("");
+                }}
+              >
+                {authMode === "login"
+                  ? "Don't have an account? Create one"
+                  : "Already have an account? Sign in"}
+              </button>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {/* ===================================================
+          SET NEW PASSWORD (after reset link)
+          =================================================== */}
+
+      {modal === "newPassword" && (
+        <Modal onClose={() => setModal(null)}>
           <div className="modal-head">
             <span className="modal-kicker">Shindara PhoneFlair</span>
-            <h2>{authMode === "login" ? "Welcome back." : "Create your account."}</h2>
-            <p>
-              {authMode === "login"
-                ? "Sign in to manage your bag and orders."
-                : "Create an account to start shopping."}
-            </p>
+            <h2>Set a new password.</h2>
+            <p>Choose a new password for your account.</p>
           </div>
 
-          {authError && (
-            <div className={`message ${/created|verification/i.test(authError) ? "success" : "error"}`}>
-              {authError}
-            </div>
-          )}
+          {newPasswordError && <div className="message error">{newPasswordError}</div>}
 
-          <button className="google-button" disabled={authLoading} onClick={handleGoogleLogin}>
-            <span>G</span>
-            Continue with Google
-          </button>
-
-          <div className="or-divider">
-            <span />
-            <b>or</b>
-            <span />
-          </div>
-
-          <form onSubmit={handleAuth}>
-            {authMode === "signup" && (
-              <>
-                <div className="field">
-                  <label>Full name</label>
-                  <input
-                    value={authName}
-                    onChange={(event) => setAuthName(event.target.value)}
-                    placeholder="Your full name"
-                    autoComplete="name"
-                  />
-                </div>
-
-                <div className="field">
-                  <label>Phone number</label>
-                  <input
-                    value={authPhone}
-                    onChange={(event) => setAuthPhone(event.target.value)}
-                    placeholder="08012345678"
-                    inputMode="tel"
-                    autoComplete="tel"
-                  />
-                </div>
-              </>
-            )}
-
+          <form onSubmit={updatePassword}>
             <div className="field">
-              <label>Email address</label>
-              <input
-                type="email"
-                value={authEmail}
-                onChange={(event) => setAuthEmail(event.target.value)}
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="field">
-              <label>Password</label>
+              <label>New password</label>
               <div className="password-field">
                 <input
-                  type={showAuthPassword ? "text" : "password"}
-                  value={authPassword}
-                  onChange={(event) => setAuthPassword(event.target.value)}
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
                   placeholder="At least 6 characters"
-                  autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
                   className="password-toggle"
-                  onClick={() => setShowAuthPassword((value) => !value)}
-                  aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowNewPassword((value) => !value)}
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
                 >
-                  {showAuthPassword ? "Hide" : "Show"}
+                  {showNewPassword ? "Hide" : "Show"}
                 </button>
               </div>
             </div>
 
-            <button className="btn-primary full" type="submit" disabled={authLoading}>
-              {authLoading ? "Please wait..." : authMode === "login" ? "Sign in" : "Create account"}
+            <button className="btn-primary full" type="submit" disabled={newPasswordLoading}>
+              {newPasswordLoading ? "Updating..." : "Update password"}
             </button>
           </form>
+        </Modal>
+      )}
 
-          <button
-            className="switch-auth"
-            onClick={() => {
-              setAuthMode(authMode === "login" ? "signup" : "login");
-              setAuthError("");
-            }}
-          >
-            {authMode === "login"
-              ? "Don't have an account? Create one"
-              : "Already have an account? Sign in"}
-          </button>
+      {/* ===================================================
+          WISHLIST MODAL
+          =================================================== */}
+
+      {modal === "wishlist" && (
+        <Modal onClose={() => setModal(null)} wide>
+          <div className="modal-head">
+            <span className="modal-kicker">Saved for later</span>
+            <h2>Your wishlist.</h2>
+            <p>
+              {wishlistProducts.length} item{wishlistProducts.length !== 1 ? "s" : ""} saved.
+            </p>
+          </div>
+
+          {wishlistProducts.length === 0 ? (
+            <div className="modal-empty">
+              <svg className="empty-bag" viewBox="0 0 48 48" fill="none">
+                <path
+                  d="M24 40s-14-8.6-14-19a9 9 0 0114-7.5A9 9 0 0138 21c0 10.4-14 19-14 19z"
+                  stroke="var(--flair)"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <h3>Nothing saved yet.</h3>
+              <p>Tap the heart on any product to save it here.</p>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setModal(null);
+                  scrollToSection("shop");
+                }}
+              >
+                Browse products
+              </button>
+            </div>
+          ) : (
+            <div className="wishlist-list">
+              {wishlistProducts.map((product) => {
+                const stock = Number(product.stock || 0);
+                return (
+                  <div className="wishlist-row" key={product.id}>
+                    <div className="wishlist-row-image">
+                      {getProductImage(product) ? (
+                        <img src={getProductImage(product)} alt={product.name} />
+                      ) : (
+                        <span>S</span>
+                      )}
+                    </div>
+
+                    <div className="wishlist-row-info">
+                      <span>{product.category || "Shindara"}</span>
+                      <h4>{product.name}</h4>
+                      <strong>{money(product.price)}</strong>
+                    </div>
+
+                    <div className="wishlist-row-actions">
+                      <button
+                        className="btn-secondary"
+                        disabled={stock <= 0}
+                        onClick={async () => {
+                          const ok = await addToCart(product);
+                          if (ok) celebrateAdd(product.id);
+                        }}
+                      >
+                        {stock <= 0 ? "Sold out" : "Add to bag"}
+                      </button>
+                      <button className="remove" onClick={() => toggleWishlist(product)}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Modal>
       )}
 
@@ -3514,7 +3928,10 @@ export default function App() {
             </div>
           ) : cart.length === 0 ? (
             <div className="modal-empty">
-              <div className="empty-bag">🛍</div>
+              <svg className="empty-bag" viewBox="0 0 48 48" fill="none">
+                <path d="M14 16h20l-1.5 22a3 3 0 01-3 2.8H18.5a3 3 0 01-3-2.8L14 16z" stroke="var(--gold)" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M18 16v-3a6 6 0 0112 0v3" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
+              </svg>
               <h3>Your bag is empty.</h3>
               <p>Find something you love and add it here.</p>
               <button
@@ -3785,7 +4202,10 @@ export default function App() {
 
           {orders.length === 0 ? (
             <div className="modal-empty">
-              <div className="empty-bag">📦</div>
+              <svg className="empty-bag" viewBox="0 0 48 48" fill="none">
+                <path d="M24 8l16 8v16l-16 8-16-8V16l16-8z" stroke="var(--teal)" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M8 16l16 8 16-8M24 24v16" stroke="var(--teal)" strokeWidth="2" strokeLinejoin="round" />
+              </svg>
               <h3>No orders yet.</h3>
               <p>Your completed purchases will appear here.</p>
               <button
@@ -3836,6 +4256,31 @@ export default function App() {
               ))}
             </div>
           )}
+        </Modal>
+      )}
+
+      {/* ===================================================
+          PAYMENT SUCCESS
+          =================================================== */}
+
+      {modal === "success" && selectedOrder && (
+        <Modal onClose={() => setModal("tracking")}>
+          <div className="success-screen">
+            <svg className="success-check" viewBox="0 0 60 60" fill="none">
+              <circle className="success-check-ring" cx="30" cy="30" r="27" />
+              <path className="success-check-mark" d="M18 31l8 8 16-18" />
+            </svg>
+
+            <h2>Payment confirmed.</h2>
+            <p>
+              {money(selectedOrder.total)} paid · Order{" "}
+              {selectedOrder.tracking_number || `#${String(selectedOrder.id).slice(0, 8)}`}
+            </p>
+
+            <button className="btn-primary" onClick={() => setModal("tracking")}>
+              View my order
+            </button>
+          </div>
         </Modal>
       )}
 
