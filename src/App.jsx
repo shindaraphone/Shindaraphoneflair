@@ -1605,7 +1605,7 @@ export default function App() {
         setAuthMode("login");
         setModal("auth");
         showNotice("Please sign in to add products to your cart.");
-        return;
+        return false;
       }
 
 
@@ -1614,7 +1614,7 @@ export default function App() {
 
       if (stock <= 0) {
         showNotice("This product is currently sold out.");
-        return;
+        return false;
       }
 
 
@@ -1630,7 +1630,7 @@ export default function App() {
 
           if (nextQuantity > stock) {
             showNotice(`Only ${stock} available.`);
-            return;
+            return false;
           }
 
 
@@ -1658,13 +1658,26 @@ export default function App() {
 
         await loadCart(user.id);
         showNotice(`${product.name} added to your bag.`);
+        return true;
       } catch (error) {
         console.error("Add cart:", error);
         showNotice("Could not add this product.");
+        return false;
       }
     },
     [user, cart, loadCart, showNotice]
   );
+
+
+  const [cartBounce, setCartBounce] = useState(false);
+  const [justAddedId, setJustAddedId] = useState(null);
+
+  const celebrateAdd = useCallback((productId) => {
+    setCartBounce(true);
+    setJustAddedId(productId);
+    setTimeout(() => setCartBounce(false), 500);
+    setTimeout(() => setJustAddedId((current) => (current === productId ? null : current)), 1200);
+  }, []);
 
 
   /* =======================================================
@@ -2865,7 +2878,7 @@ export default function App() {
           </button>
 
           <button
-            className="header-cart"
+            className={`header-cart ${cartBounce ? "cart-bounce" : ""}`}
             onClick={() => {
               if (!user) {
                 setAuthMode("login");
@@ -2878,7 +2891,9 @@ export default function App() {
             aria-label="Shopping bag"
           >
             <span>Bag</span>
-            {cartCount > 0 && <b className="cart-count">{cartCount}</b>}
+            {cartCount > 0 && (
+              <b className={`cart-count ${cartBounce ? "count-pop" : ""}`}>{cartCount}</b>
+            )}
           </button>
 
           <button
@@ -3146,12 +3161,19 @@ export default function App() {
                       <div className="product-footer">
                         <strong className="product-price">{money(product.price)}</strong>
                         <button
-                          className="product-add"
+                          className={`product-add ${justAddedId === product.id ? "just-added" : ""}`}
                           disabled={stock <= 0}
-                          onClick={() => addToCart(product)}
+                          onClick={async () => {
+                            const ok = await addToCart(product);
+                            if (ok) celebrateAdd(product.id);
+                          }}
                         >
-                          {stock <= 0 ? "Sold out" : "Add to bag"}
-                          <span>+</span>
+                          {justAddedId === product.id
+                            ? "Added"
+                            : stock <= 0
+                            ? "Sold out"
+                            : "Add to bag"}
+                          <span>{justAddedId === product.id ? "✓" : "+"}</span>
                         </button>
                       </div>
                     </div>
@@ -3348,8 +3370,9 @@ export default function App() {
               <button
                 className="btn-primary full"
                 disabled={Number(selectedProduct.stock || 0) <= 0}
-                onClick={() => {
-                  addToCart(selectedProduct);
+                onClick={async () => {
+                  const ok = await addToCart(selectedProduct);
+                  if (ok) celebrateAdd(selectedProduct.id);
                   setModal(null);
                 }}
               >
