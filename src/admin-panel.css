@@ -366,3 +366,8 @@
   flex-shrink: 0;
 }
 .admin-rank-name { flex: 1; text-transform: capitalize; }
+
+.admin-cat-thumb { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+
+.admin-hero-preview { width: 120px; height: 74px; border-radius: var(--radius-sm); }
+.admin-hero-preview span { font-size: 11px; }
