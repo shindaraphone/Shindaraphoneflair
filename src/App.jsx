@@ -3065,30 +3065,6 @@ export default function App() {
         </div>
 
         <div className="header-actions">
-          {siteSettings.whatsapp_number && (
-            <a
-              className="header-quick-link"
-              href={`https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span>💬</span>
-              WhatsApp
-            </a>
-          )}
-
-          {siteSettings.tiktok_url && (
-            <a
-              className="header-quick-link"
-              href={siteSettings.tiktok_url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span>♪</span>
-              TikTok
-            </a>
-          )}
-
           <button
             className="header-account desktop-only"
             onClick={() => {
@@ -3575,6 +3551,16 @@ export default function App() {
 
           <div className="footer-column">
             <h4>Connect</h4>
+            {siteSettings.whatsapp_number && (
+              <a
+                className="footer-link"
+                href={`https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                WhatsApp
+              </a>
+            )}
             {siteSettings.instagram_url && (
               <a
                 className="footer-link"
@@ -3600,9 +3586,12 @@ export default function App() {
                 Contact us
               </a>
             )}
-            {!siteSettings.instagram_url && !siteSettings.tiktok_url && !siteSettings.support_email && (
-              <span className="footer-link-placeholder">Contact links coming soon</span>
-            )}
+            {!siteSettings.whatsapp_number &&
+              !siteSettings.instagram_url &&
+              !siteSettings.tiktok_url &&
+              !siteSettings.support_email && (
+                <span className="footer-link-placeholder">Contact links coming soon</span>
+              )}
           </div>
 
         </div>
