@@ -1112,6 +1112,43 @@ const categoryMatches = (product, selectedCategory) => {
 
 
 /* =========================================================
+   MODAL COMPONENT
+   (module-level, not defined inside App — a component defined
+   inside another component gets recreated every render, which
+   was destroying and remounting every open modal, including
+   whatever input the user was typing in, on every keystroke.)
+   ========================================================= */
+
+function Modal({ children, onClose, wide = false, processing = false }) {
+  return (
+    <div
+      className="modal-overlay"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !processing) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className={`modal ${wide ? "modal-wide" : ""}`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button
+          className="modal-close"
+          onClick={onClose}
+          disabled={processing}
+          aria-label="Close"
+        >
+          ×
+        </button>
+
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
    APP
    ========================================================= */
 
@@ -1745,7 +1782,7 @@ export default function App() {
 
 
         await loadCart(user.id);
-        showNotice(`${product.name} added to your bag.`);
+        showNotice(`${product.name} added to your cart.`);
         return true;
       } catch (error) {
         console.error("Add cart:", error);
@@ -2883,7 +2920,7 @@ export default function App() {
 
   const openCheckout = useCallback(() => {
     if (!cart.length) {
-      showNotice("Your bag is empty.");
+      showNotice("Your cart is empty.");
       return;
     }
 
@@ -2910,42 +2947,6 @@ export default function App() {
 
     setModal("checkout");
   }, [cart.length, profile, user, showNotice]);
-
-
-  /* =======================================================
-     MODAL COMPONENT
-     ======================================================= */
-
-
-  const Modal = ({ children, onClose, wide = false }) => {
-    return (
-      <div
-        className="modal-overlay"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !processing) {
-            onClose();
-          }
-        }}
-      >
-        <div
-          className={`modal ${wide ? "modal-wide" : ""}`}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          <button
-            className="modal-close"
-            onClick={onClose}
-            disabled={processing}
-            aria-label="Close"
-          >
-            ×
-          </button>
-
-
-          {children}
-        </div>
-      </div>
-    );
-  };
 
 
   /* =======================================================
@@ -3013,6 +3014,7 @@ export default function App() {
 
         <nav className={`nav ${mobileMenu ? "nav-open" : ""}`}>
           <button
+            className="desktop-only"
             onClick={() => {
               setMobileMenu(false);
               scrollToSection("shop");
@@ -3022,6 +3024,7 @@ export default function App() {
           </button>
 
           <button
+            className="desktop-only"
             onClick={() => {
               setMobileMenu(false);
               scrollToSection("categories");
@@ -3053,17 +3056,6 @@ export default function App() {
           )}
         </nav>
 
-        <div className="header-search">
-          <span>⌕</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search"
-            onFocus={() => scrollToSection("shop")}
-          />
-        </div>
-
         <div className="header-actions">
           <button
             className="header-account desktop-only"
@@ -3089,12 +3081,12 @@ export default function App() {
               if (!user) {
                 setAuthMode("login");
                 setModal("auth");
-                showNotice("Sign in to access your bag.");
+                showNotice("Sign in to access your cart.");
                 return;
               }
               setModal("cart");
             }}
-            aria-label="Shopping bag"
+            aria-label="Shopping cart"
           >
             <span className="cart-label">Cart</span>
             {cartCount > 0 && (
@@ -3545,7 +3537,7 @@ export default function App() {
                 }
               }}
             >
-              My bag
+              My cart
             </button>
           </div>
 
@@ -3628,7 +3620,7 @@ export default function App() {
             if (!user) {
               setAuthMode("login");
               setModal("auth");
-              showNotice("Sign in to access your bag.");
+              showNotice("Sign in to access your cart.");
               return;
             }
             setModal("cart");
@@ -3663,7 +3655,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "product" && selectedProduct && (
-        <Modal onClose={() => setModal(null)}>
+        <Modal onClose={() => setModal(null)} processing={processing}>
           <div className="product-modal">
             <div className="product-modal-image">
               {getProductImage(selectedProduct) ? (
@@ -3701,7 +3693,7 @@ export default function App() {
                   setModal(null);
                 }}
               >
-                {Number(selectedProduct.stock || 0) > 0 ? "Add to bag" : "Sold out"}
+                {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "Sold out"}
               </button>
             </div>
           </div>
@@ -3713,7 +3705,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "auth" && (
-        <Modal onClose={() => setModal(null)}>
+        <Modal onClose={() => setModal(null)} processing={processing}>
           {authMode === "forgot" ? (
             <>
               <div className="modal-head">
@@ -3776,7 +3768,7 @@ export default function App() {
                 <h2>{authMode === "login" ? "Welcome back." : "Create your account."}</h2>
                 <p>
                   {authMode === "login"
-                    ? "Sign in to manage your bag and orders."
+                    ? "Sign in to manage your cart and orders."
                     : "Create an account to start shopping."}
                 </p>
               </div>
@@ -3896,7 +3888,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "newPassword" && (
-        <Modal onClose={() => setModal(null)}>
+        <Modal onClose={() => setModal(null)} processing={processing}>
           <div className="modal-head">
             <span className="modal-kicker">Shindara PhoneFlair</span>
             <h2>Set a new password.</h2>
@@ -3939,7 +3931,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "wishlist" && (
-        <Modal onClose={() => setModal(null)} wide>
+        <Modal onClose={() => setModal(null)} wide processing={processing}>
           <div className="modal-head">
             <span className="modal-kicker">Saved for later</span>
             <h2>Your wishlist.</h2>
@@ -3999,7 +3991,7 @@ export default function App() {
                           if (ok) celebrateAdd(product.id);
                         }}
                       >
-                        {stock <= 0 ? "Sold out" : "Add to bag"}
+                        {stock <= 0 ? "Sold out" : "Add to Cart"}
                       </button>
                       <button className="remove" onClick={() => toggleWishlist(product)}>
                         Remove
@@ -4018,10 +4010,10 @@ export default function App() {
           =================================================== */}
 
       {modal === "cart" && (
-        <Modal onClose={() => setModal(null)} wide>
+        <Modal onClose={() => setModal(null)} wide processing={processing}>
           <div className="modal-head">
-            <span className="modal-kicker">Your bag</span>
-            <h2>Shopping bag.</h2>
+            <span className="modal-kicker">Your cart</span>
+            <h2>Shopping cart.</h2>
             <p>
               {cartCount} item{cartCount !== 1 ? "s" : ""} selected.
             </p>
@@ -4030,7 +4022,7 @@ export default function App() {
           {cartLoading ? (
             <div className="modal-empty">
               <div className="mini-spinner" />
-              <p>Loading your bag...</p>
+              <p>Loading your cart...</p>
             </div>
           ) : cart.length === 0 ? (
             <div className="modal-empty">
@@ -4038,7 +4030,7 @@ export default function App() {
                 <path d="M14 16h20l-1.5 22a3 3 0 01-3 2.8H18.5a3 3 0 01-3-2.8L14 16z" stroke="var(--gold)" strokeWidth="2" strokeLinejoin="round" />
                 <path d="M18 16v-3a6 6 0 0112 0v3" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
               </svg>
-              <h3>Your bag is empty.</h3>
+              <h3>Your cart is empty.</h3>
               <p>Find something you love and add it here.</p>
               <button
                 className="btn-primary"
@@ -4121,6 +4113,7 @@ export default function App() {
             }
           }}
           wide
+          processing={processing}
         >
           <div className="modal-head">
             <span className="modal-kicker">Secure checkout</span>
@@ -4299,7 +4292,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "orders" && (
-        <Modal onClose={() => setModal(null)} wide>
+        <Modal onClose={() => setModal(null)} wide processing={processing}>
           <div className="modal-head">
             <span className="modal-kicker">Your account</span>
             <h2>Your orders.</h2>
@@ -4370,7 +4363,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "success" && selectedOrder && (
-        <Modal onClose={() => setModal("tracking")}>
+        <Modal onClose={() => setModal("tracking")} processing={processing}>
           <div className="success-screen">
             <svg className="success-check" viewBox="0 0 60 60" fill="none">
               <circle className="success-check-ring" cx="30" cy="30" r="27" />
@@ -4395,7 +4388,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "tracking" && selectedOrder && (
-        <Modal onClose={() => setModal("orders")} wide>
+        <Modal onClose={() => setModal("orders")} wide processing={processing}>
           <div className="modal-head">
             <span className="modal-kicker">Order tracking</span>
             <h2>{selectedOrder.tracking_number || "Order"}</h2>
@@ -4506,7 +4499,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "settings" && user && (
-        <Modal onClose={() => setModal(null)}>
+        <Modal onClose={() => setModal(null)} processing={processing}>
           <div className="modal-head">
             <span className="modal-kicker">Your account</span>
             <h2>Account settings.</h2>
