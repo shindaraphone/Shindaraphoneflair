@@ -675,6 +675,33 @@ function CustomersTab({ customers }) {
 function CategoriesTab({ categories, reload, showNotice }) {
   const [editing, setEditing] = useState(null); // {} for new, or a category row
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadPhoto = useCallback(
+    async (file) => {
+      if (!file) return;
+      setUploading(true);
+
+      try {
+        const ext = file.name.split(".").pop();
+        const path = `categories/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, file, { cacheControl: "3600", upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+        setEditing((p) => ({ ...p, image_url: data.publicUrl }));
+      } catch (err) {
+        showNotice(err.message || "Could not upload photo.");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [showNotice]
+  );
 
   const save = useCallback(
     async (event) => {
@@ -684,6 +711,7 @@ function CategoriesTab({ categories, reload, showNotice }) {
       const payload = {
         name: editing.name.trim(),
         icon: editing.icon.trim() || "◆",
+        image_url: editing.image_url?.trim() || "",
       };
 
       try {
@@ -762,7 +790,7 @@ function CategoriesTab({ categories, reload, showNotice }) {
           <p>{categories.length} categor{categories.length !== 1 ? "ies" : "y"}. Order here matches the storefront.</p>
         </div>
         <div className="admin-panel-actions">
-          <button className="btn-primary" onClick={() => setEditing({ name: "", icon: "◆" })}>
+          <button className="btn-primary" onClick={() => setEditing({ name: "", icon: "◆", image_url: "" })}>
             + Add category
           </button>
         </div>
@@ -797,7 +825,13 @@ function CategoriesTab({ categories, reload, showNotice }) {
                     ↓
                   </button>
                 </td>
-                <td className="admin-icon-cell">{cat.icon || "◆"}</td>
+                <td className="admin-icon-cell">
+                  {cat.image_url ? (
+                    <img className="admin-cat-thumb" src={cat.image_url} alt={cat.name} />
+                  ) : (
+                    cat.icon || "◆"
+                  )}
+                </td>
                 <td>{cat.name}</td>
                 <td className="admin-row-actions">
                   <button className="btn-text" onClick={() => setEditing(cat)}>
@@ -840,19 +874,56 @@ function CategoriesTab({ categories, reload, showNotice }) {
             </div>
 
             <div className="field">
-              <label>Icon</label>
+              <label>Photo</label>
+
+              <div className="admin-photo-upload">
+                <div className="admin-photo-preview">
+                  {editing.image_url ? (
+                    <img src={editing.image_url} alt="Preview" />
+                  ) : (
+                    <span>{editing.icon || "◆"}</span>
+                  )}
+                </div>
+
+                <div className="admin-photo-controls">
+                  <label className="btn-secondary admin-upload-btn">
+                    {uploading ? "Uploading..." : editing.image_url ? "Replace photo" : "Upload photo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      disabled={uploading}
+                      onChange={(event) => uploadPhoto(event.target.files?.[0])}
+                    />
+                  </label>
+
+                  {editing.image_url && (
+                    <button
+                      type="button"
+                      className="admin-danger"
+                      onClick={() => setEditing((p) => ({ ...p, image_url: "" }))}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+              <small className="admin-hint">
+                A square photo works best. If no photo is set, the icon below shows instead.
+              </small>
+            </div>
+
+            <div className="field">
+              <label>Icon (fallback if no photo)</label>
               <input
                 value={editing.icon}
                 onChange={(event) => setEditing((p) => ({ ...p, icon: event.target.value }))}
                 placeholder="Any single character or emoji, e.g. ⚡ or 🎧"
                 maxLength={4}
               />
-              <small className="admin-hint">
-                Shows on the category tile on your homepage. Paste any symbol or emoji.
-              </small>
             </div>
 
-            <button className="btn-primary full" type="submit" disabled={saving}>
+            <button className="btn-primary full" type="submit" disabled={saving || uploading}>
               {saving ? "Saving..." : editing.id ? "Save changes" : "Add category"}
             </button>
           </form>
@@ -872,7 +943,10 @@ function BrandingTab({ settings, reload, showNotice }) {
   const [instagramUrl, setInstagramUrl] = useState(settings.instagram_url || "");
   const [tiktokUrl, setTiktokUrl] = useState(settings.tiktok_url || "");
   const [supportEmail, setSupportEmail] = useState(settings.support_email || "");
+  const [whatsappNumber, setWhatsappNumber] = useState(settings.whatsapp_number || "");
+  const [heroImageUrl, setHeroImageUrl] = useState(settings.hero_image_url || "");
   const [uploading, setUploading] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const uploadLogo = useCallback(
@@ -901,6 +975,32 @@ function BrandingTab({ settings, reload, showNotice }) {
     [showNotice]
   );
 
+  const uploadHeroImage = useCallback(
+    async (file) => {
+      if (!file) return;
+      setUploadingHero(true);
+
+      try {
+        const ext = file.name.split(".").pop();
+        const path = `branding/hero-${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, file, { cacheControl: "3600", upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+        setHeroImageUrl(data.publicUrl);
+      } catch (err) {
+        showNotice(err.message || "Could not upload hero image.");
+      } finally {
+        setUploadingHero(false);
+      }
+    },
+    [showNotice]
+  );
+
   const save = useCallback(
     async (event) => {
       event.preventDefault();
@@ -915,6 +1015,8 @@ function BrandingTab({ settings, reload, showNotice }) {
             instagram_url: instagramUrl.trim(),
             tiktok_url: tiktokUrl.trim(),
             support_email: supportEmail.trim(),
+            whatsapp_number: whatsappNumber.trim(),
+            hero_image_url: heroImageUrl.trim(),
           })
           .eq("id", 1);
 
@@ -928,7 +1030,17 @@ function BrandingTab({ settings, reload, showNotice }) {
         setSaving(false);
       }
     },
-    [logoUrl, tagline, instagramUrl, tiktokUrl, supportEmail, reload, showNotice]
+    [
+      logoUrl,
+      tagline,
+      instagramUrl,
+      tiktokUrl,
+      supportEmail,
+      whatsappNumber,
+      heroImageUrl,
+      reload,
+      showNotice,
+    ]
   );
 
   return (
@@ -1007,6 +1119,18 @@ function BrandingTab({ settings, reload, showNotice }) {
         </div>
 
         <div className="field">
+          <label>WhatsApp number</label>
+          <input
+            value={whatsappNumber}
+            onChange={(event) => setWhatsappNumber(event.target.value)}
+            placeholder="2348012345678 (with country code, no + or spaces)"
+          />
+          <small className="admin-hint">
+            Shows a WhatsApp icon in your header that opens a chat with this number.
+          </small>
+        </div>
+
+        <div className="field">
           <label>Support email</label>
           <input
             type="email"
@@ -1016,10 +1140,46 @@ function BrandingTab({ settings, reload, showNotice }) {
           />
         </div>
         <small className="admin-hint">
-          Leave any of these blank to hide that link on the storefront footer.
+          Leave any of these blank to hide that link on the storefront.
         </small>
 
-        <button className="btn-primary full" type="submit" disabled={saving || uploading}>
+        <div className="settings-block-title admin-section-title">Hero image</div>
+
+        <div className="field">
+          <div className="admin-photo-upload">
+            <div className="admin-photo-preview admin-hero-preview">
+              {heroImageUrl ? <img src={heroImageUrl} alt="Hero preview" /> : <span>No image</span>}
+            </div>
+
+            <div className="admin-photo-controls">
+              <label className="btn-secondary admin-upload-btn">
+                {uploadingHero ? "Uploading..." : heroImageUrl ? "Replace image" : "Upload image"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  disabled={uploadingHero}
+                  onChange={(event) => uploadHeroImage(event.target.files?.[0])}
+                />
+              </label>
+
+              {heroImageUrl && (
+                <button
+                  type="button"
+                  className="admin-danger"
+                  onClick={() => setHeroImageUrl("")}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+          <small className="admin-hint">
+            A product photo collage for the homepage banner. If not set, a decorative illustration shows instead.
+          </small>
+        </div>
+
+        <button className="btn-primary full" type="submit" disabled={saving || uploading || uploadingHero}>
           {saving ? "Saving..." : "Save branding"}
         </button>
       </form>
