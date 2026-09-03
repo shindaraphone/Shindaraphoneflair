@@ -1131,6 +1131,8 @@ export default function App() {
     instagram_url: "",
     tiktok_url: "",
     support_email: "",
+    whatsapp_number: "",
+    hero_image_url: "",
   });
   const [deliveryFees, setDeliveryFees] = useState({});
   const [wishlist, setWishlist] = useState([]);
@@ -1186,9 +1188,9 @@ export default function App() {
 
   const [theme, setTheme] = useState(() => {
     try {
-      return localStorage.getItem("theme") || "light";
+      return localStorage.getItem("theme") || "dark";
     } catch {
-      return "light";
+      return "dark";
     }
   });
 
@@ -1275,7 +1277,9 @@ export default function App() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setCategories(data.map((c) => ({ name: c.name, icon: c.icon || "◆" })));
+        setCategories(
+          data.map((c) => ({ name: c.name, icon: c.icon || "◆", image_url: c.image_url || "" }))
+        );
       }
     } catch (error) {
       console.error("Categories:", error);
@@ -1301,6 +1305,8 @@ export default function App() {
           instagram_url: data.instagram_url || "",
           tiktok_url: data.tiktok_url || "",
           support_email: data.support_email || "",
+          whatsapp_number: data.whatsapp_number || "",
+          hero_image_url: data.hero_image_url || "",
         });
       }
     } catch (error) {
@@ -3047,9 +3053,44 @@ export default function App() {
           )}
         </nav>
 
+        <div className="header-search">
+          <span>⌕</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search for products..."
+            onFocus={() => scrollToSection("shop")}
+          />
+        </div>
+
         <div className="header-actions">
+          {siteSettings.whatsapp_number && (
+            <a
+              className="header-quick-link"
+              href={`https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span>💬</span>
+              WhatsApp
+            </a>
+          )}
+
+          {siteSettings.tiktok_url && (
+            <a
+              className="header-quick-link"
+              href={siteSettings.tiktok_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span>♪</span>
+              TikTok
+            </a>
+          )}
+
           <button
-            className="header-account"
+            className="header-account desktop-only"
             onClick={() => {
               if (user) {
                 setModal("settings");
@@ -3079,7 +3120,7 @@ export default function App() {
             }}
             aria-label="Shopping bag"
           >
-            <span>Bag</span>
+            <span>Cart</span>
             {cartCount > 0 && (
               <b className={`cart-count ${cartBounce ? "count-pop" : ""}`}>{cartCount}</b>
             )}
@@ -3125,57 +3166,63 @@ export default function App() {
 
             <div className="hero-buttons">
               <button className="btn-primary hero-btn" onClick={() => scrollToSection("shop")}>
-                Shop the collection
+                Shop Now
                 <span>→</span>
               </button>
 
-              <button className="btn-text" onClick={() => scrollToSection("categories")}>
-                Browse categories
+              <button className="btn-secondary" onClick={() => scrollToSection("categories")}>
+                Explore Categories
               </button>
             </div>
 
             <div className="hero-trust">
-              <span>Curated quality</span>
-              <span>Nationwide delivery</span>
-              <span>Secure checkout</span>
+              <div><span className="hero-trust-icon">🛡</span>Quality Products</div>
+              <div><span className="hero-trust-icon">🚚</span>Fast Delivery</div>
+              <div><span className="hero-trust-icon">🔒</span>Secure Payment</div>
             </div>
 
           </div>
 
           <div className="hero-art">
 
-            <div className="hero-card-back" />
+            {siteSettings.hero_image_url ? (
+              <img className="hero-photo" src={siteSettings.hero_image_url} alt="Featured products" />
+            ) : (
+              <>
+                <div className="hero-card-back" />
 
-            <div className="hero-card">
-              <div className="hero-card-top">
-                <span>SHINDARA</span>
-                <span>PHONEFLAIR</span>
-              </div>
+                <div className="hero-card">
+                  <div className="hero-card-top">
+                    <span>SHINDARA</span>
+                    <span>PHONEFLAIR</span>
+                  </div>
 
-              <div className="hero-card-center">
-                <div className="hero-ring">
-                  <div className="hero-ring-inner">S</div>
+                  <div className="hero-card-center">
+                    <div className="hero-ring">
+                      <div className="hero-ring-inner">S</div>
+                    </div>
+                    <strong>The everyday edit</strong>
+                    <span>BETTER ACCESSORIES</span>
+                  </div>
+
+                  <div className="hero-card-bottom">
+                    <span>SINCE DAY ONE</span>
+                    <span>✦</span>
+                  </div>
                 </div>
-                <strong>The everyday edit</strong>
-                <span>BETTER ACCESSORIES</span>
-              </div>
 
-              <div className="hero-card-bottom">
-                <span>SINCE DAY ONE</span>
-                <span>✦</span>
-              </div>
-            </div>
+                <div className="hero-floating hero-floating-one">
+                  <span>Handpicked</span>
+                  <strong>Premium builds</strong>
+                  <small>Not mass-market filler</small>
+                </div>
 
-            <div className="hero-floating hero-floating-one">
-              <span>Handpicked</span>
-              <strong>Premium builds</strong>
-              <small>Not mass-market filler</small>
-            </div>
-
-            <div className="hero-floating hero-floating-two">
-              <strong>Fast delivery</strong>
-              <small>Across all 36 states</small>
-            </div>
+                <div className="hero-floating hero-floating-two">
+                  <strong>Fast delivery</strong>
+                  <small>Across all 36 states</small>
+                </div>
+              </>
+            )}
 
           </div>
 
@@ -3223,25 +3270,35 @@ export default function App() {
               <h2>Find your <em>essential.</em></h2>
             </div>
 
-            <p>
-              From everyday charging essentials to statement accessories,
-              find something made for your setup.
-            </p>
+            <button
+              className="view-all-link"
+              onClick={() => {
+                setCategory("All");
+                scrollToSection("shop");
+              }}
+            >
+              View all categories →
+            </button>
           </div>
 
-          <div className="category-grid">
+          <div className="category-scroll">
             {categories.map((item) => (
               <button
-                className={`category-card ${category === item.name ? "active" : ""}`}
+                className={`category-tile ${category === item.name ? "active" : ""}`}
                 key={item.name}
                 onClick={() => {
                   setCategory(item.name);
                   scrollToSection("shop");
                 }}
               >
-                <span className="category-number">{item.icon || "◆"}</span>
-                <span className="category-name">{item.name}</span>
-                <span className="category-arrow">→</span>
+                <span className="category-tile-image">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} />
+                  ) : (
+                    <span className="category-tile-icon">{item.icon || "◆"}</span>
+                  )}
+                </span>
+                <span className="category-tile-name">{item.name}</span>
               </button>
             ))}
           </div>
@@ -3358,27 +3415,19 @@ export default function App() {
                             <span className="new-badge">New</span>
                           )}
                       </button>
-
-                      <button
-                        className={`wishlist-heart ${wishlist.includes(product.id) ? "active" : ""}`}
-                        onClick={() => toggleWishlist(product)}
-                        aria-label={
-                          wishlist.includes(product.id)
-                            ? "Remove from wishlist"
-                            : "Save to wishlist"
-                        }
-                      >
-                        {wishlist.includes(product.id) ? "♥" : "♡"}
-                      </button>
                     </div>
 
                     <div className="product-content">
                       <span className="product-category">{product.category || "Shindara"}</span>
                       <h3>{product.name}</h3>
-                      <p>{product.description || "Premium tech essential for everyday use."}</p>
+                      <strong className="product-price">{money(product.price)}</strong>
+
+                      <span className={`stock-indicator ${stock <= 0 ? "out" : ""}`}>
+                        <span className="stock-dot" />
+                        {stock <= 0 ? "Out of stock" : "In Stock"}
+                      </span>
 
                       <div className="product-footer">
-                        <strong className="product-price">{money(product.price)}</strong>
                         <button
                           className={`product-add ${justAddedId === product.id ? "just-added" : ""}`}
                           disabled={stock <= 0}
@@ -3387,12 +3436,24 @@ export default function App() {
                             if (ok) celebrateAdd(product.id);
                           }}
                         >
+                          <span>{justAddedId === product.id ? "✓" : "🛒"}</span>
                           {justAddedId === product.id
                             ? "Added"
                             : stock <= 0
                             ? "Sold out"
-                            : "Add to bag"}
-                          <span>{justAddedId === product.id ? "✓" : "+"}</span>
+                            : "Add to Cart"}
+                        </button>
+
+                        <button
+                          className={`wishlist-heart-inline ${wishlist.includes(product.id) ? "active" : ""}`}
+                          onClick={() => toggleWishlist(product)}
+                          aria-label={
+                            wishlist.includes(product.id)
+                              ? "Remove from wishlist"
+                              : "Save to wishlist"
+                          }
+                        >
+                          {wishlist.includes(product.id) ? "♥" : "♡"}
                         </button>
                       </div>
                     </div>
@@ -3551,6 +3612,62 @@ export default function App() {
           <span>Built for better everyday tech.</span>
         </div>
       </footer>
+
+      {/* ===================================================
+          BOTTOM TAB BAR (mobile)
+          =================================================== */}
+
+      <nav className="bottom-tabs">
+        <button className="bottom-tab active" onClick={() => scrollToSection("top")}>
+          <span>⌂</span>
+          Home
+        </button>
+
+        <button className="bottom-tab" onClick={() => scrollToSection("shop")}>
+          <span>▤</span>
+          Shop
+        </button>
+
+        <button className="bottom-tab" onClick={() => scrollToSection("categories")}>
+          <span>▦</span>
+          Categories
+        </button>
+
+        <button
+          className="bottom-tab"
+          onClick={() => {
+            if (!user) {
+              setAuthMode("login");
+              setModal("auth");
+              showNotice("Sign in to access your bag.");
+              return;
+            }
+            setModal("cart");
+          }}
+        >
+          <span className="bottom-tab-cart-icon">
+            🛒
+            {cartCount > 0 && <b className="bottom-tab-count">{cartCount}</b>}
+          </span>
+          Cart
+        </button>
+
+        <button
+          className="bottom-tab"
+          onClick={() => {
+            if (user) {
+              setModal("settings");
+            } else {
+              setAuthMode("login");
+              resetAuthForm();
+              setModal("auth");
+            }
+          }}
+        >
+          <span>◉</span>
+          Account
+        </button>
+      </nav>
 
       {/* ===================================================
           PRODUCT MODAL
