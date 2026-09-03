@@ -3059,7 +3059,7 @@ export default function App() {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search for products..."
+            placeholder="Search"
             onFocus={() => scrollToSection("shop")}
           />
         </div>
@@ -3096,7 +3096,7 @@ export default function App() {
             }}
             aria-label="Shopping bag"
           >
-            <span>Cart</span>
+            <span className="cart-label">Cart</span>
             {cartCount > 0 && (
               <b className={`cart-count ${cartBounce ? "count-pop" : ""}`}>{cartCount}</b>
             )}
