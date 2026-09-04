@@ -78,6 +78,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
   const [editing, setEditing] = useState(null); // product being edited, or {} for new
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [spotlightSaving, setSpotlightSaving] = useState(false);
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -173,6 +174,46 @@ function ProductsTab({ products, categories, reload, showNotice }) {
     [editing, reload, showNotice]
   );
 
+  const toggleSpotlight = useCallback(
+    async (product) => {
+      setSpotlightSaving(true);
+
+      try {
+        if (product.is_featured) {
+          // turning it off just un-features this one — homepage falls
+          // back to the first product until another is chosen
+          const { error } = await supabase
+            .from("products")
+            .update({ is_featured: false })
+            .eq("id", product.id);
+          if (error) throw error;
+          showNotice("Removed from Spotlight.");
+        } else {
+          const { error: unsetError } = await supabase
+            .from("products")
+            .update({ is_featured: false })
+            .eq("is_featured", true);
+          if (unsetError) throw unsetError;
+
+          const { error } = await supabase
+            .from("products")
+            .update({ is_featured: true })
+            .eq("id", product.id);
+          if (error) throw error;
+
+          showNotice(`${product.name} is now in the Spotlight.`);
+        }
+
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not update Spotlight.");
+      } finally {
+        setSpotlightSaving(false);
+      }
+    },
+    [reload, showNotice]
+  );
+
   const remove = useCallback(
     async (product) => {
       if (!window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
@@ -218,6 +259,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
               <th>Category</th>
               <th>Price</th>
               <th>Stock</th>
+              <th>Spotlight</th>
               <th></th>
             </tr>
           </thead>
@@ -243,6 +285,19 @@ function ProductsTab({ products, categories, reload, showNotice }) {
                     {product.stock ?? 0}
                   </span>
                 </td>
+                <td>
+                  <button
+                    className={`admin-spotlight-star ${product.is_featured ? "active" : ""}`}
+                    onClick={() => toggleSpotlight(product)}
+                    disabled={spotlightSaving}
+                    aria-label={
+                      product.is_featured ? "Currently in Spotlight" : "Set as Spotlight product"
+                    }
+                    title={product.is_featured ? "Currently in Spotlight" : "Set as Spotlight"}
+                  >
+                    {product.is_featured ? "★" : "☆"}
+                  </button>
+                </td>
                 <td className="admin-row-actions">
                   <button className="btn-text" onClick={() => setEditing(product)}>
                     Edit
@@ -256,7 +311,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
 
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="admin-empty-row">
+                <td colSpan={7} className="admin-empty-row">
                   No products found.
                 </td>
               </tr>
