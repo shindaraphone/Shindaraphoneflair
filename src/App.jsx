@@ -1149,6 +1149,45 @@ function Modal({ children, onClose, wide = false, processing = false }) {
 }
 
 /* =========================================================
+   REVEAL ON SCROLL
+   (module-level — wraps content that should fade+rise in
+   once it enters the viewport, with an optional stagger delay)
+   ========================================================= */
+
+function Reveal({ children, delay = 0, className = "" }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`reveal ${visible ? "reveal-visible" : ""} ${className}`}
+      style={{ transitionDelay: visible ? `${delay}ms` : "0ms" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* =========================================================
    APP
    ========================================================= */
 
@@ -2836,6 +2875,15 @@ export default function App() {
   );
 
 
+  const spotlightProduct = useMemo(() => {
+    if (products.length === 0) return null;
+    return products.find((p) => p.is_featured) || products[0];
+  }, [products]);
+
+
+  const trendingProducts = useMemo(() => products.slice(0, 8), [products]);
+
+
   /* =======================================================
      FORMAT DATE
      ======================================================= */
@@ -3197,6 +3245,49 @@ export default function App() {
         </section>
 
         {/* =================================================
+            SPOTLIGHT
+            ================================================= */}
+
+        {spotlightProduct && (
+          <section className="spotlight">
+            <div className="spotlight-mesh" />
+
+            <Reveal className="spotlight-image-wrap">
+              <div className="spotlight-image">
+                {getProductImage(spotlightProduct) ? (
+                  <img src={getProductImage(spotlightProduct)} alt={spotlightProduct.name} />
+                ) : (
+                  <div className="product-placeholder large">
+                    <span>S</span>
+                  </div>
+                )}
+              </div>
+            </Reveal>
+
+            <Reveal delay={120} className="spotlight-content">
+              <span className="section-kicker">Spotlight</span>
+              <h2>{spotlightProduct.name}</h2>
+              <p>
+                {spotlightProduct.description ||
+                  "A standout pick from the collection, worth a closer look."}
+              </p>
+              <strong className="spotlight-price">{money(spotlightProduct.price)}</strong>
+
+              <button
+                className="btn-primary"
+                disabled={Number(spotlightProduct.stock || 0) <= 0}
+                onClick={async () => {
+                  const ok = await addToCart(spotlightProduct);
+                  if (ok) celebrateAdd(spotlightProduct.id);
+                }}
+              >
+                {Number(spotlightProduct.stock || 0) > 0 ? "Add to Cart" : "Sold out"}
+              </button>
+            </Reveal>
+          </section>
+        )}
+
+        {/* =================================================
             SERVICE STRIP
             ================================================= */}
 
@@ -3271,6 +3362,52 @@ export default function App() {
             ))}
           </div>
         </section>
+
+        {/* =================================================
+            TRENDING NOW
+            ================================================= */}
+
+        {trendingProducts.length > 0 && (
+          <section className="trending-section">
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">Trending now</span>
+                <h2>Everyone's <em>picking these.</em></h2>
+              </div>
+            </div>
+
+            <div className="trending-scroll">
+              {trendingProducts.map((product) => {
+                const image = getProductImage(product);
+                const stock = Number(product.stock || 0);
+
+                return (
+                  <button
+                    className="trending-card"
+                    key={product.id}
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setModal("product");
+                    }}
+                  >
+                    <div className="trending-card-image">
+                      {image ? (
+                        <img src={image} alt={product.name} loading="lazy" />
+                      ) : (
+                        <div className="product-placeholder">
+                          <span>S</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="trending-card-name">{product.name}</span>
+                    <strong className="trending-card-price">{money(product.price)}</strong>
+                    {stock <= 0 && <span className="sold-out">Sold out</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* =================================================
             SHOP
@@ -3348,13 +3485,14 @@ export default function App() {
             </div>
           ) : (
             <div className="product-grid">
-              {sortedProducts.map((product) => {
+              {sortedProducts.map((product, index) => {
 
                 const stock = Number(product.stock || 0);
                 const image = getProductImage(product);
 
                 return (
-                  <article className="product-card" key={product.id}>
+                  <Reveal key={product.id} delay={(index % 8) * 60}>
+                  <article className="product-card">
                     <div className="product-visual-wrap">
                       <button
                         className="product-visual"
@@ -3426,6 +3564,7 @@ export default function App() {
                       </div>
                     </div>
                   </article>
+                  </Reveal>
                 );
               })}
             </div>
