@@ -98,6 +98,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
       stock: "",
       description: "",
       image_url: "",
+      is_featured: false,
     });
 
   const uploadPhoto = useCallback(
@@ -139,6 +140,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
         stock: Number(editing.stock) || 0,
         description: editing.description?.trim() || "",
         image_url: editing.image_url?.trim() || "",
+        is_featured: Boolean(editing.is_featured),
       };
 
       try {
@@ -150,6 +152,14 @@ function ProductsTab({ products, categories, reload, showNotice }) {
         }
 
         if (error) throw error;
+
+        if (payload.is_featured) {
+          await supabase
+            .from("products")
+            .update({ is_featured: false })
+            .eq("is_featured", true)
+            .neq("id", editing.id || "");
+        }
 
         showNotice(editing.id ? "Product updated." : "Product added.");
         setEditing(null);
@@ -355,6 +365,21 @@ function ProductsTab({ products, categories, reload, showNotice }) {
                 </div>
               </div>
             </div>
+
+            <label className="admin-checkbox-field">
+              <input
+                type="checkbox"
+                checked={Boolean(editing.is_featured)}
+                onChange={(event) =>
+                  setEditing((p) => ({ ...p, is_featured: event.target.checked }))
+                }
+              />
+              Show in homepage Spotlight
+            </label>
+            <small className="admin-hint">
+              Only one product shows there at a time — checking this one will replace whichever was
+              featured before once you save.
+            </small>
 
             <button className="btn-primary full" type="submit" disabled={saving || uploading}>
               {saving ? "Saving..." : editing.id ? "Save changes" : "Add product"}
