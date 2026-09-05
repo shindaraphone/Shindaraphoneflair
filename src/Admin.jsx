@@ -1483,6 +1483,103 @@ function AnalyticsTab({ orders, products }) {
 }
 
 /* =========================================================
+   REVIEWS TAB
+   ========================================================= */
+
+function ReviewsTab({ reviews, products, reload, showNotice }) {
+  const [search, setSearch] = useState("");
+
+  const productName = useCallback(
+    (productId) => products.find((p) => p.id === productId)?.name || "Deleted product",
+    [products]
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return reviews;
+    return reviews.filter(
+      (r) =>
+        r.customer_name?.toLowerCase().includes(q) ||
+        r.comment?.toLowerCase().includes(q) ||
+        productName(r.product_id).toLowerCase().includes(q)
+    );
+  }, [reviews, search, productName]);
+
+  const remove = useCallback(
+    async (review) => {
+      if (!window.confirm("Delete this review? This cannot be undone.")) return;
+      try {
+        const { error } = await supabase.from("reviews").delete().eq("id", review.id);
+        if (error) throw error;
+        showNotice("Review deleted.");
+        await reload();
+      } catch (err) {
+        showNotice(err.message || "Could not delete review.");
+      }
+    },
+    [reload, showNotice]
+  );
+
+  return (
+    <div className="admin-panel">
+      <div className="admin-panel-head">
+        <div>
+          <h2>Reviews</h2>
+          <p>{reviews.length} review{reviews.length !== 1 ? "s" : ""} across all products.</p>
+        </div>
+        <div className="admin-panel-actions">
+          <input
+            className="admin-search"
+            placeholder="Search reviews..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Customer</th>
+              <th>Rating</th>
+              <th>Comment</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((review) => (
+              <tr key={review.id}>
+                <td>{productName(review.product_id)}</td>
+                <td>{review.customer_name}</td>
+                <td>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</td>
+                <td className="admin-review-comment">{review.comment || "—"}</td>
+                <td>{new Date(review.created_at).toLocaleDateString()}</td>
+                <td className="admin-row-actions">
+                  <button className="admin-danger" onClick={() => remove(review)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="admin-empty-row">
+                  No reviews yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
    ADMIN APP
    (auth + admin verification already handled by ProtectedAdmin.jsx —
    this component assumes it's only ever rendered for a verified admin)
@@ -1511,6 +1608,7 @@ export default function Admin() {
     support_email: "",
   });
   const [deliveryFees, setDeliveryFees] = useState({});
+  const [reviews, setReviews] = useState([]);
   const [notice, setNotice] = useState("");
 
   const showNotice = useCallback((message) => {
@@ -1626,6 +1724,19 @@ export default function Admin() {
     setDeliveryFees(map);
   }, []);
 
+  const loadReviews = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Reviews:", error);
+      return;
+    }
+    setReviews(data || []);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -1637,6 +1748,7 @@ export default function Admin() {
         loadCategories(),
         loadSettings(),
         loadDeliveryFees(),
+        loadReviews(),
       ]);
       if (mounted) setLoading(false);
     })();
@@ -1644,7 +1756,15 @@ export default function Admin() {
     return () => {
       mounted = false;
     };
-  }, [loadProducts, loadOrders, loadCustomers, loadCategories, loadSettings, loadDeliveryFees]);
+  }, [
+    loadProducts,
+    loadOrders,
+    loadCustomers,
+    loadCategories,
+    loadSettings,
+    loadDeliveryFees,
+    loadReviews,
+  ]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -1706,6 +1826,9 @@ export default function Admin() {
           <button className={tab === "delivery" ? "active" : ""} onClick={() => setTab("delivery")}>
             Delivery Fees
           </button>
+          <button className={tab === "reviews" ? "active" : ""} onClick={() => setTab("reviews")}>
+            Reviews
+          </button>
         </nav>
 
         <button className="logout-button" onClick={logout}>
@@ -1735,6 +1858,14 @@ export default function Admin() {
         )}
         {tab === "delivery" && (
           <DeliveryFeesTab fees={deliveryFees} reload={loadDeliveryFees} showNotice={showNotice} />
+        )}
+        {tab === "reviews" && (
+          <ReviewsTab
+            reviews={reviews}
+            products={products}
+            reload={loadReviews}
+            showNotice={showNotice}
+          />
         )}
       </main>
 
