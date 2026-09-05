@@ -394,3 +394,5 @@
 .admin-spotlight-star:hover { transform: scale(1.15); color: var(--gold); }
 .admin-spotlight-star.active { color: var(--gold); }
 .admin-spotlight-star:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.admin-review-comment { max-width: 260px; font-size: 13px; color: var(--ink-soft); }
