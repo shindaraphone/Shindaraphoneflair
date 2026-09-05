@@ -1212,6 +1212,11 @@ export default function App() {
   });
   const [deliveryFees, setDeliveryFees] = useState({});
   const [wishlist, setWishlist] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewFormOpen, setReviewFormOpen] = useState(false);
 
 
 
@@ -1406,6 +1411,64 @@ export default function App() {
       console.error("Delivery fees:", error);
     }
   }, []);
+
+
+  const loadReviews = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setReviews(data || []);
+    } catch (error) {
+      console.error("Reviews:", error);
+    }
+  }, []);
+
+
+  const submitReview = useCallback(
+    async (productId) => {
+      if (!user) return false;
+      if (reviewRating < 1) {
+        showNotice("Please choose a star rating.");
+        return false;
+      }
+
+      setReviewSaving(true);
+
+      try {
+        const { error } = await supabase.from("reviews").upsert(
+          {
+            user_id: user.id,
+            product_id: productId,
+            customer_name: profile?.full_name || "Customer",
+            rating: reviewRating,
+            comment: reviewComment.trim(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,product_id" }
+        );
+
+        if (error) throw error;
+
+        showNotice("Thanks for your review!");
+        setReviewRating(0);
+        setReviewComment("");
+        await loadReviews();
+        return true;
+      } catch (error) {
+        console.error("Review submit:", error);
+        showNotice(error?.message || "Could not save your review.");
+        return false;
+      } finally {
+        setReviewSaving(false);
+      }
+    },
+    [user, profile, reviewRating, reviewComment, loadReviews, showNotice]
+  );
 
 
   /* =======================================================
@@ -1656,6 +1719,7 @@ export default function App() {
           loadCategories(),
           loadSiteSettings(),
           loadDeliveryFees(),
+          loadReviews(),
         ]);
 
 
@@ -2884,6 +2948,50 @@ export default function App() {
   const trendingProducts = useMemo(() => products.slice(0, 8), [products]);
 
 
+  const reviewsByProduct = useMemo(() => {
+    const map = {};
+    reviews.forEach((review) => {
+      if (!map[review.product_id]) map[review.product_id] = [];
+      map[review.product_id].push(review);
+    });
+    return map;
+  }, [reviews]);
+
+
+  const getProductRatingSummary = useCallback(
+    (productId) => {
+      const list = reviewsByProduct[productId] || [];
+      if (list.length === 0) return { average: 0, count: 0 };
+      const total = list.reduce((sum, r) => sum + Number(r.rating || 0), 0);
+      return { average: total / list.length, count: list.length };
+    },
+    [reviewsByProduct]
+  );
+
+
+  const myReviewFor = useCallback(
+    (productId) => {
+      if (!user) return null;
+      return reviews.find((r) => r.product_id === productId && r.user_id === user.id) || null;
+    },
+    [reviews, user]
+  );
+
+
+  const canReviewProduct = useCallback(
+    (productId) => {
+      if (!user) return false;
+      if (myReviewFor(productId)) return false;
+      return orders.some(
+        (order) =>
+          order.status === "delivered" &&
+          (order.items || []).some((item) => item.product_id === productId)
+      );
+    },
+    [user, orders, myReviewFor]
+  );
+
+
   /* =======================================================
      FORMAT DATE
      ======================================================= */
@@ -3387,6 +3495,9 @@ export default function App() {
                     key={product.id}
                     onClick={() => {
                       setSelectedProduct(product);
+                      setReviewFormOpen(false);
+                      setReviewRating(0);
+                      setReviewComment("");
                       setModal("product");
                     }}
                   >
@@ -3498,6 +3609,9 @@ export default function App() {
                         className="product-visual"
                         onClick={() => {
                           setSelectedProduct(product);
+                          setReviewFormOpen(false);
+                          setReviewRating(0);
+                          setReviewComment("");
                           setModal("product");
                         }}
                       >
@@ -3526,6 +3640,16 @@ export default function App() {
                     <div className="product-content">
                       <span className="product-category">{product.category || "Shindara"}</span>
                       <h3>{product.name}</h3>
+
+                      {(() => {
+                        const summary = getProductRatingSummary(product.id);
+                        return summary.count > 0 ? (
+                          <span className="card-rating">
+                            <span className="stars">★</span> {summary.average.toFixed(1)} ({summary.count})
+                          </span>
+                        ) : null;
+                      })()}
+
                       <strong className="product-price">{money(product.price)}</strong>
 
                       <span className={`stock-indicator ${stock <= 0 ? "out" : ""}`}>
@@ -3809,6 +3933,24 @@ export default function App() {
             <div className="product-modal-content">
               <span className="modal-kicker">{selectedProduct.category || "Shindara product"}</span>
               <h2>{selectedProduct.name}</h2>
+
+              {(() => {
+                const summary = getProductRatingSummary(selectedProduct.id);
+                return (
+                  <div className="modal-rating-summary">
+                    <span className="stars">
+                      {"★".repeat(Math.round(summary.average))}
+                      {"☆".repeat(5 - Math.round(summary.average))}
+                    </span>
+                    <span>
+                      {summary.count > 0
+                        ? `${summary.average.toFixed(1)} (${summary.count} review${summary.count !== 1 ? "s" : ""})`
+                        : "No reviews yet"}
+                    </span>
+                  </div>
+                );
+              })()}
+
               <p className="product-modal-description">
                 {selectedProduct.description || "Premium tech essential designed for everyday use."}
               </p>
@@ -3834,6 +3976,102 @@ export default function App() {
               >
                 {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "Sold out"}
               </button>
+            </div>
+          </div>
+
+          <div className="reviews-section">
+            <div className="settings-block-title">Ratings &amp; reviews</div>
+
+            {(() => {
+              const myReview = myReviewFor(selectedProduct.id);
+              const eligible = canReviewProduct(selectedProduct.id);
+
+              if (myReview && !reviewFormOpen) {
+                return (
+                  <div className="my-review-card">
+                    <div className="review-stars">{"★".repeat(myReview.rating)}{"☆".repeat(5 - myReview.rating)}</div>
+                    {myReview.comment && <p>{myReview.comment}</p>}
+                    <button
+                      className="btn-text"
+                      onClick={() => {
+                        setReviewRating(myReview.rating);
+                        setReviewComment(myReview.comment || "");
+                        setReviewFormOpen(true);
+                      }}
+                    >
+                      Edit your review
+                    </button>
+                  </div>
+                );
+              }
+
+              if ((eligible || (myReview && reviewFormOpen))) {
+                return (
+                  <div className="review-form">
+                    <div className="star-picker">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={n <= reviewRating ? "active" : ""}
+                          onClick={() => setReviewRating(n)}
+                          aria-label={`${n} star${n !== 1 ? "s" : ""}`}
+                        >
+                          {n <= reviewRating ? "★" : "☆"}
+                        </button>
+                      ))}
+                    </div>
+
+                    <textarea
+                      rows="3"
+                      value={reviewComment}
+                      onChange={(event) => setReviewComment(event.target.value)}
+                      placeholder="What did you think of this product? (optional)"
+                    />
+
+                    <button
+                      className="btn-primary"
+                      disabled={reviewSaving}
+                      onClick={async () => {
+                        const ok = await submitReview(selectedProduct.id);
+                        if (ok) setReviewFormOpen(false);
+                      }}
+                    >
+                      {reviewSaving ? "Saving..." : "Submit review"}
+                    </button>
+                  </div>
+                );
+              }
+
+              if (user) {
+                return (
+                  <p className="admin-hint">
+                    You can review this product once your order for it is marked delivered.
+                  </p>
+                );
+              }
+
+              return null;
+            })()}
+
+            <div className="review-list">
+              {(reviewsByProduct[selectedProduct.id] || []).map((review) => (
+                <div className="review-row" key={review.id}>
+                  <div className="review-row-head">
+                    <span className="review-stars">
+                      {"★".repeat(review.rating)}
+                      {"☆".repeat(5 - review.rating)}
+                    </span>
+                    <strong>{review.customer_name}</strong>
+                    <span className="review-date">{formatDate(review.created_at)}</span>
+                  </div>
+                  {review.comment && <p>{review.comment}</p>}
+                </div>
+              ))}
+
+              {(reviewsByProduct[selectedProduct.id] || []).length === 0 && (
+                <p className="admin-hint">Be the first to review this product.</p>
+              )}
             </div>
           </div>
         </Modal>
