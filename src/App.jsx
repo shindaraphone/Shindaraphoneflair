@@ -2362,6 +2362,83 @@ export default function App() {
      ======================================================= */
 
 
+  const sendTransactionalEmail = useCallback(async (to, subject, html) => {
+    try {
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, subject, html }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        console.error("Email send failed:", data.error || response.statusText);
+      }
+    } catch (error) {
+      // Never let an email failure affect the actual order/checkout flow.
+      console.error("Email send error:", error);
+    }
+  }, []);
+
+
+  const buildOrderItemsHtml = useCallback((items) => {
+    return items
+      .map(
+        (item) => `
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;">${item.product?.name || item.product_name || "Product"} × ${item.quantity}</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;text-align:right;">${money(
+              Number(item.product?.price ?? item.price ?? 0) * Number(item.quantity || 0)
+            )}</td>
+          </tr>`
+      )
+      .join("");
+  }, []);
+
+
+  const sendOrderConfirmationEmail = useCallback(
+    (order, items) => {
+      if (!order.customer_email) return;
+
+      const html = `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#170f28;">
+          <div style="background:linear-gradient(135deg,#7c3aed,#ec4899);padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+            <h1 style="color:#fff;margin:0;font-size:20px;">Shindara PhoneFlair</h1>
+          </div>
+          <div style="padding:24px;border:1px solid #eee;border-top:none;border-radius:0 0 12px 12px;">
+            <h2 style="font-size:18px;">Thanks, ${order.customer_name}! Your order is confirmed. 🎉</h2>
+            <p style="color:#555;font-size:14px;">We've received your payment and we're getting your order ready.</p>
+            <p style="font-size:14px;"><strong>Tracking number:</strong> ${order.tracking_number}</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+              ${buildOrderItemsHtml(items)}
+              <tr>
+                <td style="padding:10px 0;">Delivery fee</td>
+                <td style="padding:10px 0;text-align:right;">${money(order.delivery_fee)}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 0;font-weight:bold;">Total paid</td>
+                <td style="padding:10px 0;text-align:right;font-weight:bold;">${money(order.total)}</td>
+              </tr>
+            </table>
+            <p style="font-size:14px;color:#555;">
+              Delivering to: ${order.delivery_address}, ${order.delivery_city}, ${order.delivery_state}
+            </p>
+            <p style="font-size:13px;color:#888;margin-top:20px;">
+              We'll email you again once your order is delivered. Thanks for shopping with Shindara PhoneFlair!
+            </p>
+          </div>
+        </div>`;
+
+      sendTransactionalEmail(
+        order.customer_email,
+        "Your Shindara PhoneFlair order is confirmed! 🎉",
+        html
+      );
+    },
+    [sendTransactionalEmail, buildOrderItemsHtml]
+  );
+
+
   const saveSuccessfulOrder = useCallback(
     async (paymentReference) => {
       if (!user) throw new Error("Customer session missing.");
@@ -2489,6 +2566,10 @@ export default function App() {
       }
 
 
+      /* Send order confirmation email — best-effort, never blocks checkout */
+      sendOrderConfirmationEmail(order, cart);
+
+
       /*
        * Reduce stock atomically — a database function checks and
        * decrements in one step, so two near-simultaneous checkouts
@@ -2535,6 +2616,7 @@ export default function App() {
       clearCart,
       loadOrders,
       loadProducts,
+      sendOrderConfirmationEmail,
     ]
   );
 
