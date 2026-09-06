@@ -1201,14 +1201,29 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
-  const [siteSettings, setSiteSettings] = useState({
-    logo_url: "",
-    tagline: "",
-    instagram_url: "",
-    tiktok_url: "",
-    support_email: "",
-    whatsapp_number: "",
-    hero_image_url: "",
+  const [siteSettings, setSiteSettings] = useState(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem("shindara-site-settings-cache") || "{}");
+      return {
+        logo_url: cached.logo_url || "",
+        tagline: cached.tagline || "",
+        instagram_url: cached.instagram_url || "",
+        tiktok_url: cached.tiktok_url || "",
+        support_email: cached.support_email || "",
+        whatsapp_number: cached.whatsapp_number || "",
+        hero_image_url: cached.hero_image_url || "",
+      };
+    } catch {
+      return {
+        logo_url: "",
+        tagline: "",
+        instagram_url: "",
+        tiktok_url: "",
+        support_email: "",
+        whatsapp_number: "",
+        hero_image_url: "",
+      };
+    }
   });
   const [deliveryFees, setDeliveryFees] = useState({});
   const [wishlist, setWishlist] = useState([]);
@@ -1380,7 +1395,7 @@ export default function App() {
       if (error) throw error;
 
       if (data) {
-        setSiteSettings({
+        const settings = {
           logo_url: data.logo_url || "",
           tagline: data.tagline || "",
           instagram_url: data.instagram_url || "",
@@ -1388,7 +1403,14 @@ export default function App() {
           support_email: data.support_email || "",
           whatsapp_number: data.whatsapp_number || "",
           hero_image_url: data.hero_image_url || "",
-        });
+        };
+        setSiteSettings(settings);
+
+        try {
+          localStorage.setItem("shindara-site-settings-cache", JSON.stringify(settings));
+        } catch {
+          // localStorage can fail in private browsing — harmless to skip caching
+        }
       }
     } catch (error) {
       console.error("Site settings:", error);
@@ -3198,7 +3220,11 @@ export default function App() {
         <div className="loading-glow" />
 
         <div className="loading-mark-wrap">
-          <div className="loading-mark">◆</div>
+          {siteSettings.logo_url ? (
+            <img className="loading-logo" src={siteSettings.logo_url} alt="Shindara PhoneFlair" />
+          ) : (
+            <div className="loading-mark">◆</div>
+          )}
         </div>
 
         <div className="loading-brand">
