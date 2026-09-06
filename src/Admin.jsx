@@ -468,6 +468,54 @@ function OrdersTab({ orders, reload, showNotice }) {
     setNote(order.status_note || "");
   };
 
+  const sendDeliveryEmail = useCallback((order) => {
+    if (!order.customer_email) return;
+
+    const itemsHtml = (order.items || [])
+      .map(
+        (item) => `
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;">${item.products?.name || item.product_name || "Product"} × ${item.quantity}</td>
+            <td style="padding:10px 0;border-bottom:1px solid #eee;text-align:right;">${money(
+              Number(item.price || 0) * Number(item.quantity || 0)
+            )}</td>
+          </tr>`
+      )
+      .join("");
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#170f28;">
+        <div style="background:linear-gradient(135deg,#7c3aed,#ec4899);padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:20px;">Shindara PhoneFlair</h1>
+        </div>
+        <div style="padding:24px;border:1px solid #eee;border-top:none;border-radius:0 0 12px 12px;">
+          <h2 style="font-size:18px;">Your order has arrived, ${order.customer_name}! 📦</h2>
+          <p style="color:#555;font-size:14px;">Your order has been marked as delivered. We hope you love it!</p>
+          <p style="font-size:14px;"><strong>Tracking number:</strong> ${order.tracking_number}</p>
+          <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+            ${itemsHtml}
+            <tr>
+              <td style="padding:10px 0;font-weight:bold;">Total paid</td>
+              <td style="padding:10px 0;text-align:right;font-weight:bold;">${money(order.total)}</td>
+            </tr>
+          </table>
+          <p style="font-size:13px;color:#888;margin-top:20px;">
+            Loved what you bought? Leave a review on the product page to let others know.
+          </p>
+        </div>
+      </div>`;
+
+    fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: order.customer_email,
+        subject: "Your Shindara PhoneFlair order has arrived! 📦",
+        html,
+      }),
+    }).catch((err) => console.error("Delivery email error:", err));
+  }, []);
+
   const updateOrder = useCallback(
     async (id, changes) => {
       setSaving(true);
@@ -476,14 +524,20 @@ function OrdersTab({ orders, reload, showNotice }) {
         if (error) throw error;
         showNotice("Order updated.");
         await reload();
-        setSelected((prev) => (prev ? { ...prev, ...changes } : prev));
+        setSelected((prev) => {
+          const updated = prev ? { ...prev, ...changes } : prev;
+          if (changes.status === "delivered" && prev?.status !== "delivered" && updated) {
+            sendDeliveryEmail(updated);
+          }
+          return updated;
+        });
       } catch (err) {
         showNotice(err.message || "Could not update order.");
       } finally {
         setSaving(false);
       }
     },
-    [reload, showNotice]
+    [reload, showNotice, sendDeliveryEmail]
   );
 
   const saveNote = useCallback(async () => {
