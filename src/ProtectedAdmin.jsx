@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Admin from "./Admin";
 import AdminLogin from "./AdminLogin";
@@ -7,9 +7,17 @@ function ProtectedAdmin() {
   const [checking, setChecking] = useState(true);
   const [user, setUser] = useState(null);
 
+  // Tracks whether we've ever successfully verified an admin in this
+  // browser tab. Once true, later re-checks (triggered by Supabase's
+  // automatic token refresh on tab focus) run silently in the
+  // background instead of flashing the spinner and remounting Admin.
+  const hasVerifiedRef = useRef(false);
+
   async function checkAdmin() {
     try {
-      setChecking(true);
+      if (!hasVerifiedRef.current) {
+        setChecking(true);
+      }
 
       const {
         data: { user: currentUser },
@@ -18,55 +26,46 @@ function ProtectedAdmin() {
 
       if (userError || !currentUser) {
         setUser(null);
+        hasVerifiedRef.current = false;
         return;
       }
 
-      const { data: profile, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select("id, email, is_admin")
-          .eq("id", currentUser.id)
-          .maybeSingle();
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, email, is_admin")
+        .eq("id", currentUser.id)
+        .maybeSingle();
 
       if (profileError) {
-        console.error(
-          "PROFILE CHECK ERROR:",
-          profileError
-        );
-
+        console.error("PROFILE CHECK ERROR:", profileError);
         await supabase.auth.signOut();
         setUser(null);
+        hasVerifiedRef.current = false;
         return;
       }
 
       if (!profile) {
-        console.error(
-          "No profile found for this user."
-        );
-
+        console.error("No profile found for this user.");
         await supabase.auth.signOut();
         setUser(null);
+        hasVerifiedRef.current = false;
         return;
       }
 
       if (profile.is_admin !== true) {
-        console.error(
-          "User is not an administrator."
-        );
-
+        console.error("User is not an administrator.");
         await supabase.auth.signOut();
         setUser(null);
+        hasVerifiedRef.current = false;
         return;
       }
 
       setUser(currentUser);
+      hasVerifiedRef.current = true;
     } catch (error) {
-      console.error(
-        "ADMIN AUTH ERROR:",
-        error
-      );
-
+      console.error("ADMIN AUTH ERROR:", error);
       setUser(null);
+      hasVerifiedRef.current = false;
     } finally {
       setChecking(false);
     }
@@ -79,32 +78,28 @@ function ProtectedAdmin() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
 
-        if (
-          event === "SIGNED_OUT" ||
-          !session
-        ) {
-          setUser(null);
-          setChecking(false);
-          return;
-        }
-
-        if (
-          event === "SIGNED_IN" ||
-          event === "TOKEN_REFRESHED" ||
-          event === "USER_UPDATED"
-        ) {
-          setTimeout(() => {
-            if (mounted) {
-              checkAdmin();
-            }
-          }, 0);
-        }
+      if (event === "SIGNED_OUT" || !session) {
+        setUser(null);
+        setChecking(false);
+        hasVerifiedRef.current = false;
+        return;
       }
-    );
+
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED"
+      ) {
+        setTimeout(() => {
+          if (mounted) {
+            checkAdmin();
+          }
+        }, 0);
+      }
+    });
 
     return () => {
       mounted = false;
@@ -114,6 +109,10 @@ function ProtectedAdmin() {
 
   /*
    * CHECKING ADMIN ACCESS
+   * Only shown on the very first check in this tab. Background
+   * re-verification (from token refreshes when you switch back to
+   * this tab) happens silently — you stay on whatever page you were
+   * on instead of getting bounced back to a loading screen.
    */
 
   if (checking) {
