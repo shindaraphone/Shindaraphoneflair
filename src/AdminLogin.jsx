@@ -4,7 +4,7 @@
 // admin status itself after onLogin() fires.
 
 import { useState, useCallback } from "react";
-import { supabase } from "./supabaseClient";
+import { supabase } from "./supabaseAdminClient";
 import "./shindara-redesign.css";
 import "./admin-panel.css";
 
