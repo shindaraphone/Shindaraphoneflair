@@ -3,7 +3,7 @@
 // Route this in behind /admin — see wiring notes at the bottom of this file.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "./supabaseAdminClient";
+import { supabase } from "./supabaseClient";
 import "./shindara-redesign.css";
 import "./admin-panel.css";
 
