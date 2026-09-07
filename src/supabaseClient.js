@@ -1,4 +1,4 @@
-// supabaseAdminClient.js
+// supabaseClient.js
 //
 // A SEPARATE Supabase client used only by the admin portal
 // (Admin.js, AdminLogin.jsx, ProtectedAdmin.jsx).
