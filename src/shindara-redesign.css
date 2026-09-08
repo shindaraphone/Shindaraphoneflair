@@ -738,9 +738,14 @@ a { color: inherit; }
 .empty-shop p { color: var(--ink-soft); font-size: 14.5px; margin-bottom: 14px; }
 
 .product-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.product-grid .reveal {
+  flex: 0 0 calc((100% - 16px) / 3);
+  max-width: calc((100% - 16px) / 3);
 }
 
 @media (min-width: 601px) {
