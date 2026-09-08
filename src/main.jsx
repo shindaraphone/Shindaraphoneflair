@@ -7,8 +7,6 @@ import ProtectedAdmin from "./ProtectedAdmin.jsx";
 import PrivacyPolicy from "./PrivacyPolicy.jsx";
 import TermsOfService from "./TermsOfService.jsx";
 
-import "./index.css";
-
 const path = window.location.pathname;
 
 const isAdminLoginPage = path === "/admin-login";
