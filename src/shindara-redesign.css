@@ -891,13 +891,14 @@ a { color: inherit; }
 .product-price { font-family: var(--font-display); font-size: 14px; }
 .product-add {
   flex: 1;
-  display: flex; align-items: center; justify-content: center; gap: 5px;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
   background: var(--ink);
   color: var(--case);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 8px 8px;
+  padding: 8px 4px;
   border-radius: var(--radius-sm);
+  white-space: nowrap;
   transition: background 0.18s ease, transform 0.2s ease;
 }
 .product-add:hover:not(:disabled) { background: var(--flair); }
