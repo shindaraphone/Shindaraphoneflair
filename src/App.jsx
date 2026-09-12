@@ -1113,10 +1113,6 @@ const categoryMatches = (product, selectedCategory) => {
 
 /* =========================================================
    MODAL COMPONENT
-   (module-level, not defined inside App — a component defined
-   inside another component gets recreated every render, which
-   was destroying and remounting every open modal, including
-   whatever input the user was typing in, on every keystroke.)
    ========================================================= */
 
 function Modal({ children, onClose, wide = false, processing = false }) {
@@ -1150,8 +1146,6 @@ function Modal({ children, onClose, wide = false, processing = false }) {
 
 /* =========================================================
    REVEAL ON SCROLL
-   (module-level — wraps content that should fade+rise in
-   once it enters the viewport, with an optional stagger delay)
    ========================================================= */
 
 function Reveal({ children, delay = 0, className = "" }) {
@@ -1243,6 +1237,7 @@ export default function App() {
 
   const [modal, setModal] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [galleryIndex, setGalleryIndex] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
 
@@ -3603,6 +3598,7 @@ export default function App() {
                     key={product.id}
                     onClick={() => {
                       setSelectedProduct(product);
+                      setGalleryIndex(0);
                       setReviewFormOpen(false);
                       setReviewRating(0);
                       setReviewComment("");
@@ -3717,6 +3713,7 @@ export default function App() {
                         className="product-visual"
                         onClick={() => {
                           setSelectedProduct(product);
+                          setGalleryIndex(0);
                           setReviewFormOpen(false);
                           setReviewRating(0);
                           setReviewComment("");
@@ -4028,15 +4025,37 @@ export default function App() {
       {modal === "product" && selectedProduct && (
         <Modal onClose={() => setModal(null)} processing={processing}>
           <div className="product-modal">
-            <div className="product-modal-image">
-              {getProductImage(selectedProduct) ? (
-                <img src={getProductImage(selectedProduct)} alt={selectedProduct.name} />
-              ) : (
-                <div className="product-placeholder large">
-                  <span>S</span>
+            {(() => {
+              const allImages = [getProductImage(selectedProduct), ...(selectedProduct.images || [])].filter(Boolean);
+              const activeImage = allImages[Math.min(galleryIndex, Math.max(allImages.length - 1, 0))] || "";
+
+              return (
+                <div className="product-modal-image">
+                  {activeImage ? (
+                    <img src={activeImage} alt={selectedProduct.name} />
+                  ) : (
+                    <div className="product-placeholder large">
+                      <span>S</span>
+                    </div>
+                  )}
+
+                  {allImages.length > 1 && (
+                    <div className="product-modal-thumbs">
+                      {allImages.map((url, index) => (
+                        <button
+                          key={url + index}
+                          type="button"
+                          className={index === galleryIndex ? "active" : ""}
+                          onClick={() => setGalleryIndex(index)}
+                        >
+                          <img src={url} alt={`${selectedProduct.name} ${index + 1}`} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
             <div className="product-modal-content">
               <span className="modal-kicker">{selectedProduct.category || "Shindara product"}</span>
@@ -4182,6 +4201,54 @@ export default function App() {
               )}
             </div>
           </div>
+
+          {(() => {
+            const related = products
+              .filter(
+                (p) =>
+                  p.id !== selectedProduct.id &&
+                  normalizeCategory(p.category) === normalizeCategory(selectedProduct.category)
+              )
+              .slice(0, 4);
+
+            if (related.length === 0) return null;
+
+            return (
+              <div className="related-section">
+                <div className="settings-block-title">You may also like</div>
+                <div className="related-scroll">
+                  {related.map((product) => {
+                    const image = getProductImage(product);
+                    return (
+                      <button
+                        className="related-card"
+                        key={product.id}
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setGalleryIndex(0);
+                          setReviewFormOpen(false);
+                          setReviewRating(0);
+                          setReviewComment("");
+                        }}
+                      >
+                        <div className="related-card-image">
+                          {image ? (
+                            <img src={image} alt={product.name} />
+                          ) : (
+                            <div className="product-placeholder">
+                              <span>S</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="related-card-name">{product.name}</span>
+                        <strong className="related-card-price">{money(product.price)}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </Modal>
       )}
 
