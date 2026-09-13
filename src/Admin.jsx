@@ -83,6 +83,71 @@ function ProductsTab({ products, categories, reload, showNotice }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkWorking, setBulkWorking] = useState(false);
+  const [notifyCount, setNotifyCount] = useState(0);
+  const [notifySending, setNotifySending] = useState(false);
+
+  useEffect(() => {
+    if (!editing?.id) {
+      setNotifyCount(0);
+      return;
+    }
+
+    let mounted = true;
+
+    (async () => {
+      const { count } = await supabase
+        .from("stock_notify_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("product_id", editing.id)
+        .eq("notified", false);
+
+      if (mounted) setNotifyCount(count || 0);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [editing?.id]);
+
+  const notifyWaitingCustomers = useCallback(async () => {
+    if (!editing?.id) return;
+    setNotifySending(true);
+
+    try {
+      const { data: requests, error } = await supabase
+        .from("stock_notify_requests")
+        .select("id, email")
+        .eq("product_id", editing.id)
+        .eq("notified", false);
+
+      if (error) throw error;
+
+      for (const req of requests || []) {
+        await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: req.email,
+            subject: `${editing.name} is back in stock! — Shindara PhoneFlair`,
+            html: `<p>Good news! <strong>${editing.name}</strong> is back in stock at Shindara PhoneFlair. Shop now before it sells out again.</p>`,
+          }),
+        }).catch(() => {});
+      }
+
+      const ids = (requests || []).map((r) => r.id);
+
+      if (ids.length > 0) {
+        await supabase.from("stock_notify_requests").update({ notified: true }).in("id", ids);
+      }
+
+      showNotice(`Notified ${ids.length} customer${ids.length !== 1 ? "s" : ""}.`);
+      setNotifyCount(0);
+    } catch (err) {
+      showNotice(err.message || "Could not send notifications.");
+    } finally {
+      setNotifySending(false);
+    }
+  }, [editing, showNotice]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -518,6 +583,22 @@ function ProductsTab({ products, categories, reload, showNotice }) {
               </div>
             </div>
 
+            {editing.id && notifyCount > 0 && (
+              <div className="admin-notify-banner">
+                <span>
+                  {notifyCount} customer{notifyCount !== 1 ? "s are" : " is"} waiting for this to restock.
+                </span>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={notifySending || Number(editing.stock) <= 0}
+                  onClick={notifyWaitingCustomers}
+                >
+                  {notifySending ? "Sending..." : "Notify them now"}
+                </button>
+              </div>
+            )}
+
             <div className="field">
               <label>Description</label>
               <textarea
@@ -636,6 +717,41 @@ function OrdersTab({ orders, reload, showNotice }) {
     if (filter === "unpaid") return orders.filter((o) => o.payment_status !== "paid");
     return orders.filter((o) => o.status === filter);
   }, [orders, filter]);
+
+  const exportCSV = useCallback(() => {
+    const headers = [
+      "Tracking Number", "Customer Name", "Phone", "Email", "Total",
+      "Payment Status", "Order Status", "Date", "Delivery Address", "State", "City",
+    ];
+
+    const rows = filtered.map((o) => [
+      o.tracking_number || o.id,
+      o.customer_name || "",
+      o.customer_phone || "",
+      o.customer_email || "",
+      o.total || 0,
+      o.payment_status || "",
+      o.status || "",
+      formatDate(o.created_at),
+      o.delivery_address || "",
+      o.delivery_state || "",
+      o.delivery_city || "",
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `shindara-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [filtered]);
 
   const buildWhatsAppLink = useCallback((order) => {
     const phoneDigits = String(order.customer_phone || "").replace(/\D/g, "");
@@ -758,6 +874,9 @@ function OrdersTab({ orders, reload, showNotice }) {
               </option>
             ))}
           </select>
+          <button type="button" className="btn-secondary" onClick={exportCSV}>
+            Export CSV
+          </button>
         </div>
       </div>
 
