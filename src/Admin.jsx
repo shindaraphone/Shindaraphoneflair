@@ -637,6 +637,15 @@ function OrdersTab({ orders, reload, showNotice }) {
     return orders.filter((o) => o.status === filter);
   }, [orders, filter]);
 
+  const buildWhatsAppLink = useCallback((order) => {
+    const phoneDigits = String(order.customer_phone || "").replace(/\D/g, "");
+    const phone = phoneDigits.startsWith("0") ? `234${phoneDigits.slice(1)}` : phoneDigits;
+    const message = `Hi ${order.customer_name}, this is Shindara PhoneFlair. An update on your order ${
+      order.tracking_number || ""
+    }: status is now "${String(order.status || "pending").replace(/_/g, " ")}". Thank you for shopping with us!`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  }, []);
+
   const openOrder = (order) => {
     setSelected(order);
     setNote(order.status_note || "");
@@ -812,6 +821,18 @@ function OrdersTab({ orders, reload, showNotice }) {
             <h2>{selected.tracking_number || `Order #${String(selected.id).slice(0, 8)}`}</h2>
             <p>Placed {formatDate(selected.created_at)}</p>
           </div>
+
+          {selected.customer_phone && (
+            <a
+              className="btn-secondary"
+              href={buildWhatsAppLink(selected)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ marginBottom: "20px", display: "inline-flex" }}
+            >
+              💬 Message on WhatsApp
+            </a>
+          )}
 
           <div className="admin-detail-grid">
             <div>
@@ -1596,6 +1617,37 @@ function DeliveryFeesTab({ fees, reload, showNotice }) {
 
 function AnalyticsTab({ orders, products, supportEmail, showNotice }) {
   const [sendingAlert, setSendingAlert] = useState(false);
+  const [searchLogs, setSearchLogs] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("search_logs")
+        .select("query")
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (!error && mounted) setSearchLogs(data || []);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const topFailedSearches = useMemo(() => {
+    const counts = {};
+    searchLogs.forEach((row) => {
+      const q = (row.query || "").trim().toLowerCase();
+      if (!q) return;
+      counts[q] = (counts[q] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+  }, [searchLogs]);
 
   const stats = useMemo(() => {
     const paidOrders = orders.filter(
@@ -1764,6 +1816,25 @@ function AnalyticsTab({ orders, products, supportEmail, showNotice }) {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="admin-analytics-block">
+          <div className="settings-block-title">Searched but not found</div>
+          {topFailedSearches.length === 0 ? (
+            <p className="admin-hint">No missed searches yet.</p>
+          ) : (
+            <div className="admin-rank-list">
+              {topFailedSearches.map(([q, count]) => (
+                <div className="admin-rank-row" key={q}>
+                  <span className="admin-rank-name">"{q}"</span>
+                  <strong>{count}×</strong>
+                </div>
+              ))}
+            </div>
+          )}
+          <small className="admin-hint" style={{ display: "block", marginTop: "10px" }}>
+            Things customers searched for that turned up nothing — a hint at what to stock next.
+          </small>
         </div>
       </div>
     </div>
