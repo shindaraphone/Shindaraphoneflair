@@ -3762,17 +3762,18 @@ export default function App() {
                         {stock <= 0 ? "Out of stock" : "In Stock"}
                       </span>
 
-                                              <button
-  className={`product-add ${justAddedId === product.id ? "just-added" : ""}`}
-  disabled={stock <= 0}
-  aria-label={stock <= 0 ? "Sold out" : "Add to cart"}
-  onClick={async () => {
-    const ok = await addToCart(product);
-    if (ok) celebrateAdd(product.id);
-  }}
->
-  {justAddedId === product.id ? "✓" : stock <= 0 ? "✕" : "🛒"}
-</button>
+                      <div className="product-footer">
+                        <button
+                          className={`product-add ${justAddedId === product.id ? "just-added" : ""}`}
+                          disabled={stock <= 0}
+                          aria-label={stock <= 0 ? "Sold out" : "Add to cart"}
+                          onClick={async () => {
+                            const ok = await addToCart(product);
+                            if (ok) celebrateAdd(product.id);
+                          }}
+                        >
+                          {justAddedId === product.id ? "✓" : stock <= 0 ? "✕" : "🛒"}
+                        </button>
 
                         <button
                           className={`wishlist-heart-inline ${wishlist.includes(product.id) ? "active" : ""}`}
