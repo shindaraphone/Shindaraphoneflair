@@ -896,7 +896,6 @@ a { color: inherit; }
   border-radius: 50%;
   transition: background 0.18s ease, transform 0.2s ease;
 }
-.product-add span:last-child { display: none; }
 .product-add:hover:not(:disabled) { background: var(--flair); transform: scale(1.08); }
 .product-add:disabled { opacity: 0.45; cursor: not-allowed; }
 .product-add.just-added {
