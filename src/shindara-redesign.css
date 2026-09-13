@@ -74,9 +74,6 @@ img, svg { max-width: 100%; display: block; }
 
 input, select, textarea, button {
   font-family: inherit;
-  /* 16px minimum is intentional: iOS Safari auto-zooms the page on focus
-     for any input under 16px, which is what causes the "page jumps and
-     I have to tap again" bug. Do not shrink this below 16px on mobile. */
   font-size: 16px;
   color: inherit;
   max-width: 100%;
@@ -738,18 +735,16 @@ a { color: inherit; }
 .empty-shop p { color: var(--ink-soft); font-size: 14.5px; margin-bottom: 14px; }
 
 .product-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
-.product-grid .reveal {
-  flex: 0 0 calc((100% - 16px) / 3);
-  max-width: calc((100% - 16px) / 3);
-}
+
 .product-grid > .reveal {
   min-width: 0;
   width: 100%;
 }
+
 @media (min-width: 601px) {
   .product-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 }
@@ -849,7 +844,7 @@ a { color: inherit; }
   color: var(--ink);
 }
 
-.product-content { padding: 8px 8px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.product-content { padding: 8px 6px 8px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .product-category {
   align-self: flex-start;
   font-size: 9px;
@@ -1543,32 +1538,25 @@ a { color: inherit; }
 
 /* =========================================================
    MOBILE COMPACTION
-   Everything below tightens spacing/type site-wide on phones —
-   placed last so it wins over earlier rules of equal specificity.
    ========================================================= */
 
 @media (max-width: 600px) {
-  /* base type scale down slightly */
   body { font-size: 15px; }
 
-  /* header */
   .header { padding: 12px 16px; }
   .logo-symbol { font-size: 17px; }
   .logo-copy strong { font-size: 15px; }
   .logo-copy small { font-size: 9px; }
   .header-account, .header-cart { padding: 7px 11px; font-size: 13px; }
 
-  /* announcement */
   .announcement { padding: 7px 0; }
   .announcement-track { font-size: 11.5px; gap: 32px; }
   .announcement-track span { padding-right: 32px; }
 
-  /* buttons, smaller footprint on phones */
   .btn-primary, .btn-light { padding: 12px 20px; font-size: 14px; }
   .btn-secondary { padding: 11px 19px; font-size: 14px; }
   .hero-buttons { gap: 14px; }
 
-  /* section rhythm — cut generous desktop whitespace down */
   .categories-section { padding: 40px 0; }
 
   .shop-section { padding: 16px 16px 50px; }
@@ -1586,13 +1574,11 @@ a { color: inherit; }
   .brand-cta-content h2 { font-size: 22px; }
   .brand-cta-content p { font-size: 13.5px; }
 
-  /* footer */
   .footer-main { padding: 40px 16px 28px; gap: 26px; }
   .footer-brand p { font-size: 13px; }
   .footer-column button { font-size: 13px; padding: 5px 0; }
   .footer-bottom { padding: 14px 16px; font-size: 11.5px; }
 
-  /* modals */
   .modal-head h2 { font-size: 19px; }
   .modal-head p { font-size: 13px; }
   .field label { font-size: 12.5px; margin-bottom: 5px; }
@@ -1617,7 +1603,6 @@ a { color: inherit; }
     box-shadow: 0 -6px 20px -12px rgba(0,0,0,0.3);
   }
 
-  /* keep content from hiding behind the fixed bar */
   .app { padding-bottom: 64px; }
 }
 
@@ -1840,3 +1825,28 @@ a { color: inherit; }
 .review-row-head strong { font-size: 13.5px; }
 .review-date { font-size: 12px; color: var(--ink-soft); margin-left: auto; }
 .review-row p { font-size: 13.5px; color: var(--ink-soft); }
+
+/* ---------- product gallery thumbnails (product modal) ---------- */
+
+.product-modal-thumbs { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; }
+.product-modal-thumbs button { flex: 0 0 auto; width: 52px; height: 52px; border-radius: var(--radius-sm); overflow: hidden; border: 2px solid transparent; opacity: 0.6; }
+.product-modal-thumbs button.active { border-color: var(--gold); opacity: 1; }
+.product-modal-thumbs img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- related products ---------- */
+
+.related-section { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
+.related-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.related-card { flex: 0 0 120px; text-align: left; display: flex; flex-direction: column; gap: 4px; }
+.related-card-image { width: 120px; height: 120px; border-radius: var(--radius-sm); background: var(--case); border: 1px solid var(--line); overflow: hidden; }
+.related-card-image img { width: 100%; height: 100%; object-fit: cover; }
+.related-card-name { font-size: 12px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.related-card-price { font-family: var(--font-display); font-size: 13px; }
+
+/* ---------- admin: product gallery upload ---------- */
+
+.admin-gallery-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.admin-gallery-thumb { position: relative; width: 64px; height: 64px; border-radius: 10px; overflow: hidden; }
+.admin-gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.admin-gallery-thumb button { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; line-height: 1; }
+.admin-gallery-add { width: 64px; height: 64px; border-radius: 10px; border: 1.5px dashed var(--line); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--ink-soft); cursor: pointer; }
