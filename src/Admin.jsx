@@ -100,6 +100,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
       description: "",
       image_url: "",
       is_featured: false,
+      images: [],
     });
 
   const uploadPhoto = useCallback(
@@ -129,6 +130,42 @@ function ProductsTab({ products, categories, reload, showNotice }) {
     [showNotice]
   );
 
+  const uploadGalleryPhotos = useCallback(
+    async (files) => {
+      if (!files || files.length === 0) return;
+      setUploading(true);
+
+      try {
+        const uploadedUrls = [];
+
+        for (const file of Array.from(files)) {
+          const ext = file.name.split(".").pop();
+          const path = `products/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(path, file, { cacheControl: "3600", upsert: false });
+
+          if (uploadError) throw uploadError;
+
+          const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+          uploadedUrls.push(data.publicUrl);
+        }
+
+        setEditing((p) => ({ ...p, images: [...(p.images || []), ...uploadedUrls] }));
+      } catch (err) {
+        showNotice(err.message || "Could not upload photos.");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [showNotice]
+  );
+
+  const removeGalleryPhoto = useCallback((url) => {
+    setEditing((p) => ({ ...p, images: (p.images || []).filter((img) => img !== url) }));
+  }, []);
+
   const save = useCallback(
     async (event) => {
       event.preventDefault();
@@ -142,6 +179,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
         description: editing.description?.trim() || "",
         image_url: editing.image_url?.trim() || "",
         is_featured: Boolean(editing.is_featured),
+        images: editing.images || [],
       };
 
       try {
@@ -419,6 +457,37 @@ function ProductsTab({ products, categories, reload, showNotice }) {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="field">
+              <label>Additional photos (gallery)</label>
+
+              <div className="admin-gallery-grid">
+                {(editing.images || []).map((url) => (
+                  <div className="admin-gallery-thumb" key={url}>
+                    <img src={url} alt="Gallery" />
+                    <button type="button" onClick={() => removeGalleryPhoto(url)} aria-label="Remove photo">
+                      ×
+                    </button>
+                  </div>
+                ))}
+
+                <label className="admin-gallery-add">
+                  {uploading ? "..." : "+ Add"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    multiple
+                    disabled={uploading}
+                    onChange={(event) => uploadGalleryPhotos(event.target.files)}
+                  />
+                </label>
+              </div>
+
+              <small className="admin-hint">
+                The main photo above shows first everywhere. These extra photos appear as a swipeable gallery when a customer opens the product.
+              </small>
             </div>
 
             <label className="admin-checkbox-field">
@@ -1943,32 +2012,18 @@ export default function Admin() {
    once verified. This file assumes that's already true and just
    renders the dashboard — it does no auth checking of its own.
 
-   Files this depends on, all in src/:
-     - ProtectedAdmin.jsx  (yours — the auth gate, unchanged)
-     - AdminLogin.jsx      (rebuilt to match ProtectedAdmin's
-                             `onLogin` prop — just a sign-in form)
-     - Admin.js            (this file — the dashboard)
-     - admin-panel.css     (layout: sidebar, tables, forms)
-     - shindara-redesign.css (shared design tokens/components)
+   IMPORTANT: This file imports supabase from "./supabaseAdminClient",
+   NOT "./supabaseClient" — this keeps the admin session completely
+   separate from the customer storefront's session. Make sure
+   supabaseAdminClient.js exists in src/ already (it should, from
+   earlier fixes).
 
-   Route /admin at <ProtectedAdmin /> (not <Admin /> directly), e.g.:
-
-     // main.jsx / index.js, if you don't have react-router yet
-     import ProtectedAdmin from "./ProtectedAdmin.jsx";
-     import App from "./App.js";
-
-     const isAdminRoute = window.location.pathname.startsWith("/admin");
-     root.render(isAdminRoute ? <ProtectedAdmin /> : <App />);
-
-     // or with react-router:
-     <Route path="/admin/*" element={<ProtectedAdmin />} />
+   Route /admin at <ProtectedAdmin /> (not <Admin /> directly).
 
    Database: make sure `profiles.is_admin` exists (boolean, default
-   false) and is `true` for your own account:
-     update profiles set is_admin = true where email = 'you@example.com';
+   false) and is `true` for your own account.
 
    Supabase Row Level Security: `products`, `orders`, and
    `order_items` need UPDATE/INSERT/DELETE policies for authenticated
-   users where profiles.is_admin = true — the admin UI can't bypass
-   RLS, so writes will silently fail if policies aren't in place.
+   users where profiles.is_admin = true.
    ========================================================= */
