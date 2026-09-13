@@ -80,6 +80,9 @@ function ProductsTab({ products, categories, reload, showNotice }) {
   const [uploading, setUploading] = useState(false);
   const [spotlightSaving, setSpotlightSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkWorking, setBulkWorking] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -268,6 +271,60 @@ function ProductsTab({ products, categories, reload, showNotice }) {
     [reload, showNotice]
   );
 
+  const toggleSelected = useCallback((id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => (prev.length === filtered.length ? [] : filtered.map((p) => p.id)));
+  }, [filtered]);
+
+  const bulkDelete = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${selectedIds.length} product${selectedIds.length !== 1 ? "s" : ""}? This cannot be undone.`
+      )
+    )
+      return;
+
+    setBulkWorking(true);
+    try {
+      const { error } = await supabase.from("products").delete().in("id", selectedIds);
+      if (error) throw error;
+      showNotice(`${selectedIds.length} product${selectedIds.length !== 1 ? "s" : ""} deleted.`);
+      setSelectedIds([]);
+      await reload();
+    } catch (err) {
+      showNotice(err.message || "Could not delete selected products.");
+    } finally {
+      setBulkWorking(false);
+    }
+  }, [selectedIds, reload, showNotice]);
+
+  const bulkChangeCategory = useCallback(async () => {
+    if (selectedIds.length === 0 || !bulkCategory) return;
+
+    setBulkWorking(true);
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ category: bulkCategory })
+        .in("id", selectedIds);
+      if (error) throw error;
+      showNotice(`Moved ${selectedIds.length} product${selectedIds.length !== 1 ? "s" : ""} to ${bulkCategory}.`);
+      setSelectedIds([]);
+      setBulkCategory("");
+      await reload();
+    } catch (err) {
+      showNotice(err.message || "Could not update category.");
+    } finally {
+      setBulkWorking(false);
+    }
+  }, [selectedIds, bulkCategory, reload, showNotice]);
+
   return (
     <div className="admin-panel">
       <div className="admin-panel-head">
@@ -288,10 +345,50 @@ function ProductsTab({ products, categories, reload, showNotice }) {
         </div>
       </div>
 
+      {selectedIds.length > 0 && (
+        <div className="admin-bulk-bar">
+          <span>{selectedIds.length} selected</span>
+          <select
+            value={bulkCategory}
+            onChange={(event) => setBulkCategory(event.target.value)}
+            disabled={bulkWorking}
+          >
+            <option value="">Move to category...</option>
+            {categories.map((cat) => (
+              <option key={cat.name} value={cat.name}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={!bulkCategory || bulkWorking}
+            onClick={bulkChangeCategory}
+          >
+            Apply
+          </button>
+          <button type="button" className="admin-danger" disabled={bulkWorking} onClick={bulkDelete}>
+            Delete selected
+          </button>
+          <button type="button" className="btn-text" onClick={() => setSelectedIds([])}>
+            Clear
+          </button>
+        </div>
+      )}
+
       <div className="admin-table-wrap">
         <table className="admin-table">
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                  onChange={toggleSelectAll}
+                  aria-label="Select all"
+                />
+              </th>
               <th></th>
               <th>Name</th>
               <th>Category</th>
@@ -304,6 +401,14 @@ function ProductsTab({ products, categories, reload, showNotice }) {
           <tbody>
             {filtered.map((product) => (
               <tr key={product.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(product.id)}
+                    onChange={() => toggleSelected(product.id)}
+                    aria-label={`Select ${product.name}`}
+                  />
+                </td>
                 <td>
                   <div className="admin-thumb">
                     {getProductImage(product) ? (
@@ -349,7 +454,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
 
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="admin-empty-row">
+                <td colSpan={8} className="admin-empty-row">
                   No products found.
                 </td>
               </tr>
@@ -1489,7 +1594,9 @@ function DeliveryFeesTab({ fees, reload, showNotice }) {
    ANALYTICS TAB
    ========================================================= */
 
-function AnalyticsTab({ orders, products }) {
+function AnalyticsTab({ orders, products, supportEmail, showNotice }) {
+  const [sendingAlert, setSendingAlert] = useState(false);
+
   const stats = useMemo(() => {
     const paidOrders = orders.filter(
       (o) => String(o.payment_status).toLowerCase() === "paid"
@@ -1524,6 +1631,53 @@ function AnalyticsTab({ orders, products }) {
 
     return { revenue, avgOrder, paidCount: paidOrders.length, topProducts, lowStock, statusCounts };
   }, [orders, products]);
+
+  const sendLowStockAlert = useCallback(async () => {
+    if (!supportEmail) {
+      showNotice("Set a support email in Branding first.");
+      return;
+    }
+    if (stats.lowStock.length === 0) {
+      showNotice("Nothing is low on stock right now.");
+      return;
+    }
+
+    setSendingAlert(true);
+
+    try {
+      const rows = stats.lowStock
+        .map(
+          (p) =>
+            `<tr><td style="padding:8px 0;border-bottom:1px solid #eee;">${p.name}</td><td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;">${p.stock} left</td></tr>`
+        )
+        .join("");
+
+      const html = `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
+          <h2 style="font-size:18px;">Low stock alert — Shindara PhoneFlair</h2>
+          <p style="color:#555;font-size:14px;">These products are running low:</p>
+          <table style="width:100%;border-collapse:collapse;margin-top:12px;">${rows}</table>
+        </div>`;
+
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: supportEmail,
+          subject: `Low stock alert — ${stats.lowStock.length} product${stats.lowStock.length !== 1 ? "s" : ""}`,
+          html,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Email could not be sent.");
+
+      showNotice("Low stock alert sent to " + supportEmail);
+    } catch (err) {
+      showNotice(err.message || "Could not send alert.");
+    } finally {
+      setSendingAlert(false);
+    }
+  }, [stats.lowStock, supportEmail, showNotice]);
 
   return (
     <div className="admin-panel">
@@ -1576,16 +1730,27 @@ function AnalyticsTab({ orders, products }) {
           {stats.lowStock.length === 0 ? (
             <p className="admin-hint">Nothing running low.</p>
           ) : (
-            <div className="admin-rank-list">
-              {stats.lowStock.map((p) => (
-                <div className="admin-rank-row" key={p.id}>
-                  <span className="admin-rank-name">{p.name}</span>
-                  <strong className={Number(p.stock) === 0 ? "admin-stock low" : "admin-stock"}>
-                    {p.stock} left
-                  </strong>
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="admin-rank-list">
+                {stats.lowStock.map((p) => (
+                  <div className="admin-rank-row" key={p.id}>
+                    <span className="admin-rank-name">{p.name}</span>
+                    <strong className={Number(p.stock) === 0 ? "admin-stock low" : "admin-stock"}>
+                      {p.stock} left
+                    </strong>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ marginTop: "14px" }}
+                disabled={sendingAlert}
+                onClick={sendLowStockAlert}
+              >
+                {sendingAlert ? "Sending..." : "Email me this list"}
+              </button>
+            </>
           )}
         </div>
 
@@ -1960,7 +2125,14 @@ export default function Admin() {
       </aside>
 
       <main className="admin-main">
-        {tab === "overview" && <AnalyticsTab orders={orders} products={products} />}
+        {tab === "overview" && (
+          <AnalyticsTab
+            orders={orders}
+            products={products}
+            supportEmail={settings.support_email}
+            showNotice={showNotice}
+          />
+        )}
         {tab === "products" && (
           <ProductsTab
             products={products}
