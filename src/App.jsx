@@ -1224,6 +1224,8 @@ export default function App() {
   const [reviews, setReviews] = useState([]);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
+  const [reviewPhotoUrl, setReviewPhotoUrl] = useState("");
+  const [reviewPhotoUploading, setReviewPhotoUploading] = useState(false);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewFormOpen, setReviewFormOpen] = useState(false);
 
@@ -1449,6 +1451,34 @@ export default function App() {
   }, []);
 
 
+  const uploadReviewPhoto = useCallback(
+    async (file) => {
+      if (!file || !user) return;
+      setReviewPhotoUploading(true);
+
+      try {
+        const ext = file.name.split(".").pop();
+        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("review-photos")
+          .upload(path, file, { cacheControl: "3600", upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from("review-photos").getPublicUrl(path);
+        setReviewPhotoUrl(data.publicUrl);
+      } catch (error) {
+        console.error("Review photo upload:", error);
+        showNotice("Could not upload photo.");
+      } finally {
+        setReviewPhotoUploading(false);
+      }
+    },
+    [user, showNotice]
+  );
+
+
   const submitReview = useCallback(
     async (productId) => {
       if (!user) return false;
@@ -1467,6 +1497,7 @@ export default function App() {
             customer_name: profile?.full_name || "Customer",
             rating: reviewRating,
             comment: reviewComment.trim(),
+            photo_url: reviewPhotoUrl || null,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id,product_id" }
@@ -1477,6 +1508,7 @@ export default function App() {
         showNotice("Thanks for your review!");
         setReviewRating(0);
         setReviewComment("");
+        setReviewPhotoUrl("");
         await loadReviews();
         return true;
       } catch (error) {
@@ -1487,7 +1519,7 @@ export default function App() {
         setReviewSaving(false);
       }
     },
-    [user, profile, reviewRating, reviewComment, loadReviews, showNotice]
+    [user, profile, reviewRating, reviewComment, reviewPhotoUrl, loadReviews, showNotice]
   );
 
 
@@ -4058,18 +4090,16 @@ export default function App() {
 
               return (
                 <div className="product-modal-image">
-  <div className="product-modal-image-frame">
-    {activeImage ? (
-      <img src={activeImage} alt={selectedProduct.name} />
-    ) : (
-      <div className="product-placeholder large">
-        <span>S</span>
-      </div>
-    )}
-  </div>
+                  {activeImage ? (
+                    <img src={activeImage} alt={selectedProduct.name} />
+                  ) : (
+                    <div className="product-placeholder large">
+                      <span>S</span>
+                    </div>
+                  )}
 
-  {allImages.length > 1 && (
-    <div className="product-modal-thumbs">
+                  {allImages.length > 1 && (
+                    <div className="product-modal-thumbs">
                       {allImages.map((url, index) => (
                         <button
                           key={url + index}
@@ -4152,6 +4182,7 @@ export default function App() {
                       onClick={() => {
                         setReviewRating(myReview.rating);
                         setReviewComment(myReview.comment || "");
+                        setReviewPhotoUrl(myReview.photo_url || "");
                         setReviewFormOpen(true);
                       }}
                     >
@@ -4185,9 +4216,31 @@ export default function App() {
                       placeholder="What did you think of this product? (optional)"
                     />
 
+                    <div className="review-photo-upload">
+                      {reviewPhotoUrl ? (
+                        <div className="review-photo-preview">
+                          <img src={reviewPhotoUrl} alt="Your review" />
+                          <button type="button" onClick={() => setReviewPhotoUrl("")} aria-label="Remove photo">
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="btn-secondary review-photo-btn">
+                          {reviewPhotoUploading ? "Uploading..." : "+ Add a photo (optional)"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            disabled={reviewPhotoUploading}
+                            onChange={(event) => uploadReviewPhoto(event.target.files?.[0])}
+                          />
+                        </label>
+                      )}
+                    </div>
+
                     <button
                       className="btn-primary"
-                      disabled={reviewSaving}
+                      disabled={reviewSaving || reviewPhotoUploading}
                       onClick={async () => {
                         const ok = await submitReview(selectedProduct.id);
                         if (ok) setReviewFormOpen(false);
@@ -4222,6 +4275,9 @@ export default function App() {
                     <span className="review-date">{formatDate(review.created_at)}</span>
                   </div>
                   {review.comment && <p>{review.comment}</p>}
+                  {review.photo_url && (
+                    <img className="review-photo" src={review.photo_url} alt="Customer review" />
+                  )}
                 </div>
               ))}
 
