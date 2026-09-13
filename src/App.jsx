@@ -4058,16 +4058,18 @@ export default function App() {
 
               return (
                 <div className="product-modal-image">
-                  {activeImage ? (
-                    <img src={activeImage} alt={selectedProduct.name} />
-                  ) : (
-                    <div className="product-placeholder large">
-                      <span>S</span>
-                    </div>
-                  )}
+  <div className="product-modal-image-frame">
+    {activeImage ? (
+      <img src={activeImage} alt={selectedProduct.name} />
+    ) : (
+      <div className="product-placeholder large">
+        <span>S</span>
+      </div>
+    )}
+  </div>
 
-                  {allImages.length > 1 && (
-                    <div className="product-modal-thumbs">
+  {allImages.length > 1 && (
+    <div className="product-modal-thumbs">
                       {allImages.map((url, index) => (
                         <button
                           key={url + index}
