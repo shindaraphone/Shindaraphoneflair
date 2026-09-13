@@ -1896,3 +1896,29 @@ a { color: inherit; }
   background: #fff;
   font-size: 13px;
 }
+
+/* ---------- whatsapp floating button ---------- */
+
+.whatsapp-floating {
+  position: fixed;
+  right: 18px;
+  bottom: 90px;
+  z-index: 90;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  text-decoration: none;
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease;
+}
+.whatsapp-floating:hover { transform: scale(1.06); }
+
+@media (min-width: 861px) {
+  .whatsapp-floating { bottom: 26px; }
+}
