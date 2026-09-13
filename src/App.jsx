@@ -3762,21 +3762,16 @@ export default function App() {
                         {stock <= 0 ? "Out of stock" : "In Stock"}
                       </span>
 
-                      <div className="product-footer">
-                        <button
+                                              <button
                           className={`product-add ${justAddedId === product.id ? "just-added" : ""}`}
                           disabled={stock <= 0}
+                          aria-label={stock <= 0 ? "Sold out" : "Add to cart"}
                           onClick={async () => {
                             const ok = await addToCart(product);
                             if (ok) celebrateAdd(product.id);
                           }}
                         >
-                          <span>{justAddedId === product.id ? "✓" : "🛒"}</span>
-                          {justAddedId === product.id
-                            ? "Added"
-                            : stock <= 0
-                            ? "Sold out"
-                            : "Add to Cart"}
+                          {justAddedId === product.id ? "✓" : stock <= 0 ? "✕" : "🛒"}
                         </button>
 
                         <button
