@@ -4089,7 +4089,6 @@ export default function App() {
             <div className="product-modal-content">
               <span className="modal-kicker">{selectedProduct.category || "Shindara product"}</span>
               <h2>{selectedProduct.name}</h2>
-              <p style={{fontSize: "11px", color: "red"}}>DEBUG: {JSON.stringify(selectedProduct.images)}</p>
 
               {(() => {
                 const summary = getProductRatingSummary(selectedProduct.id);
