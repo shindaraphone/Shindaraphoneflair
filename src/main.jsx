@@ -1,5 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
 
 import App from "./App.jsx";
 import "./shindara-redesign.css";
