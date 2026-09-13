@@ -3095,6 +3095,40 @@ export default function App() {
   }, [filteredProducts, sortBy]);
 
 
+  /* =======================================================
+     LOG SEARCHES THAT RETURN NOTHING
+     (fires 1.2s after typing stops, and only once per unique
+     query per session, so we don't spam the table)
+     ======================================================= */
+
+
+  const searchLogTimer = useRef(null);
+  const lastLoggedSearch = useRef("");
+
+  useEffect(() => {
+    const query = search.trim();
+
+    if (searchLogTimer.current) clearTimeout(searchLogTimer.current);
+
+    if (!query || sortedProducts.length > 0) return;
+
+    searchLogTimer.current = setTimeout(async () => {
+      if (lastLoggedSearch.current === query.toLowerCase()) return;
+      lastLoggedSearch.current = query.toLowerCase();
+
+      try {
+        await supabase.from("search_logs").insert({ query });
+      } catch (error) {
+        console.error("Search log:", error);
+      }
+    }, 1200);
+
+    return () => {
+      if (searchLogTimer.current) clearTimeout(searchLogTimer.current);
+    };
+  }, [search, sortedProducts.length]);
+
+
   const wishlistProducts = useMemo(
     () => products.filter((p) => wishlist.includes(p.id)),
     [products, wishlist]
@@ -5253,6 +5287,24 @@ export default function App() {
             Sign out
           </button>
         </Modal>
+      )}
+
+      {/* ===================================================
+          WHATSAPP FLOATING BUTTON
+          =================================================== */}
+
+      {siteSettings.whatsapp_number && (
+        <a
+          className="whatsapp-floating"
+          href={`https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}?text=${encodeURIComponent(
+            "Hi! I have a question about a product on Shindara PhoneFlair."
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Chat with us on WhatsApp"
+        >
+          <span>💬</span>
+        </a>
       )}
 
       {/* ===================================================
