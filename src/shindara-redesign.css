@@ -1922,3 +1922,18 @@ a { color: inherit; }
 @media (min-width: 861px) {
   .whatsapp-floating { bottom: 26px; }
 }
+
+/* ---------- admin: stock notify banner ---------- */
+
+.admin-notify-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--gold-soft, #ede4fd);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
