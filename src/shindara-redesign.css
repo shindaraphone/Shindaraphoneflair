@@ -736,8 +736,8 @@ a { color: inherit; }
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .product-grid > .reveal {
@@ -746,7 +746,7 @@ a { color: inherit; }
 }
 
 @media (min-width: 601px) {
-  .product-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .product-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 }
 
 .product-card {
@@ -766,8 +766,8 @@ a { color: inherit; }
 .product-visual-wrap { position: relative; }
 
 .wishlist-heart-inline {
-  width: 32px; height: 32px;
-  border-radius: 50%;
+  width: 34px; height: 34px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   background: var(--paper);
   color: var(--ink-soft);
@@ -844,20 +844,20 @@ a { color: inherit; }
   color: var(--ink);
 }
 
-.product-content { padding: 12px 12px 14px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.product-content { padding: 8px 6px 8px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .product-category {
   align-self: flex-start;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   color: var(--teal);
   background: var(--teal-soft);
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 .product-content h3 {
-  font-size: 13.5px;
-  line-height: 1.3;
+  font-size: 12px;
+  line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -868,10 +868,10 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--teal);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 .stock-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); flex-shrink: 0; }
 .stock-indicator.out { color: var(--ink-soft); }
@@ -880,23 +880,23 @@ a { color: inherit; }
 .product-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   margin-top: 10px;
 }
-.product-price { font-family: var(--font-display); font-size: 16px; }
+.product-price { font-family: var(--font-display); font-size: 14px; }
 .product-add {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
   background: var(--ink);
   color: var(--case);
-  font-size: 14px;
-  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
   transition: background 0.18s ease, transform 0.2s ease;
 }
-.product-add:hover:not(:disabled) { background: var(--flair); transform: scale(1.08); }
+.product-add:hover:not(:disabled) { background: var(--flair); }
 .product-add:disabled { opacity: 0.45; cursor: not-allowed; }
 .product-add.just-added {
   background: var(--teal);
@@ -1850,3 +1850,19 @@ a { color: inherit; }
 .admin-gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .admin-gallery-thumb button { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; line-height: 1; }
 .admin-gallery-add { width: 64px; height: 64px; border-radius: 10px; border: 1.5px dashed var(--line); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--ink-soft); cursor: pointer; }
+
+/* ---------- saved address card (checkout, Jumia-style) ---------- */
+
+.saved-address-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--case);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.saved-address-info { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; color: var(--ink-soft); }
+.saved-address-info strong { font-size: 14.5px; color: var(--ink); margin-bottom: 2px; }
