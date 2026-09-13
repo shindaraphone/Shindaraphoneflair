@@ -1333,6 +1333,25 @@ export default function App() {
 
 
   /* =======================================================
+     BASIC SEO — dynamic page title per product
+     (This is a client-side title change, which helps when
+     customers share a link on WhatsApp or bookmark a page —
+     it does NOT give full search-engine SEO benefits, since
+     this is a single-page app; genuine Google indexing of
+     individual products would need server-side rendering.)
+     ======================================================= */
+
+
+  useEffect(() => {
+    if (modal === "product" && selectedProduct) {
+      document.title = `${selectedProduct.name} | Shindara PhoneFlair`;
+    } else {
+      document.title = "Shindara PhoneFlair";
+    }
+  }, [modal, selectedProduct]);
+
+
+  /* =======================================================
      PRODUCT LOADING
      ======================================================= */
 
@@ -1959,6 +1978,43 @@ export default function App() {
 
   const [cartBounce, setCartBounce] = useState(false);
   const [justAddedId, setJustAddedId] = useState(null);
+
+
+  /* =======================================================
+     NOTIFY ME WHEN BACK IN STOCK
+     ======================================================= */
+
+
+  const requestStockNotify = useCallback(
+    async (product) => {
+      const email = window.prompt(
+        `We'll email you when "${product.name}" is back in stock. Enter your email:`,
+        user?.email || ""
+      );
+
+      if (!email) return;
+
+      if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+        showNotice("Please enter a valid email address.");
+        return;
+      }
+
+      try {
+        const { error } = await supabase.from("stock_notify_requests").insert({
+          product_id: product.id,
+          email: email.trim().toLowerCase(),
+        });
+
+        if (error) throw error;
+
+        showNotice("We'll email you as soon as it's back!");
+      } catch (error) {
+        console.error("Notify request:", error);
+        showNotice("Could not save your request.");
+      }
+    },
+    [user, showNotice]
+  );
 
   const celebrateAdd = useCallback((productId) => {
     setCartBounce(true);
@@ -3583,13 +3639,16 @@ export default function App() {
 
               <button
                 className="btn-primary"
-                disabled={Number(spotlightProduct.stock || 0) <= 0}
                 onClick={async () => {
+                  if (Number(spotlightProduct.stock || 0) <= 0) {
+                    await requestStockNotify(spotlightProduct);
+                    return;
+                  }
                   const ok = await addToCart(spotlightProduct);
                   if (ok) celebrateAdd(spotlightProduct.id);
                 }}
               >
-                {Number(spotlightProduct.stock || 0) > 0 ? "Add to Cart" : "Sold out"}
+                {Number(spotlightProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me"}
               </button>
             </Reveal>
           </section>
@@ -3862,14 +3921,17 @@ export default function App() {
                       <div className="product-footer">
                         <button
                           className={`product-add ${justAddedId === product.id ? "just-added" : ""}`}
-                          disabled={stock <= 0}
-                          aria-label={stock <= 0 ? "Sold out" : "Add to cart"}
+                          aria-label={stock <= 0 ? "Notify me when back in stock" : "Add to cart"}
                           onClick={async () => {
+                            if (stock <= 0) {
+                              await requestStockNotify(product);
+                              return;
+                            }
                             const ok = await addToCart(product);
                             if (ok) celebrateAdd(product.id);
                           }}
                         >
-                          {justAddedId === product.id ? "✓" : stock <= 0 ? "✕" : "🛒"}
+                          {justAddedId === product.id ? "✓" : stock <= 0 ? "🔔" : "🛒"}
                         </button>
 
                         <button
@@ -4189,14 +4251,17 @@ export default function App() {
 
               <button
                 className="btn-primary full"
-                disabled={Number(selectedProduct.stock || 0) <= 0}
                 onClick={async () => {
+                  if (Number(selectedProduct.stock || 0) <= 0) {
+                    await requestStockNotify(selectedProduct);
+                    return;
+                  }
                   const ok = await addToCart(selectedProduct);
                   if (ok) celebrateAdd(selectedProduct.id);
                   setModal(null);
                 }}
               >
-                {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "Sold out"}
+                {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me when back in stock"}
               </button>
             </div>
           </div>
