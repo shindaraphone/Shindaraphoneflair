@@ -1275,6 +1275,9 @@ export default function App() {
 
 
   const [checkoutError, setCheckoutError] = useState("");
+  const [hasSavedAddress, setHasSavedAddress] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
 
 
   const [theme, setTheme] = useState(() => {
@@ -1520,7 +1523,15 @@ export default function App() {
           name: data.full_name || previous.name || "",
           phone: data.phone || previous.phone || "",
           email: data.email || previous.email || "",
+          address: data.address || previous.address || "",
+          state: data.state || previous.state || "",
+          city: data.city || previous.city || "",
         }));
+
+        if (data.address && data.state && data.city) {
+          setHasSavedAddress(true);
+          setEditingAddress(false);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -2801,6 +2812,26 @@ export default function App() {
           "Could not verify stock. Please refresh and try again."
         );
         return;
+      }
+
+
+      /* Save delivery address to profile for next time, if requested —
+         best-effort, never blocks checkout if it fails */
+      if (saveAddress) {
+        try {
+          await supabase.from("profiles").upsert({
+            id: user.id,
+            email: user.email || "",
+            full_name: checkout.name.trim(),
+            phone: checkout.phone.trim(),
+            address: checkout.address.trim(),
+            state: checkout.state,
+            city: checkout.city,
+          });
+          setHasSavedAddress(true);
+        } catch (error) {
+          console.error("Save address:", error);
+        }
       }
 
 
@@ -4729,70 +4760,114 @@ export default function App() {
               Delivery location
             </div>
 
-            <div className="checkout-grid">
-              <div className="field">
-                <label>State</label>
-                <select
-                  value={checkout.state}
-                  onChange={(event) =>
-                    setCheckout((previous) => ({
-                      ...previous,
-                      state: event.target.value,
-                      city: "",
-                    }))
-                  }
-                  required
+            {hasSavedAddress && !editingAddress ? (
+              <div className="saved-address-card">
+                <div className="saved-address-info">
+                  <strong>{checkout.name || "Delivery address"}</strong>
+                  <span>{checkout.phone}</span>
+                  <span>{checkout.address}</span>
+                  <span>
+                    {checkout.city}, {checkout.state}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-text"
+                  onClick={() => setEditingAddress(true)}
                   disabled={processing}
                 >
-                  <option value="">Select your state</option>
-                  {Object.keys(NIGERIA_LOCATIONS)
-                    .sort((a, b) => a.localeCompare(b))
-                    .map((state) => (
-                      <option value={state} key={state}>
-                        {state}
-                      </option>
-                    ))}
-                </select>
+                  Change
+                </button>
               </div>
+            ) : (
+              <>
+                <div className="checkout-grid">
+                  <div className="field">
+                    <label>State</label>
+                    <select
+                      value={checkout.state}
+                      onChange={(event) =>
+                        setCheckout((previous) => ({
+                          ...previous,
+                          state: event.target.value,
+                          city: "",
+                        }))
+                      }
+                      required
+                      disabled={processing}
+                    >
+                      <option value="">Select your state</option>
+                      {Object.keys(NIGERIA_LOCATIONS)
+                        .sort((a, b) => a.localeCompare(b))
+                        .map((state) => (
+                          <option value={state} key={state}>
+                            {state}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
 
-              <div className="field">
-                <label>City / LGA</label>
-                <select
-                  value={checkout.city}
-                  onChange={(event) =>
-                    setCheckout((previous) => ({ ...previous, city: event.target.value }))
-                  }
-                  required
-                  disabled={processing || !checkout.state}
-                >
-                  <option value="">
-                    {checkout.state ? "Select city / LGA" : "Select state first"}
-                  </option>
-                  {(NIGERIA_LOCATIONS[checkout.state] || [])
-                    .slice()
-                    .sort((a, b) => a.localeCompare(b))
-                    .map((city) => (
-                      <option value={city} key={city}>
-                        {city}
+                  <div className="field">
+                    <label>City / LGA</label>
+                    <select
+                      value={checkout.city}
+                      onChange={(event) =>
+                        setCheckout((previous) => ({ ...previous, city: event.target.value }))
+                      }
+                      required
+                      disabled={processing || !checkout.state}
+                    >
+                      <option value="">
+                        {checkout.state ? "Select city / LGA" : "Select state first"}
                       </option>
-                    ))}
-                </select>
-              </div>
+                      {(NIGERIA_LOCATIONS[checkout.state] || [])
+                        .slice()
+                        .sort((a, b) => a.localeCompare(b))
+                        .map((city) => (
+                          <option value={city} key={city}>
+                            {city}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
 
-              <div className="field field-full">
-                <label>Full delivery address</label>
-                <textarea
-                  value={checkout.address}
-                  onChange={(event) =>
-                    setCheckout((previous) => ({ ...previous, address: event.target.value }))
-                  }
-                  placeholder="House number, street name, landmark..."
-                  rows="3"
-                  required
-                  disabled={processing}
-                />
-              </div>
-            </div>
+                  <div className="field field-full">
+                    <label>Full delivery address</label>
+                    <textarea
+                      value={checkout.address}
+                      onChange={(event) =>
+                        setCheckout((previous) => ({ ...previous, address: event.target.value }))
+                      }
+                      placeholder="House number, street name, landmark..."
+                      rows="3"
+                      required
+                      disabled={processing}
+                    />
+                  </div>
+                </div>
+
+                <label className="admin-checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={saveAddress}
+                    onChange={(event) => setSaveAddress(event.target.checked)}
+                  />
+                  Save this address for next time
+                </label>
+
+                {hasSavedAddress && (
+                  <button
+                    type="button"
+                    className="btn-text"
+                    style={{ marginTop: "10px" }}
+                    onClick={() => setEditingAddress(false)}
+                    disabled={processing}
+                  >
+                    Use saved address instead
+                  </button>
+                )}
+              </>
+            )}
 
             <div className="checkout-section-title">
               <span>3</span>
