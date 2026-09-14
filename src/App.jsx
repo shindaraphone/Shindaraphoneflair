@@ -1192,7 +1192,13 @@ export default function App() {
 
 
   const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("shindara-guest-cart") || "[]");
+    } catch {
+      return [];
+    }
+  });
   const [orders, setOrders] = useState([]);
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   const [siteSettings, setSiteSettings] = useState(() => {
@@ -1908,20 +1914,48 @@ export default function App() {
 
   const addToCart = useCallback(
     async (product) => {
-      if (!user) {
-        setAuthMode("login");
-        setModal("auth");
-        showNotice("Please sign in to add products to your cart.");
-        return false;
-      }
-
-
       const stock = Number(product?.stock || 0);
 
 
       if (stock <= 0) {
         showNotice("This product is currently sold out.");
         return false;
+      }
+
+
+      if (!user) {
+        const existing = cart.find((item) => item.product_id === product.id);
+
+        if (existing) {
+          const nextQuantity = Number(existing.quantity || 0) + 1;
+
+          if (nextQuantity > stock) {
+            showNotice(`Only ${stock} available.`);
+            return false;
+          }
+
+          setCart((prev) =>
+            prev.map((item) =>
+              item.product_id === product.id
+                ? { ...item, quantity: nextQuantity, subtotal: nextQuantity * Number(product.price || 0) }
+                : item
+            )
+          );
+        } else {
+          setCart((prev) => [
+            ...prev,
+            {
+              id: `guest-${product.id}`,
+              product_id: product.id,
+              product,
+              quantity: 1,
+              subtotal: Number(product.price || 0),
+            },
+          ]);
+        }
+
+        showNotice(`${product.name} added to your cart.`);
+        return true;
       }
 
 
@@ -2038,11 +2072,35 @@ export default function App() {
 
   const updateQuantity = useCallback(
     async (item, change) => {
-      if (!user || !item) return;
+      if (!item) return;
 
 
       const current = Number(item.quantity || 0);
       const next = current + change;
+
+
+      if (!user) {
+        if (next <= 0) {
+          setCart((prev) => prev.filter((c) => c.product_id !== item.product_id));
+          return;
+        }
+
+        const stock = Number(item.product?.stock || 0);
+
+        if (next > stock) {
+          showNotice(`Only ${stock} available.`);
+          return;
+        }
+
+        setCart((prev) =>
+          prev.map((c) =>
+            c.product_id === item.product_id
+              ? { ...c, quantity: next, subtotal: next * Number(c.product?.price || 0) }
+              : c
+          )
+        );
+        return;
+      }
 
 
       try {
@@ -2095,7 +2153,14 @@ export default function App() {
 
   const removeFromCart = useCallback(
     async (item) => {
-      if (!user || !item) return;
+      if (!item) return;
+
+
+      if (!user) {
+        setCart((prev) => prev.filter((c) => c.product_id !== item.product_id));
+        showNotice("Item removed.");
+        return;
+      }
 
 
       try {
@@ -2126,7 +2191,10 @@ export default function App() {
 
 
   const clearCart = useCallback(async () => {
-    if (!user) return false;
+    if (!user) {
+      setCart([]);
+      return true;
+    }
 
 
     try {
@@ -2146,6 +2214,39 @@ export default function App() {
       return false;
     }
   }, [user]);
+
+
+  /* =======================================================
+     GUEST CART — persist to this browser, and keep prices/
+     stock fresh against the latest product data once it loads
+     ======================================================= */
+
+
+  useEffect(() => {
+    if (user) return; // logged-in customers keep their cart in Supabase, not here
+    try {
+      localStorage.setItem("shindara-guest-cart", JSON.stringify(cart));
+    } catch {}
+  }, [cart, user]);
+
+
+  useEffect(() => {
+    if (user || products.length === 0) return;
+
+    setCart((prev) =>
+      prev
+        .map((item) => {
+          const fresh = products.find((p) => p.id === item.product_id);
+          if (!fresh) return null; // product no longer exists — drop it
+          return {
+            ...item,
+            product: fresh,
+            subtotal: Number(item.quantity || 0) * Number(fresh.price || 0),
+          };
+        })
+        .filter(Boolean)
+    );
+  }, [products, user]);
 
 
   /* =======================================================
@@ -2557,9 +2658,6 @@ export default function App() {
 
   const saveSuccessfulOrder = useCallback(
     async (paymentReference) => {
-      if (!user) throw new Error("Customer session missing.");
-
-
       if (!cart.length) {
         throw new Error("Your cart is empty.");
       }
@@ -2581,7 +2679,7 @@ export default function App() {
 
       if (existingOrder) {
         await clearCart();
-        await loadOrders(user.id);
+        if (user) await loadOrders(user.id);
 
 
         return existingOrder;
@@ -2624,7 +2722,7 @@ export default function App() {
 
 
       const orderPayload = {
-        user_id: user.id,
+        user_id: user ? user.id : null,
         customer_name: checkout.name.trim(),
         customer_phone: checkout.phone.trim(),
         customer_email: checkout.email.trim(),
@@ -2714,10 +2812,14 @@ export default function App() {
       await clearCart();
 
 
-      await Promise.all([
-        loadOrders(user.id),
-        loadProducts(),
-      ]);
+      if (user) {
+        await Promise.all([
+          loadOrders(user.id),
+          loadProducts(),
+        ]);
+      } else {
+        await loadProducts();
+      }
 
 
       return order;
@@ -2816,12 +2918,6 @@ export default function App() {
       if (processing) return;
 
 
-      if (!user) {
-        setCheckoutError("Please sign in before checkout.");
-        return;
-      }
-
-
       if (!cart.length) {
         setCheckoutError("Your cart is empty.");
         return;
@@ -2890,7 +2986,7 @@ export default function App() {
             );
 
 
-            await loadCart(user.id);
+            if (user) await loadCart(user.id);
             return;
           }
         }
@@ -2904,8 +3000,9 @@ export default function App() {
 
 
       /* Save delivery address to profile for next time, if requested —
-         best-effort, never blocks checkout if it fails */
-      if (saveAddress) {
+         only applies to signed-in customers; best-effort, never blocks
+         checkout if it fails */
+      if (saveAddress && user) {
         try {
           await supabase.from("profiles").upsert({
             id: user.id,
@@ -2939,7 +3036,7 @@ export default function App() {
 
 
         const reference =
-          `SHP-${user.id.slice(0, 8)}-${Date.now()}-${Math.random()
+          `SHP-${(user?.id || "guest").slice(0, 8)}-${Date.now()}-${Math.random()
             .toString(36)
             .slice(2, 7)
             .toUpperCase()}`;
@@ -2986,7 +3083,7 @@ export default function App() {
               {
                 display_name: "User ID",
                 variable_name: "user_id",
-                value: user.id,
+                value: user?.id || "guest",
               },
             ],
           },
@@ -3489,15 +3586,7 @@ export default function App() {
 
           <button
             className={`header-cart ${cartBounce ? "cart-bounce" : ""}`}
-            onClick={() => {
-              if (!user) {
-                setAuthMode("login");
-                setModal("auth");
-                showNotice("Sign in to access your cart.");
-                return;
-              }
-              setModal("cart");
-            }}
+            onClick={() => setModal("cart")}
             aria-label="Shopping cart"
           >
             <span className="cart-label">Cart</span>
@@ -4050,16 +4139,7 @@ export default function App() {
             >
               My orders
             </button>
-            <button
-              onClick={() => {
-                if (!user) {
-                  setAuthMode("login");
-                  setModal("auth");
-                } else {
-                  setModal("cart");
-                }
-              }}
-            >
+            <button onClick={() => setModal("cart")}>
               My cart
             </button>
           </div>
@@ -4139,15 +4219,7 @@ export default function App() {
 
         <button
           className="bottom-tab"
-          onClick={() => {
-            if (!user) {
-              setAuthMode("login");
-              setModal("auth");
-              showNotice("Sign in to access your cart.");
-              return;
-            }
-            setModal("cart");
-          }}
+          onClick={() => setModal("cart")}
         >
           <span className="bottom-tab-cart-icon">
             🛒
