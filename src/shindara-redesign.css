@@ -1983,3 +1983,15 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .skeleton-box { animation: none; }
 }
+
+/* ---------- content-shaped skeletons (product modal, cart) ---------- */
+
+.skeleton-list { display: flex; flex-direction: column; gap: 16px; padding: 4px 0; }
+.skeleton-list-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.skeleton-list-row:last-child { border-bottom: none; padding-bottom: 0; }
