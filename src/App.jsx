@@ -1405,25 +1405,6 @@ export default function App() {
 
 
   /* =======================================================
-     BASIC SEO — dynamic page title per product
-     (This is a client-side title change, which helps when
-     customers share a link on WhatsApp or bookmark a page —
-     it does NOT give full search-engine SEO benefits, since
-     this is a single-page app; genuine Google indexing of
-     individual products would need server-side rendering.)
-     ======================================================= */
-
-
-  useEffect(() => {
-    if (routedProductId && selectedProduct) {
-      document.title = `${selectedProduct.name} | Shindara PhoneFlair`;
-    } else {
-      document.title = "Shindara PhoneFlair";
-    }
-  }, [routedProductId, selectedProduct]);
-
-
-  /* =======================================================
      REAL PRODUCT PAGE ROUTING
      A product opened at /product/:id is a genuine page — its
      own URL, working browser back/forward, shareable links —
@@ -1449,6 +1430,25 @@ export default function App() {
       window.scrollTo({ top: 0, behavior: "instant" });
     }
   }, [routedProductId, products]);
+
+
+  /* =======================================================
+     BASIC SEO — dynamic page title per product
+     (This is a client-side title change, which helps when
+     customers share a link on WhatsApp or bookmark a page —
+     it does NOT give full search-engine SEO benefits, since
+     this is a single-page app; genuine Google indexing of
+     individual products would need server-side rendering.)
+     ======================================================= */
+
+
+  useEffect(() => {
+    if (routedProductId && selectedProduct) {
+      document.title = `${selectedProduct.name} | Shindara PhoneFlair`;
+    } else {
+      document.title = "Shindara PhoneFlair";
+    }
+  }, [routedProductId, selectedProduct]);
 
 
   /* =======================================================
