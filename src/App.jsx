@@ -1783,6 +1783,62 @@ export default function App() {
     let mounted = true;
 
 
+    const finishPendingCheckoutIfNeeded = async (userId) => {
+      let pending = false;
+      try {
+        pending = sessionStorage.getItem("shindara-pending-checkout") === "1";
+      } catch {}
+
+      if (!pending) return;
+
+      try {
+        sessionStorage.removeItem("shindara-pending-checkout");
+      } catch {}
+
+      let guestItems = [];
+      try {
+        guestItems = JSON.parse(localStorage.getItem("shindara-guest-cart") || "[]");
+      } catch {}
+
+      if (guestItems.length > 0) {
+        for (const item of guestItems) {
+          try {
+            const { data: existingRow } = await supabase
+              .from("cart_items")
+              .select("id, quantity")
+              .eq("user_id", userId)
+              .eq("product_id", item.product_id)
+              .maybeSingle();
+
+            if (existingRow) {
+              await supabase
+                .from("cart_items")
+                .update({ quantity: Number(existingRow.quantity || 0) + Number(item.quantity || 0) })
+                .eq("id", existingRow.id);
+            } else {
+              await supabase.from("cart_items").insert({
+                user_id: userId,
+                product_id: item.product_id,
+                quantity: item.quantity,
+              });
+            }
+          } catch (error) {
+            console.error("Cart merge:", error);
+          }
+        }
+
+        try {
+          localStorage.removeItem("shindara-guest-cart");
+        } catch {}
+
+        await loadCart(userId);
+      }
+
+      setCheckoutError("");
+      setModal("checkout");
+    };
+
+
     const initialize = async () => {
       try {
         const {
@@ -1815,6 +1871,8 @@ export default function App() {
             loadOrders(currentUser.id),
             loadWishlist(currentUser.id),
           ]);
+
+          await finishPendingCheckoutIfNeeded(currentUser.id);
         }
       } catch (error) {
         console.error("Initialization:", error);
@@ -1849,6 +1907,8 @@ export default function App() {
           loadOrders(currentUser.id),
           loadWishlist(currentUser.id),
         ]);
+
+        await finishPendingCheckoutIfNeeded(currentUser.id);
       } else {
         setProfile(null);
         setCart([]);
@@ -3430,6 +3490,18 @@ export default function App() {
     }
 
 
+    if (!user) {
+      try {
+        sessionStorage.setItem("shindara-pending-checkout", "1");
+      } catch {}
+      setAuthMode("signup");
+      resetAuthForm();
+      setModal("auth");
+      showNotice("Create an account or sign in to complete your order.");
+      return;
+    }
+
+
     setCheckoutError("");
 
 
@@ -3451,7 +3523,7 @@ export default function App() {
 
 
     setModal("checkout");
-  }, [cart.length, profile, user, showNotice]);
+  }, [cart.length, profile, user, showNotice, resetAuthForm]);
 
 
   /* =======================================================
