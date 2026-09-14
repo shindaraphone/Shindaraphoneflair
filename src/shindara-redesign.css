@@ -1995,3 +1995,22 @@ a { color: inherit; }
   border-bottom: 1px solid var(--line);
 }
 .skeleton-list-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+/* ---------- real product page (was a modal, now a URL) ---------- */
+
+.product-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px clamp(20px, 5vw, 56px) 80px;
+}
+
+.product-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 20px;
+}
+.product-page-back:hover { color: var(--flair); }
