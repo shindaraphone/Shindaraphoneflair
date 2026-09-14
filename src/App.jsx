@@ -1116,6 +1116,13 @@ const categoryMatches = (product, selectedCategory) => {
    ========================================================= */
 
 function Modal({ children, onClose, wide = false, processing = false }) {
+  const [entering, setEntering] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setEntering(false), 350);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div
       className="modal-overlay"
@@ -1138,7 +1145,33 @@ function Modal({ children, onClose, wide = false, processing = false }) {
           ×
         </button>
 
-        {children}
+        {entering ? (
+          <div className="modal-loading">
+            <div className="mini-spinner" />
+          </div>
+        ) : (
+          children
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   SKELETON PRODUCT CARD
+   (shown briefly while the grid "loads" after a category,
+   search, or sort change — mimics the feel of a network
+   fetch even though the data is already in memory)
+   ========================================================= */
+
+function SkeletonCard() {
+  return (
+    <div className="product-card skeleton-card">
+      <div className="skeleton-box skeleton-image" />
+      <div className="product-content">
+        <div className="skeleton-box skeleton-line" style={{ width: "40%" }} />
+        <div className="skeleton-box skeleton-line" style={{ width: "85%" }} />
+        <div className="skeleton-box skeleton-line" style={{ width: "55%" }} />
       </div>
     </div>
   );
@@ -1252,6 +1285,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [sortBy, setSortBy] = useState("newest");
+  const [gridLoading, setGridLoading] = useState(false);
 
 
   const [notice, setNotice] = useState("");
@@ -3309,6 +3343,26 @@ export default function App() {
 
 
   /* =======================================================
+     GRID SKELETON — brief "loading" feel when the customer
+     switches category, searches, or changes the sort order
+     ======================================================= */
+
+
+  const isFirstFilterRun = useRef(true);
+
+  useEffect(() => {
+    if (isFirstFilterRun.current) {
+      isFirstFilterRun.current = false;
+      return;
+    }
+
+    setGridLoading(true);
+    const timer = setTimeout(() => setGridLoading(false), 400);
+    return () => clearTimeout(timer);
+  }, [category, search, sortBy]);
+
+
+  /* =======================================================
      LOG SEARCHES THAT RETURN NOTHING
      (fires 1.2s after typing stops, and only once per unique
      query per session, so we don't spam the table)
@@ -4000,7 +4054,13 @@ export default function App() {
             ))}
           </div>
 
-          {sortedProducts.length === 0 ? (
+          {gridLoading ? (
+            <div className="product-grid">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))}
+            </div>
+          ) : sortedProducts.length === 0 ? (
             <div className="empty-shop">
               <div className="empty-shop-icon">⌕</div>
               <h3>No products found.</h3>
