@@ -1115,11 +1115,11 @@ const categoryMatches = (product, selectedCategory) => {
    MODAL COMPONENT
    ========================================================= */
 
-function Modal({ children, onClose, wide = false, processing = false }) {
+function Modal({ children, onClose, wide = false, processing = false, skeleton = null }) {
   const [entering, setEntering] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setEntering(false), 350);
+    const timer = setTimeout(() => setEntering(false), 400);
     return () => clearTimeout(timer);
   }, []);
 
@@ -1145,7 +1145,35 @@ function Modal({ children, onClose, wide = false, processing = false }) {
           ×
         </button>
 
-        {entering ? (
+        {entering && skeleton === "product" ? (
+          <div className="product-modal">
+            <div className="product-modal-image">
+              <div className="product-modal-image-frame">
+                <div className="skeleton-box" style={{ width: "100%", height: "100%" }} />
+              </div>
+            </div>
+            <div className="product-modal-content">
+              <div className="skeleton-box skeleton-line" style={{ width: "30%", height: "18px", marginTop: 0 }} />
+              <div className="skeleton-box skeleton-line" style={{ width: "72%", height: "22px", marginTop: "14px" }} />
+              <div className="skeleton-box skeleton-line" style={{ width: "90%", marginTop: "16px" }} />
+              <div className="skeleton-box skeleton-line" style={{ width: "55%" }} />
+              <div className="skeleton-box skeleton-line" style={{ width: "38%", height: "24px", marginTop: "18px" }} />
+              <div className="skeleton-box" style={{ width: "100%", height: "48px", borderRadius: "999px", marginTop: "20px" }} />
+            </div>
+          </div>
+        ) : entering && skeleton === "list" ? (
+          <div className="skeleton-list">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div className="skeleton-list-row" key={index}>
+                <div className="skeleton-box" style={{ width: "64px", height: "64px", borderRadius: "8px", flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div className="skeleton-box skeleton-line" style={{ width: "60%", marginTop: 0 }} />
+                  <div className="skeleton-box skeleton-line" style={{ width: "35%" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : entering ? (
           <div className="modal-loading">
             <div className="mini-spinner" />
           </div>
@@ -4382,7 +4410,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "product" && selectedProduct && (
-        <Modal onClose={() => setModal(null)} processing={processing}>
+        <Modal onClose={() => setModal(null)} processing={processing} skeleton="product">
           <div className="product-modal">
             {(() => {
               const allImages = [getProductImage(selectedProduct), ...(selectedProduct.images || [])].filter(Boolean);
@@ -4952,7 +4980,7 @@ export default function App() {
           =================================================== */}
 
       {modal === "cart" && (
-        <Modal onClose={() => setModal(null)} wide processing={processing}>
+        <Modal onClose={() => setModal(null)} wide processing={processing} skeleton="list">
           <div className="modal-head">
             <span className="modal-kicker">Your cart</span>
             <h2>Shopping cart.</h2>
