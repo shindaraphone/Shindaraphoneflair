@@ -2014,3 +2014,11 @@ a { color: inherit; }
   margin-bottom: 20px;
 }
 .product-page-back:hover { color: var(--flair); }
+
+/* ---------- real cart page (was a modal, now /cart) ---------- */
+
+.cart-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px clamp(20px, 5vw, 56px) 80px;
+}
