@@ -11,6 +11,7 @@ import React, {
   useState,
 } from "react";
 import { supabase } from "./supabaseClient.js";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./shindara-redesign.css";
 
 
@@ -1248,6 +1249,9 @@ function Reveal({ children, delay = 0, className = "" }) {
 
 
 export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
 
@@ -1411,12 +1415,40 @@ export default function App() {
 
 
   useEffect(() => {
-    if (modal === "product" && selectedProduct) {
+    if (routedProductId && selectedProduct) {
       document.title = `${selectedProduct.name} | Shindara PhoneFlair`;
     } else {
       document.title = "Shindara PhoneFlair";
     }
-  }, [modal, selectedProduct]);
+  }, [routedProductId, selectedProduct]);
+
+
+  /* =======================================================
+     REAL PRODUCT PAGE ROUTING
+     A product opened at /product/:id is a genuine page — its
+     own URL, working browser back/forward, shareable links —
+     not an overlay on top of the homepage.
+     ======================================================= */
+
+
+  const productRouteMatch = location.pathname.match(/^\/product\/([^/]+)\/?$/);
+  const routedProductId = productRouteMatch ? productRouteMatch[1] : null;
+
+
+  useEffect(() => {
+    if (!routedProductId) return;
+
+    const found = products.find((p) => String(p.id) === routedProductId);
+
+    if (found) {
+      setSelectedProduct(found);
+      setGalleryIndex(0);
+      setReviewFormOpen(false);
+      setReviewRating(0);
+      setReviewComment("");
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [routedProductId, products]);
 
 
   /* =======================================================
@@ -3761,6 +3793,269 @@ export default function App() {
 
       <main>
 
+        {routedProductId && selectedProduct ? (
+
+        <div className="product-page">
+
+          <button className="product-page-back" onClick={() => navigate(-1)}>
+            ← Back
+          </button>
+
+          <div className="product-modal">
+            {(() => {
+              const allImages = [getProductImage(selectedProduct), ...(selectedProduct.images || [])].filter(Boolean);
+              const activeImage = allImages[Math.min(galleryIndex, Math.max(allImages.length - 1, 0))] || "";
+
+              return (
+                <div className="product-modal-image">
+                  <div className="product-modal-image-frame">
+                    {activeImage ? (
+                      <img src={activeImage} alt={selectedProduct.name} />
+                    ) : (
+                      <div className="product-placeholder large">
+                        <span>S</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {allImages.length > 1 && (
+                    <div className="product-modal-thumbs">
+                      {allImages.map((url, index) => (
+                        <button
+                          key={url + index}
+                          type="button"
+                          className={index === galleryIndex ? "active" : ""}
+                          onClick={() => setGalleryIndex(index)}
+                        >
+                          <img src={url} alt={`${selectedProduct.name} ${index + 1}`} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="product-modal-content">
+              <span className="modal-kicker">{selectedProduct.category || "Shindara product"}</span>
+              <h2>{selectedProduct.name}</h2>
+
+              {(() => {
+                const summary = getProductRatingSummary(selectedProduct.id);
+                return (
+                  <div className="modal-rating-summary">
+                    <span className="stars">
+                      {"★".repeat(Math.round(summary.average))}
+                      {"☆".repeat(5 - Math.round(summary.average))}
+                    </span>
+                    <span>
+                      {summary.count > 0
+                        ? `${summary.average.toFixed(1)} (${summary.count} review${summary.count !== 1 ? "s" : ""})`
+                        : "No reviews yet"}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <p className="product-modal-description">
+                {selectedProduct.description || "Premium tech essential designed for everyday use."}
+              </p>
+              <div className="product-modal-price">{money(selectedProduct.price)}</div>
+
+              <div className="product-modal-stock">
+                <span>Availability</span>
+                <strong>
+                  {Number(selectedProduct.stock || 0) > 0
+                    ? `${selectedProduct.stock} available`
+                    : "Sold out"}
+                </strong>
+              </div>
+
+              <button
+                className="btn-primary full"
+                onClick={async () => {
+                  if (Number(selectedProduct.stock || 0) <= 0) {
+                    await requestStockNotify(selectedProduct);
+                    return;
+                  }
+                  const ok = await addToCart(selectedProduct);
+                  if (ok) celebrateAdd(selectedProduct.id);
+                }}
+              >
+                {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me when back in stock"}
+              </button>
+            </div>
+          </div>
+
+          <div className="reviews-section">
+            <div className="settings-block-title">Ratings &amp; reviews</div>
+
+            {(() => {
+              const myReview = myReviewFor(selectedProduct.id);
+              const eligible = canReviewProduct(selectedProduct.id);
+
+              if (myReview && !reviewFormOpen) {
+                return (
+                  <div className="my-review-card">
+                    <div className="review-stars">{"★".repeat(myReview.rating)}{"☆".repeat(5 - myReview.rating)}</div>
+                    {myReview.comment && <p>{myReview.comment}</p>}
+                    <button
+                      className="btn-text"
+                      onClick={() => {
+                        setReviewRating(myReview.rating);
+                        setReviewComment(myReview.comment || "");
+                        setReviewPhotoUrl(myReview.photo_url || "");
+                        setReviewFormOpen(true);
+                      }}
+                    >
+                      Edit your review
+                    </button>
+                  </div>
+                );
+              }
+
+              if ((eligible || (myReview && reviewFormOpen))) {
+                return (
+                  <div className="review-form">
+                    <div className="star-picker">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={n <= reviewRating ? "active" : ""}
+                          onClick={() => setReviewRating(n)}
+                          aria-label={`${n} star${n !== 1 ? "s" : ""}`}
+                        >
+                          {n <= reviewRating ? "★" : "☆"}
+                        </button>
+                      ))}
+                    </div>
+
+                    <textarea
+                      rows="3"
+                      value={reviewComment}
+                      onChange={(event) => setReviewComment(event.target.value)}
+                      placeholder="What did you think of this product? (optional)"
+                    />
+
+                    <div className="review-photo-upload">
+                      {reviewPhotoUrl ? (
+                        <div className="review-photo-preview">
+                          <img src={reviewPhotoUrl} alt="Your review" />
+                          <button type="button" onClick={() => setReviewPhotoUrl("")} aria-label="Remove photo">
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="btn-secondary review-photo-btn">
+                          {reviewPhotoUploading ? "Uploading..." : "+ Add a photo (optional)"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            disabled={reviewPhotoUploading}
+                            onChange={(event) => uploadReviewPhoto(event.target.files?.[0])}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    <button
+                      className="btn-primary"
+                      disabled={reviewSaving || reviewPhotoUploading}
+                      onClick={async () => {
+                        const ok = await submitReview(selectedProduct.id);
+                        if (ok) setReviewFormOpen(false);
+                      }}
+                    >
+                      {reviewSaving ? "Saving..." : "Submit review"}
+                    </button>
+                  </div>
+                );
+              }
+
+              if (user) {
+                return (
+                  <p className="admin-hint">
+                    You can review this product once your order for it is marked delivered.
+                  </p>
+                );
+              }
+
+              return null;
+            })()}
+
+            <div className="review-list">
+              {(reviewsByProduct[selectedProduct.id] || []).map((review) => (
+                <div className="review-row" key={review.id}>
+                  <div className="review-row-head">
+                    <span className="review-stars">
+                      {"★".repeat(review.rating)}
+                      {"☆".repeat(5 - review.rating)}
+                    </span>
+                    <strong>{review.customer_name}</strong>
+                    <span className="review-date">{formatDate(review.created_at)}</span>
+                  </div>
+                  {review.comment && <p>{review.comment}</p>}
+                  {review.photo_url && (
+                    <img className="review-photo" src={review.photo_url} alt="Customer review" />
+                  )}
+                </div>
+              ))}
+
+              {(reviewsByProduct[selectedProduct.id] || []).length === 0 && (
+                <p className="admin-hint">Be the first to review this product.</p>
+              )}
+            </div>
+          </div>
+
+          {(() => {
+            const related = products
+              .filter(
+                (p) =>
+                  p.id !== selectedProduct.id &&
+                  normalizeCategory(p.category) === normalizeCategory(selectedProduct.category)
+              )
+              .slice(0, 4);
+
+            if (related.length === 0) return null;
+
+            return (
+              <div className="related-section">
+                <div className="settings-block-title">You may also like</div>
+                <div className="related-scroll">
+                  {related.map((product) => {
+                    const image = getProductImage(product);
+                    return (
+                      <button
+                        className="related-card"
+                        key={product.id}
+                        onClick={() => navigate(`/product/${product.id}`)}
+                      >
+                        <div className="related-card-image">
+                          {image ? (
+                            <img src={image} alt={product.name} />
+                          ) : (
+                            <div className="product-placeholder">
+                              <span>S</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="related-card-name">{product.name}</span>
+                        <strong className="related-card-price">{money(product.price)}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+        </div>
+
+        ) : (
+        <>
+
         {/* =================================================
             HERO
             ================================================= */}
@@ -3995,14 +4290,7 @@ export default function App() {
                   <button
                     className="trending-card"
                     key={product.id}
-                    onClick={() => {
-                      setSelectedProduct(product);
-                      setGalleryIndex(0);
-                      setReviewFormOpen(false);
-                      setReviewRating(0);
-                      setReviewComment("");
-                      setModal("product");
-                    }}
+                    onClick={() => navigate(`/product/${product.id}`)}
                   >
                     <div className="trending-card-image">
                       {image ? (
@@ -4116,14 +4404,7 @@ export default function App() {
                     <div className="product-visual-wrap">
                       <button
                         className="product-visual"
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setGalleryIndex(0);
-                          setReviewFormOpen(false);
-                          setReviewRating(0);
-                          setReviewComment("");
-                          setModal("product");
-                        }}
+                        onClick={() => navigate(`/product/${product.id}`)}
                       >
                         {image ? (
                           <img src={image} alt={product.name} loading="lazy" />
@@ -4225,6 +4506,9 @@ export default function App() {
             </button>
           </div>
         </section>
+
+        </>
+        )}
 
       </main>
 
@@ -4409,266 +4693,7 @@ export default function App() {
           PRODUCT MODAL
           =================================================== */}
 
-      {modal === "product" && selectedProduct && (
-        <Modal onClose={() => setModal(null)} processing={processing} skeleton="product">
-          <div className="product-modal">
-            {(() => {
-              const allImages = [getProductImage(selectedProduct), ...(selectedProduct.images || [])].filter(Boolean);
-              const activeImage = allImages[Math.min(galleryIndex, Math.max(allImages.length - 1, 0))] || "";
-
-              return (
-                <div className="product-modal-image">
-                  <div className="product-modal-image-frame">
-                    {activeImage ? (
-                      <img src={activeImage} alt={selectedProduct.name} />
-                    ) : (
-                      <div className="product-placeholder large">
-                        <span>S</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {allImages.length > 1 && (
-                    <div className="product-modal-thumbs">
-                      {allImages.map((url, index) => (
-                        <button
-                          key={url + index}
-                          type="button"
-                          className={index === galleryIndex ? "active" : ""}
-                          onClick={() => setGalleryIndex(index)}
-                        >
-                          <img src={url} alt={`${selectedProduct.name} ${index + 1}`} />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            <div className="product-modal-content">
-              <span className="modal-kicker">{selectedProduct.category || "Shindara product"}</span>
-              <h2>{selectedProduct.name}</h2>
-
-              {(() => {
-                const summary = getProductRatingSummary(selectedProduct.id);
-                return (
-                  <div className="modal-rating-summary">
-                    <span className="stars">
-                      {"★".repeat(Math.round(summary.average))}
-                      {"☆".repeat(5 - Math.round(summary.average))}
-                    </span>
-                    <span>
-                      {summary.count > 0
-                        ? `${summary.average.toFixed(1)} (${summary.count} review${summary.count !== 1 ? "s" : ""})`
-                        : "No reviews yet"}
-                    </span>
-                  </div>
-                );
-              })()}
-
-              <p className="product-modal-description">
-                {selectedProduct.description || "Premium tech essential designed for everyday use."}
-              </p>
-              <div className="product-modal-price">{money(selectedProduct.price)}</div>
-
-              <div className="product-modal-stock">
-                <span>Availability</span>
-                <strong>
-                  {Number(selectedProduct.stock || 0) > 0
-                    ? `${selectedProduct.stock} available`
-                    : "Sold out"}
-                </strong>
-              </div>
-
-              <button
-                className="btn-primary full"
-                onClick={async () => {
-                  if (Number(selectedProduct.stock || 0) <= 0) {
-                    await requestStockNotify(selectedProduct);
-                    return;
-                  }
-                  const ok = await addToCart(selectedProduct);
-                  if (ok) celebrateAdd(selectedProduct.id);
-                  setModal(null);
-                }}
-              >
-                {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me when back in stock"}
-              </button>
-            </div>
-          </div>
-
-          <div className="reviews-section">
-            <div className="settings-block-title">Ratings &amp; reviews</div>
-
-            {(() => {
-              const myReview = myReviewFor(selectedProduct.id);
-              const eligible = canReviewProduct(selectedProduct.id);
-
-              if (myReview && !reviewFormOpen) {
-                return (
-                  <div className="my-review-card">
-                    <div className="review-stars">{"★".repeat(myReview.rating)}{"☆".repeat(5 - myReview.rating)}</div>
-                    {myReview.comment && <p>{myReview.comment}</p>}
-                    <button
-                      className="btn-text"
-                      onClick={() => {
-                        setReviewRating(myReview.rating);
-                        setReviewComment(myReview.comment || "");
-                        setReviewPhotoUrl(myReview.photo_url || "");
-                        setReviewFormOpen(true);
-                      }}
-                    >
-                      Edit your review
-                    </button>
-                  </div>
-                );
-              }
-
-              if ((eligible || (myReview && reviewFormOpen))) {
-                return (
-                  <div className="review-form">
-                    <div className="star-picker">
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          className={n <= reviewRating ? "active" : ""}
-                          onClick={() => setReviewRating(n)}
-                          aria-label={`${n} star${n !== 1 ? "s" : ""}`}
-                        >
-                          {n <= reviewRating ? "★" : "☆"}
-                        </button>
-                      ))}
-                    </div>
-
-                    <textarea
-                      rows="3"
-                      value={reviewComment}
-                      onChange={(event) => setReviewComment(event.target.value)}
-                      placeholder="What did you think of this product? (optional)"
-                    />
-
-                    <div className="review-photo-upload">
-                      {reviewPhotoUrl ? (
-                        <div className="review-photo-preview">
-                          <img src={reviewPhotoUrl} alt="Your review" />
-                          <button type="button" onClick={() => setReviewPhotoUrl("")} aria-label="Remove photo">
-                            ×
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="btn-secondary review-photo-btn">
-                          {reviewPhotoUploading ? "Uploading..." : "+ Add a photo (optional)"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            disabled={reviewPhotoUploading}
-                            onChange={(event) => uploadReviewPhoto(event.target.files?.[0])}
-                          />
-                        </label>
-                      )}
-                    </div>
-
-                    <button
-                      className="btn-primary"
-                      disabled={reviewSaving || reviewPhotoUploading}
-                      onClick={async () => {
-                        const ok = await submitReview(selectedProduct.id);
-                        if (ok) setReviewFormOpen(false);
-                      }}
-                    >
-                      {reviewSaving ? "Saving..." : "Submit review"}
-                    </button>
-                  </div>
-                );
-              }
-
-              if (user) {
-                return (
-                  <p className="admin-hint">
-                    You can review this product once your order for it is marked delivered.
-                  </p>
-                );
-              }
-
-              return null;
-            })()}
-
-            <div className="review-list">
-              {(reviewsByProduct[selectedProduct.id] || []).map((review) => (
-                <div className="review-row" key={review.id}>
-                  <div className="review-row-head">
-                    <span className="review-stars">
-                      {"★".repeat(review.rating)}
-                      {"☆".repeat(5 - review.rating)}
-                    </span>
-                    <strong>{review.customer_name}</strong>
-                    <span className="review-date">{formatDate(review.created_at)}</span>
-                  </div>
-                  {review.comment && <p>{review.comment}</p>}
-                  {review.photo_url && (
-                    <img className="review-photo" src={review.photo_url} alt="Customer review" />
-                  )}
-                </div>
-              ))}
-
-              {(reviewsByProduct[selectedProduct.id] || []).length === 0 && (
-                <p className="admin-hint">Be the first to review this product.</p>
-              )}
-            </div>
-          </div>
-
-          {(() => {
-            const related = products
-              .filter(
-                (p) =>
-                  p.id !== selectedProduct.id &&
-                  normalizeCategory(p.category) === normalizeCategory(selectedProduct.category)
-              )
-              .slice(0, 4);
-
-            if (related.length === 0) return null;
-
-            return (
-              <div className="related-section">
-                <div className="settings-block-title">You may also like</div>
-                <div className="related-scroll">
-                  {related.map((product) => {
-                    const image = getProductImage(product);
-                    return (
-                      <button
-                        className="related-card"
-                        key={product.id}
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setGalleryIndex(0);
-                          setReviewFormOpen(false);
-                          setReviewRating(0);
-                          setReviewComment("");
-                        }}
-                      >
-                        <div className="related-card-image">
-                          {image ? (
-                            <img src={image} alt={product.name} />
-                          ) : (
-                            <div className="product-placeholder">
-                              <span>S</span>
-                            </div>
-                          )}
-                        </div>
-                        <span className="related-card-name">{product.name}</span>
-                        <strong className="related-card-price">{money(product.price)}</strong>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-        </Modal>
-      )}
+      {/* product content has moved into <main> as a real page — see below */}
 
       {/* ===================================================
           AUTH MODAL
