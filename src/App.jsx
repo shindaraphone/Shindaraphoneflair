@@ -1414,6 +1414,7 @@ export default function App() {
 
   const productRouteMatch = location.pathname.match(/^\/product\/([^/]+)\/?$/);
   const routedProductId = productRouteMatch ? productRouteMatch[1] : null;
+  const isCartRoute = location.pathname === "/cart";
 
 
   useEffect(() => {
@@ -3581,6 +3582,20 @@ export default function App() {
     setMobileMenu(false);
 
 
+    if (location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        document
+          .getElementById(id)
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+      }, 150);
+      return;
+    }
+
+
     setTimeout(() => {
       document
         .getElementById(id)
@@ -3589,7 +3604,7 @@ export default function App() {
           block: "start",
         });
     }, 50);
-  }, []);
+  }, [location.pathname, navigate]);
 
 
   /* =======================================================
@@ -3772,7 +3787,7 @@ export default function App() {
 
           <button
             className={`header-cart ${cartBounce ? "cart-bounce" : ""}`}
-            onClick={() => setModal("cart")}
+            onClick={() => navigate("/cart")}
             aria-label="Shopping cart"
           >
             <span className="cart-label">Cart</span>
@@ -4050,6 +4065,101 @@ export default function App() {
               </div>
             );
           })()}
+
+        </div>
+
+        ) : isCartRoute ? (
+
+        <div className="cart-page">
+
+          <button className="product-page-back" onClick={() => navigate(-1)}>
+            ← Back
+          </button>
+
+          <div className="modal-head">
+            <span className="modal-kicker">Your cart</span>
+            <h2>Shopping cart.</h2>
+            <p>
+              {cartCount} item{cartCount !== 1 ? "s" : ""} selected.
+            </p>
+          </div>
+
+          {cartLoading ? (
+            <div className="modal-empty">
+              <div className="mini-spinner" />
+              <p>Loading your cart...</p>
+            </div>
+          ) : cart.length === 0 ? (
+            <div className="modal-empty">
+              <svg className="empty-bag" viewBox="0 0 48 48" fill="none">
+                <path d="M14 16h20l-1.5 22a3 3 0 01-3 2.8H18.5a3 3 0 01-3-2.8L14 16z" stroke="var(--gold)" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M18 16v-3a6 6 0 0112 0v3" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <h3>Your cart is empty.</h3>
+              <p>Find something you love and add it here.</p>
+              <button
+                className="btn-primary"
+                onClick={() => navigate("/")}
+              >
+                Continue shopping
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="cart-list">
+                {cart.map((item) => (
+                  <div className="cart-item" key={item.id}>
+                    <div className="cart-item-image">
+                      {getProductImage(item.product) ? (
+                        <img src={getProductImage(item.product)} alt={item.product?.name || ""} />
+                      ) : (
+                        <span>S</span>
+                      )}
+                    </div>
+
+                    <div className="cart-item-info">
+                      <span>{item.product?.category || "Shindara"}</span>
+                      <h4>{item.product?.name}</h4>
+                      <strong>{money(item.product?.price)}</strong>
+                    </div>
+
+                    <div className="cart-item-controls">
+                      <div className="quantity">
+                        <button onClick={() => updateQuantity(item, -1)}>−</button>
+                        <span>{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item, 1)}>+</button>
+                      </div>
+
+                      <strong>{money(item.subtotal)}</strong>
+
+                      <button className="remove" onClick={() => removeFromCart(item)}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="cart-summary">
+                <div>
+                  <span>Items</span>
+                  <strong>{cartCount}</strong>
+                </div>
+                <div className="cart-grand-total">
+                  <span>Subtotal</span>
+                  <strong>{money(cartTotal)}</strong>
+                </div>
+              </div>
+
+              <p className="checkout-note">Delivery fee is calculated at checkout based on your state.</p>
+
+              <button className="btn-primary full" onClick={openCheckout}>
+                Continue to checkout
+              </button>
+
+              <p className="checkout-note">🔒 Secure payment powered by Paystack</p>
+            </>
+          )}
 
         </div>
 
@@ -4583,7 +4693,7 @@ export default function App() {
             >
               My orders
             </button>
-            <button onClick={() => setModal("cart")}>
+            <button onClick={() => navigate("/cart")}>
               My cart
             </button>
           </div>
@@ -4663,7 +4773,7 @@ export default function App() {
 
         <button
           className="bottom-tab"
-          onClick={() => setModal("cart")}
+          onClick={() => navigate("/cart")}
         >
           <span className="bottom-tab-cart-icon">
             🛒
@@ -5004,97 +5114,7 @@ export default function App() {
           CART MODAL
           =================================================== */}
 
-      {modal === "cart" && (
-        <Modal onClose={() => setModal(null)} wide processing={processing} skeleton="list">
-          <div className="modal-head">
-            <span className="modal-kicker">Your cart</span>
-            <h2>Shopping cart.</h2>
-            <p>
-              {cartCount} item{cartCount !== 1 ? "s" : ""} selected.
-            </p>
-          </div>
-
-          {cartLoading ? (
-            <div className="modal-empty">
-              <div className="mini-spinner" />
-              <p>Loading your cart...</p>
-            </div>
-          ) : cart.length === 0 ? (
-            <div className="modal-empty">
-              <svg className="empty-bag" viewBox="0 0 48 48" fill="none">
-                <path d="M14 16h20l-1.5 22a3 3 0 01-3 2.8H18.5a3 3 0 01-3-2.8L14 16z" stroke="var(--gold)" strokeWidth="2" strokeLinejoin="round" />
-                <path d="M18 16v-3a6 6 0 0112 0v3" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <h3>Your cart is empty.</h3>
-              <p>Find something you love and add it here.</p>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setModal(null);
-                  scrollToSection("shop");
-                }}
-              >
-                Continue shopping
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="cart-list">
-                {cart.map((item) => (
-                  <div className="cart-item" key={item.id}>
-                    <div className="cart-item-image">
-                      {getProductImage(item.product) ? (
-                        <img src={getProductImage(item.product)} alt={item.product?.name || ""} />
-                      ) : (
-                        <span>S</span>
-                      )}
-                    </div>
-
-                    <div className="cart-item-info">
-                      <span>{item.product?.category || "Shindara"}</span>
-                      <h4>{item.product?.name}</h4>
-                      <strong>{money(item.product?.price)}</strong>
-                    </div>
-
-                    <div className="cart-item-controls">
-                      <div className="quantity">
-                        <button onClick={() => updateQuantity(item, -1)}>−</button>
-                        <span>{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item, 1)}>+</button>
-                      </div>
-
-                      <strong>{money(item.subtotal)}</strong>
-
-                      <button className="remove" onClick={() => removeFromCart(item)}>
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="cart-summary">
-                <div>
-                  <span>Items</span>
-                  <strong>{cartCount}</strong>
-                </div>
-                <div className="cart-grand-total">
-                  <span>Subtotal</span>
-                  <strong>{money(cartTotal)}</strong>
-                </div>
-              </div>
-
-              <p className="checkout-note">Delivery fee is calculated at checkout based on your state.</p>
-
-              <button className="btn-primary full" onClick={openCheckout}>
-                Continue to checkout
-              </button>
-
-              <p className="checkout-note">🔒 Secure payment powered by Paystack</p>
-            </>
-          )}
-        </Modal>
-      )}
+      {/* cart content has moved into <main> as a real page — see below */}
 
       {/* ===================================================
           CHECKOUT MODAL
@@ -5104,7 +5124,8 @@ export default function App() {
         <Modal
           onClose={() => {
             if (!processing) {
-              setModal("cart");
+              setModal(null);
+              navigate("/cart");
             }
           }}
           wide
