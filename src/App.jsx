@@ -1572,6 +1572,64 @@ export default function App() {
   }, []);
 
 
+  /* =======================================================
+     LIVE PURCHASE TICKER — real recent orders (product name,
+     state, date only — never customer identity), pulled from
+     a public-safe database view
+     ======================================================= */
+
+
+  const [purchaseTicker, setPurchaseTicker] = useState([]);
+  const [tickerIndex, setTickerIndex] = useState(0);
+  const [tickerVisible, setTickerVisible] = useState(false);
+
+  const loadPurchaseTicker = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("public_recent_purchases")
+        .select("*")
+        .limit(15);
+
+      if (error) throw error;
+
+      setPurchaseTicker(data || []);
+    } catch (error) {
+      console.error("Purchase ticker:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (purchaseTicker.length === 0) return;
+
+    const firstShow = setTimeout(() => setTickerVisible(true), 3000);
+
+    const cycle = setInterval(() => {
+      setTickerVisible(false);
+      setTimeout(() => {
+        setTickerIndex((prev) => (prev + 1) % purchaseTicker.length);
+        setTickerVisible(true);
+      }, 400);
+    }, 9000);
+
+    return () => {
+      clearTimeout(firstShow);
+      clearInterval(cycle);
+    };
+  }, [purchaseTicker]);
+
+  const relativeTime = useCallback((date) => {
+    if (!date) return "";
+    const diffMs = Date.now() - new Date(date).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }, []);
+
+
   const uploadReviewPhoto = useCallback(
     async (file) => {
       if (!file || !user) return;
@@ -1957,6 +2015,7 @@ export default function App() {
           loadSiteSettings(),
           loadDeliveryFees(),
           loadReviews(),
+          loadPurchaseTicker(),
         ]);
 
 
@@ -3473,6 +3532,11 @@ export default function App() {
 
   const trendingProducts = useMemo(() => products.slice(0, 8), [products]);
 
+  const photoReviews = useMemo(
+    () => reviews.filter((r) => r.photo_url).slice(0, 8),
+    [reviews]
+  );
+
 
   const reviewsByProduct = useMemo(() => {
     const map = {};
@@ -4863,6 +4927,37 @@ export default function App() {
         </section>
 
         {/* =================================================
+            CUSTOMER PHOTO WALL
+            ================================================= */}
+
+        {photoReviews.length > 0 && (
+          <section className="customer-wall-section">
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">Real customers</span>
+                <h2>Shindara, <em>in the wild.</em></h2>
+              </div>
+            </div>
+
+            <div className="customer-wall-scroll">
+              {photoReviews.map((review) => (
+                <button
+                  key={review.id}
+                  className="customer-wall-card"
+                  onClick={() => navigate(`/product/${review.product_id}`)}
+                >
+                  <img src={review.photo_url} alt={`Photo from ${review.customer_name}`} />
+                  <div className="customer-wall-caption">
+                    <span className="stars">{"★".repeat(review.rating)}</span>
+                    <strong>{review.customer_name}</strong>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* =================================================
             BRAND CTA
             ================================================= */}
 
@@ -5718,6 +5813,23 @@ export default function App() {
           >
             {processing ? "Processing..." : "Pay now"}
           </button>
+        </div>
+      )}
+
+      {/* ===================================================
+          LIVE PURCHASE TICKER
+          =================================================== */}
+
+      {purchaseTicker.length > 0 && tickerVisible && (
+        <div className="purchase-ticker">
+          <span className="purchase-ticker-dot" />
+          <div className="purchase-ticker-text">
+            <strong>Someone in {purchaseTicker[tickerIndex].delivery_state}</strong>
+            <span>
+              just got {purchaseTicker[tickerIndex].product_name} ·{" "}
+              {relativeTime(purchaseTicker[tickerIndex].created_at)}
+            </span>
+          </div>
         </div>
       )}
 
