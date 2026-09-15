@@ -3902,6 +3902,12 @@ export default function App() {
               >
                 {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me when back in stock"}
               </button>
+
+              <div className="product-trust-strip">
+                <span>🔒 Secure payment</span>
+                <span>🚚 Fast delivery</span>
+                <span>↩ Easy returns</span>
+              </div>
             </div>
           </div>
 
@@ -4448,6 +4454,34 @@ export default function App() {
 
             {siteSettings.hero_image_url ? (
               <img className="hero-photo" src={siteSettings.hero_image_url} alt="Featured products" />
+            ) : trendingProducts.length > 0 ? (
+              <div className="hero-collage">
+                {trendingProducts.slice(0, 3).map((product, index) => {
+                  const image = getProductImage(product);
+                  return (
+                    <div className={`hero-collage-card hero-collage-card-${index}`} key={product.id}>
+                      {image ? (
+                        <img src={image} alt={product.name} />
+                      ) : (
+                        <div className="product-placeholder large">
+                          <span>S</span>
+                        </div>
+                      )}
+                      {index === 0 && (
+                        <div className="hero-collage-tag">
+                          <strong>{product.name}</strong>
+                          <span>{money(product.price)}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div className="hero-floating hero-floating-two">
+                  <strong>Fast delivery</strong>
+                  <small>Across all 36 states</small>
+                </div>
+              </div>
             ) : (
               <>
                 <div className="hero-card-back" />
@@ -4721,7 +4755,10 @@ export default function App() {
             </div>
           ) : sortedProducts.length === 0 ? (
             <div className="empty-shop">
-              <div className="empty-shop-icon">⌕</div>
+              <svg className="empty-bag" viewBox="0 0 48 48" fill="none">
+                <circle cx="21" cy="21" r="13" stroke="var(--gold)" strokeWidth="2" />
+                <path d="M30 30l9 9" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
+              </svg>
               <h3>No products found.</h3>
               <p>Try another search or choose a different category.</p>
               <button
