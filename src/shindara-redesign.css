@@ -2022,3 +2022,11 @@ a { color: inherit; }
   margin: 0 auto;
   padding: 24px clamp(20px, 5vw, 56px) 80px;
 }
+
+/* ---------- real checkout page (was a modal, now /checkout) ---------- */
+
+.checkout-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px clamp(20px, 5vw, 56px) 80px;
+}
