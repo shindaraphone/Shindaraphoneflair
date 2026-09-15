@@ -4545,7 +4545,7 @@ export default function App() {
             CATEGORIES
             ================================================= */}
 
-        <section className="categories-section" id="categories">
+        <section className="categories-section categories-overlap" id="categories">
 
           <div className="section-heading">
             <div>
@@ -4586,49 +4586,6 @@ export default function App() {
             ))}
           </div>
         </section>
-
-        {/* =================================================
-            TRENDING NOW
-            ================================================= */}
-
-        {trendingProducts.length > 0 && (
-          <section className="trending-section">
-            <div className="section-heading">
-              <div>
-                <span className="section-kicker">Trending now</span>
-                <h2>Everyone's <em>picking these.</em></h2>
-              </div>
-            </div>
-
-            <div className="trending-scroll">
-              {trendingProducts.map((product) => {
-                const image = getProductImage(product);
-                const stock = Number(product.stock || 0);
-
-                return (
-                  <button
-                    className="trending-card"
-                    key={product.id}
-                    onClick={() => navigate(`/product/${product.id}`)}
-                  >
-                    <div className="trending-card-image">
-                      {image ? (
-                        <img src={image} alt={product.name} loading="lazy" />
-                      ) : (
-                        <div className="product-placeholder">
-                          <span>S</span>
-                        </div>
-                      )}
-                    </div>
-                    <span className="trending-card-name">{product.name}</span>
-                    <strong className="trending-card-price">{money(product.price)}</strong>
-                    {stock <= 0 && <span className="sold-out">Sold out</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
 
         {/* =================================================
             SPOTLIGHT
@@ -4677,34 +4634,48 @@ export default function App() {
         )}
 
         {/* =================================================
-            SERVICE STRIP
+            TRENDING NOW
             ================================================= */}
 
-        <section className="service-strip">
-          <div>
-            <span>◆</span>
-            <strong>Premium quality</strong>
-            <small>Products worth keeping.</small>
-          </div>
+        {trendingProducts.length > 0 && (
+          <section className="trending-section">
+            <div className="section-heading">
+              <div>
+                <span className="section-kicker">Trending now</span>
+                <h2>Everyone's <em>picking these.</em></h2>
+              </div>
+            </div>
 
-          <div>
-            <span>🔒</span>
-            <strong>Secure checkout</strong>
-            <small>Powered by Paystack.</small>
-          </div>
+            <div className="trending-scroll">
+              {trendingProducts.map((product) => {
+                const image = getProductImage(product);
+                const stock = Number(product.stock || 0);
 
-          <div>
-            <span>🚚</span>
-            <strong>Nationwide delivery</strong>
-            <small>We deliver across Nigeria.</small>
-          </div>
+                return (
+                  <button
+                    className="trending-card"
+                    key={product.id}
+                    onClick={() => navigate(`/product/${product.id}`)}
+                  >
+                    <div className="trending-card-image">
+                      {image ? (
+                        <img src={image} alt={product.name} loading="lazy" />
+                      ) : (
+                        <div className="product-placeholder">
+                          <span>S</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="trending-card-name">{product.name}</span>
+                    <strong className="trending-card-price">{money(product.price)}</strong>
+                    {stock <= 0 && <span className="sold-out">Sold out</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-          <div>
-            <span>◎</span>
-            <strong>Order tracking</strong>
-            <small>Follow your order.</small>
-          </div>
-        </section>
 
         {/* =================================================
             SHOP
@@ -4745,6 +4716,13 @@ export default function App() {
                 <option value="price-desc">Price: High to low</option>
               </select>
             </div>
+          </div>
+
+          <div className="shop-trust-line">
+            <span>◆ Premium quality</span>
+            <span>🔒 Secure checkout</span>
+            <span>🚚 Nationwide delivery</span>
+            <span>◎ Order tracking</span>
           </div>
 
           <div className="filter-row">
