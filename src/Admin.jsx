@@ -970,6 +970,12 @@ function OrdersTab({ orders, reload, showNotice }) {
             </div>
           </div>
 
+          {selected.promo_code && (
+            <div className="admin-message" style={{ marginTop: "16px" }}>
+              Promo code entered: <strong>{selected.promo_code}</strong> — not auto-applied, honor manually if valid.
+            </div>
+          )}
+
           <div className="tracking-items">
             <div className="tracking-section-title">Items</div>
             {(selected.items || []).map((item) => (
