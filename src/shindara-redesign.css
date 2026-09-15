@@ -2204,3 +2204,37 @@ a { color: inherit; }
   .header-search { flex-basis: 90px; }
   .header-search input { font-size: 14px; }
 }
+
+/* ---------- hybrid homepage: categories overlapping the hero ---------- */
+
+.hero { padding-bottom: 60px; }
+
+.categories-overlap {
+  position: relative;
+  z-index: 2;
+  margin-top: -48px;
+  padding-top: 0 !important;
+  background: var(--paper);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: 0 -12px 30px -18px rgba(23, 17, 31, 0.18);
+}
+.categories-overlap .section-heading { padding-top: 28px; }
+
+@media (max-width: 600px) {
+  .hero { padding-bottom: 44px; }
+  .categories-overlap { margin-top: -32px; }
+  .categories-overlap .section-heading { padding-top: 22px; }
+}
+
+/* ---------- slim trust line (replaces the old full service-strip section) ---------- */
+
+.shop-trust-line {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--line);
+}
