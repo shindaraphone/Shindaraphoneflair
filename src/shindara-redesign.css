@@ -2097,3 +2097,79 @@ a { color: inherit; }
   font-size: 11.5px;
   color: var(--ink-soft);
 }
+
+/* ---------- sticky buy bar (product page + checkout page, mobile) ---------- */
+
+.sticky-buy-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -6px 20px -12px rgba(0, 0, 0, 0.25);
+}
+.sticky-buy-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.sticky-buy-info span { font-size: 11px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sticky-buy-info strong { font-family: var(--font-display); font-size: 16px; }
+.sticky-buy-bar .btn-primary { padding: 11px 22px; font-size: 13.5px; flex-shrink: 0; }
+
+@media (max-width: 860px) {
+  .sticky-buy-bar { bottom: 64px; }
+  .product-page, .checkout-page { padding-bottom: 150px; }
+}
+@media (min-width: 861px) {
+  .sticky-buy-bar { display: none; }
+}
+
+/* ---------- sticky category filter bar (mobile/tablet) ---------- */
+
+@media (max-width: 999px) {
+  .filter-row {
+    position: sticky;
+    top: 58px;
+    z-index: 40;
+    background: var(--case);
+    padding: 10px 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-bottom: 24px;
+  }
+  .filter-row::-webkit-scrollbar { display: none; }
+}
+@media (min-width: 861px) and (max-width: 999px) {
+  .filter-row { top: 76px; }
+}
+
+/* ---------- desktop filter sidebar ---------- */
+
+@media (min-width: 1000px) {
+  .shop-section {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    grid-template-areas:
+      "sidebar header"
+      "sidebar grid";
+    align-items: start;
+    gap: 8px 32px;
+  }
+  .shop-section > .shop-header { grid-area: header; margin-bottom: 20px; }
+  .shop-section > .filter-row {
+    grid-area: sidebar;
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    margin-bottom: 0;
+    position: sticky;
+    top: 100px;
+  }
+  .shop-section > .filter-row .filter-chip { text-align: left; }
+  .shop-section > .product-grid,
+  .shop-section > .empty-shop { grid-area: grid; }
+}
