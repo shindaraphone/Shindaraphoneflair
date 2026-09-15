@@ -18,6 +18,7 @@
   --teal: #16a34a;
   --teal-soft: #dcfce7;
   --line: #e6e1f2;
+  --urgent: #f97316;
   --brand-gradient: linear-gradient(135deg, #7c3aed, #ec4899);
 
   --font-display: "Space Grotesk", "Inter", sans-serif;
@@ -42,6 +43,7 @@
   --teal: #22c55e;
   --teal-soft: #14291c;
   --line: #2a2138;
+  --urgent: #fb923c;
   --brand-gradient: linear-gradient(135deg, #a855f7, #ec4899);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 32px -16px rgba(0, 0, 0, 0.6);
   --shadow-pop: 0 18px 44px -16px rgba(0, 0, 0, 0.7);
@@ -830,7 +832,7 @@ a { color: inherit; }
   border-radius: 999px;
 }
 .sold-out { background: var(--ink); color: var(--case); }
-.low-stock { background: var(--flair); color: #fff; }
+.low-stock { background: var(--urgent); color: #fff; }
 
 .new-badge {
   position: absolute;
