@@ -1415,6 +1415,7 @@ export default function App() {
   const productRouteMatch = location.pathname.match(/^\/product\/([^/]+)\/?$/);
   const routedProductId = productRouteMatch ? productRouteMatch[1] : null;
   const isCartRoute = location.pathname === "/cart";
+  const isCheckoutRoute = location.pathname === "/checkout";
 
 
   useEffect(() => {
@@ -1930,7 +1931,7 @@ export default function App() {
       }
 
       setCheckoutError("");
-      setModal("checkout");
+      navigate("/checkout");
     };
 
 
@@ -3027,6 +3028,7 @@ export default function App() {
         setProcessing(false);
         setCheckoutError("");
         setModal("success");
+        navigate("/");
 
 
         showNotice("Payment successful! Your order is confirmed.");
@@ -3042,7 +3044,7 @@ export default function App() {
         );
       }
     },
-    [saveSuccessfulOrder, showNotice]
+    [saveSuccessfulOrder, showNotice, navigate]
   );
 
 
@@ -3651,8 +3653,9 @@ export default function App() {
     }));
 
 
-    setModal("checkout");
-  }, [cart.length, profile, user, showNotice, resetAuthForm]);
+    setModal(null);
+    navigate("/checkout");
+  }, [cart.length, profile, user, showNotice, resetAuthForm, navigate]);
 
 
   /* =======================================================
@@ -4160,6 +4163,236 @@ export default function App() {
               <p className="checkout-note">🔒 Secure payment powered by Paystack</p>
             </>
           )}
+
+        </div>
+
+        ) : isCheckoutRoute ? (
+
+        <div className="checkout-page">
+
+          <button
+            className="product-page-back"
+            onClick={() => {
+              if (!processing) navigate("/cart");
+            }}
+            disabled={processing}
+          >
+            ← Back to cart
+          </button>
+
+          <div className="modal-head">
+            <span className="modal-kicker">Secure checkout</span>
+            <h2>Where should we deliver?</h2>
+            <p>Enter your details below and complete payment securely.</p>
+          </div>
+
+          {checkoutError && (
+            <div className={`message ${/successful|confirmed/i.test(checkoutError) ? "success" : "error"}`}>
+              {checkoutError}
+            </div>
+          )}
+
+          <form onSubmit={handlePayment}>
+            <div className="checkout-section-title">
+              <span>1</span>
+              Customer details
+            </div>
+
+            <div className="checkout-grid">
+              <div className="field">
+                <label>Full name</label>
+                <input
+                  value={checkout.name}
+                  onChange={(event) =>
+                    setCheckout((previous) => ({ ...previous, name: event.target.value }))
+                  }
+                  placeholder="Your full name"
+                  required
+                  disabled={processing}
+                />
+              </div>
+
+              <div className="field">
+                <label>Phone number</label>
+                <input
+                  value={checkout.phone}
+                  onChange={(event) =>
+                    setCheckout((previous) => ({ ...previous, phone: event.target.value }))
+                  }
+                  placeholder="08012345678"
+                  inputMode="tel"
+                  required
+                  disabled={processing}
+                />
+              </div>
+
+              <div className="field field-full">
+                <label>Email address</label>
+                <input
+                  type="email"
+                  value={checkout.email}
+                  onChange={(event) =>
+                    setCheckout((previous) => ({ ...previous, email: event.target.value }))
+                  }
+                  placeholder="you@example.com"
+                  required
+                  disabled={processing}
+                />
+              </div>
+            </div>
+
+            <div className="checkout-section-title">
+              <span>2</span>
+              Delivery location
+            </div>
+
+            {hasSavedAddress && !editingAddress ? (
+              <div className="saved-address-card">
+                <div className="saved-address-info">
+                  <strong>{checkout.name || "Delivery address"}</strong>
+                  <span>{checkout.phone}</span>
+                  <span>{checkout.address}</span>
+                  <span>
+                    {checkout.city}, {checkout.state}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-text"
+                  onClick={() => setEditingAddress(true)}
+                  disabled={processing}
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="checkout-grid">
+                  <div className="field">
+                    <label>State</label>
+                    <select
+                      value={checkout.state}
+                      onChange={(event) =>
+                        setCheckout((previous) => ({
+                          ...previous,
+                          state: event.target.value,
+                          city: "",
+                        }))
+                      }
+                      required
+                      disabled={processing}
+                    >
+                      <option value="">Select your state</option>
+                      {Object.keys(NIGERIA_LOCATIONS)
+                        .sort((a, b) => a.localeCompare(b))
+                        .map((state) => (
+                          <option value={state} key={state}>
+                            {state}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label>City / LGA</label>
+                    <select
+                      value={checkout.city}
+                      onChange={(event) =>
+                        setCheckout((previous) => ({ ...previous, city: event.target.value }))
+                      }
+                      required
+                      disabled={processing || !checkout.state}
+                    >
+                      <option value="">
+                        {checkout.state ? "Select city / LGA" : "Select state first"}
+                      </option>
+                      {(NIGERIA_LOCATIONS[checkout.state] || [])
+                        .slice()
+                        .sort((a, b) => a.localeCompare(b))
+                        .map((city) => (
+                          <option value={city} key={city}>
+                            {city}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="field field-full">
+                    <label>Full delivery address</label>
+                    <textarea
+                      value={checkout.address}
+                      onChange={(event) =>
+                        setCheckout((previous) => ({ ...previous, address: event.target.value }))
+                      }
+                      placeholder="House number, street name, landmark..."
+                      rows="3"
+                      required
+                      disabled={processing}
+                    />
+                  </div>
+                </div>
+
+                <label className="admin-checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={saveAddress}
+                    onChange={(event) => setSaveAddress(event.target.checked)}
+                  />
+                  Save this address for next time
+                </label>
+
+                {hasSavedAddress && (
+                  <button
+                    type="button"
+                    className="btn-text"
+                    style={{ marginTop: "10px" }}
+                    onClick={() => setEditingAddress(false)}
+                    disabled={processing}
+                  >
+                    Use saved address instead
+                  </button>
+                )}
+              </>
+            )}
+
+            <div className="checkout-section-title">
+              <span>3</span>
+              Order summary
+            </div>
+
+            <div className="checkout-summary">
+              {cart.map((item) => (
+                <div key={item.id}>
+                  <span>
+                    {item.product?.name} × {item.quantity}
+                  </span>
+                  <strong>{money(item.subtotal)}</strong>
+                </div>
+              ))}
+
+              <div>
+                <span>Delivery{checkout.state ? ` to ${checkout.state}` : ""}</span>
+                <strong>{checkout.state ? money(deliveryFee) : "Select a state"}</strong>
+              </div>
+
+              <div className="checkout-total">
+                <span>Total to pay</span>
+                <strong>{money(orderTotal)}</strong>
+              </div>
+            </div>
+
+            <button className="btn-primary full pay-button" type="submit" disabled={processing}>
+              {processing ? "Opening secure payment..." : `Pay ${money(orderTotal)}`}
+            </button>
+
+            <div className="payment-security">
+              <span>🔒</span>
+              <div>
+                <strong>Secure payment</strong>
+                <small>Your payment is securely processed by Paystack.</small>
+              </div>
+            </div>
+          </form>
 
         </div>
 
@@ -5120,232 +5353,7 @@ export default function App() {
           CHECKOUT MODAL
           =================================================== */}
 
-      {modal === "checkout" && (
-        <Modal
-          onClose={() => {
-            if (!processing) {
-              setModal(null);
-              navigate("/cart");
-            }
-          }}
-          wide
-          processing={processing}
-        >
-          <div className="modal-head">
-            <span className="modal-kicker">Secure checkout</span>
-            <h2>Where should we deliver?</h2>
-            <p>Enter your details below and complete payment securely.</p>
-          </div>
-
-          {checkoutError && (
-            <div className={`message ${/successful|confirmed/i.test(checkoutError) ? "success" : "error"}`}>
-              {checkoutError}
-            </div>
-          )}
-
-          <form onSubmit={handlePayment}>
-            <div className="checkout-section-title">
-              <span>1</span>
-              Customer details
-            </div>
-
-            <div className="checkout-grid">
-              <div className="field">
-                <label>Full name</label>
-                <input
-                  value={checkout.name}
-                  onChange={(event) =>
-                    setCheckout((previous) => ({ ...previous, name: event.target.value }))
-                  }
-                  placeholder="Your full name"
-                  required
-                  disabled={processing}
-                />
-              </div>
-
-              <div className="field">
-                <label>Phone number</label>
-                <input
-                  value={checkout.phone}
-                  onChange={(event) =>
-                    setCheckout((previous) => ({ ...previous, phone: event.target.value }))
-                  }
-                  placeholder="08012345678"
-                  inputMode="tel"
-                  required
-                  disabled={processing}
-                />
-              </div>
-
-              <div className="field field-full">
-                <label>Email address</label>
-                <input
-                  type="email"
-                  value={checkout.email}
-                  onChange={(event) =>
-                    setCheckout((previous) => ({ ...previous, email: event.target.value }))
-                  }
-                  placeholder="you@example.com"
-                  required
-                  disabled={processing}
-                />
-              </div>
-            </div>
-
-            <div className="checkout-section-title">
-              <span>2</span>
-              Delivery location
-            </div>
-
-            {hasSavedAddress && !editingAddress ? (
-              <div className="saved-address-card">
-                <div className="saved-address-info">
-                  <strong>{checkout.name || "Delivery address"}</strong>
-                  <span>{checkout.phone}</span>
-                  <span>{checkout.address}</span>
-                  <span>
-                    {checkout.city}, {checkout.state}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="btn-text"
-                  onClick={() => setEditingAddress(true)}
-                  disabled={processing}
-                >
-                  Change
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="checkout-grid">
-                  <div className="field">
-                    <label>State</label>
-                    <select
-                      value={checkout.state}
-                      onChange={(event) =>
-                        setCheckout((previous) => ({
-                          ...previous,
-                          state: event.target.value,
-                          city: "",
-                        }))
-                      }
-                      required
-                      disabled={processing}
-                    >
-                      <option value="">Select your state</option>
-                      {Object.keys(NIGERIA_LOCATIONS)
-                        .sort((a, b) => a.localeCompare(b))
-                        .map((state) => (
-                          <option value={state} key={state}>
-                            {state}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="field">
-                    <label>City / LGA</label>
-                    <select
-                      value={checkout.city}
-                      onChange={(event) =>
-                        setCheckout((previous) => ({ ...previous, city: event.target.value }))
-                      }
-                      required
-                      disabled={processing || !checkout.state}
-                    >
-                      <option value="">
-                        {checkout.state ? "Select city / LGA" : "Select state first"}
-                      </option>
-                      {(NIGERIA_LOCATIONS[checkout.state] || [])
-                        .slice()
-                        .sort((a, b) => a.localeCompare(b))
-                        .map((city) => (
-                          <option value={city} key={city}>
-                            {city}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="field field-full">
-                    <label>Full delivery address</label>
-                    <textarea
-                      value={checkout.address}
-                      onChange={(event) =>
-                        setCheckout((previous) => ({ ...previous, address: event.target.value }))
-                      }
-                      placeholder="House number, street name, landmark..."
-                      rows="3"
-                      required
-                      disabled={processing}
-                    />
-                  </div>
-                </div>
-
-                <label className="admin-checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={saveAddress}
-                    onChange={(event) => setSaveAddress(event.target.checked)}
-                  />
-                  Save this address for next time
-                </label>
-
-                {hasSavedAddress && (
-                  <button
-                    type="button"
-                    className="btn-text"
-                    style={{ marginTop: "10px" }}
-                    onClick={() => setEditingAddress(false)}
-                    disabled={processing}
-                  >
-                    Use saved address instead
-                  </button>
-                )}
-              </>
-            )}
-
-            <div className="checkout-section-title">
-              <span>3</span>
-              Order summary
-            </div>
-
-            <div className="checkout-summary">
-              {cart.map((item) => (
-                <div key={item.id}>
-                  <span>
-                    {item.product?.name} × {item.quantity}
-                  </span>
-                  <strong>{money(item.subtotal)}</strong>
-                </div>
-              ))}
-
-              <div>
-                <span>Delivery{checkout.state ? ` to ${checkout.state}` : ""}</span>
-                <strong>{checkout.state ? money(deliveryFee) : "Select a state"}</strong>
-              </div>
-
-              <div className="checkout-total">
-                <span>Total to pay</span>
-                <strong>{money(orderTotal)}</strong>
-              </div>
-            </div>
-
-            <button className="btn-primary full pay-button" type="submit" disabled={processing}>
-              {processing ? "Opening secure payment..." : `Pay ${money(orderTotal)}`}
-            </button>
-
-            <div className="payment-security">
-              <span>🔒</span>
-              <div>
-                <strong>Secure payment</strong>
-                <small>Your payment is securely processed by Paystack.</small>
-              </div>
-            </div>
-          </form>
-        </Modal>
-      )}
+      {/* checkout content has moved into <main> as a real page — see below */}
 
       {/* ===================================================
           ORDERS MODAL
