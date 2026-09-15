@@ -4524,82 +4524,6 @@ export default function App() {
         </section>
 
         {/* =================================================
-            SPOTLIGHT
-            ================================================= */}
-
-        {spotlightProduct && (
-          <section className="spotlight">
-            <div className="spotlight-mesh" />
-
-            <Reveal className="spotlight-image-wrap">
-              <div className="spotlight-image">
-                {getProductImage(spotlightProduct) ? (
-                  <img src={getProductImage(spotlightProduct)} alt={spotlightProduct.name} />
-                ) : (
-                  <div className="product-placeholder large">
-                    <span>S</span>
-                  </div>
-                )}
-              </div>
-            </Reveal>
-
-            <Reveal delay={120} className="spotlight-content">
-              <span className="section-kicker">Spotlight</span>
-              <h2>{spotlightProduct.name}</h2>
-              <p>
-                {spotlightProduct.description ||
-                  "A standout pick from the collection, worth a closer look."}
-              </p>
-              <strong className="spotlight-price">{money(spotlightProduct.price)}</strong>
-
-              <button
-                className="btn-primary"
-                onClick={async () => {
-                  if (Number(spotlightProduct.stock || 0) <= 0) {
-                    await requestStockNotify(spotlightProduct);
-                    return;
-                  }
-                  const ok = await addToCart(spotlightProduct);
-                  if (ok) celebrateAdd(spotlightProduct.id);
-                }}
-              >
-                {Number(spotlightProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me"}
-              </button>
-            </Reveal>
-          </section>
-        )}
-
-        {/* =================================================
-            SERVICE STRIP
-            ================================================= */}
-
-        <section className="service-strip">
-          <div>
-            <span>◆</span>
-            <strong>Premium quality</strong>
-            <small>Products worth keeping.</small>
-          </div>
-
-          <div>
-            <span>🔒</span>
-            <strong>Secure checkout</strong>
-            <small>Powered by Paystack.</small>
-          </div>
-
-          <div>
-            <span>🚚</span>
-            <strong>Nationwide delivery</strong>
-            <small>We deliver across Nigeria.</small>
-          </div>
-
-          <div>
-            <span>◎</span>
-            <strong>Order tracking</strong>
-            <small>Follow your order.</small>
-          </div>
-        </section>
-
-        {/* =================================================
             CATEGORIES
             ================================================= */}
 
@@ -4687,6 +4611,82 @@ export default function App() {
             </div>
           </section>
         )}
+
+        {/* =================================================
+            SPOTLIGHT
+            ================================================= */}
+
+        {spotlightProduct && (
+          <section className="spotlight">
+            <div className="spotlight-mesh" />
+
+            <Reveal className="spotlight-image-wrap">
+              <div className="spotlight-image">
+                {getProductImage(spotlightProduct) ? (
+                  <img src={getProductImage(spotlightProduct)} alt={spotlightProduct.name} />
+                ) : (
+                  <div className="product-placeholder large">
+                    <span>S</span>
+                  </div>
+                )}
+              </div>
+            </Reveal>
+
+            <Reveal delay={120} className="spotlight-content">
+              <span className="section-kicker">Spotlight</span>
+              <h2>{spotlightProduct.name}</h2>
+              <p>
+                {spotlightProduct.description ||
+                  "A standout pick from the collection, worth a closer look."}
+              </p>
+              <strong className="spotlight-price">{money(spotlightProduct.price)}</strong>
+
+              <button
+                className="btn-primary"
+                onClick={async () => {
+                  if (Number(spotlightProduct.stock || 0) <= 0) {
+                    await requestStockNotify(spotlightProduct);
+                    return;
+                  }
+                  const ok = await addToCart(spotlightProduct);
+                  if (ok) celebrateAdd(spotlightProduct.id);
+                }}
+              >
+                {Number(spotlightProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me"}
+              </button>
+            </Reveal>
+          </section>
+        )}
+
+        {/* =================================================
+            SERVICE STRIP
+            ================================================= */}
+
+        <section className="service-strip">
+          <div>
+            <span>◆</span>
+            <strong>Premium quality</strong>
+            <small>Products worth keeping.</small>
+          </div>
+
+          <div>
+            <span>🔒</span>
+            <strong>Secure checkout</strong>
+            <small>Powered by Paystack.</small>
+          </div>
+
+          <div>
+            <span>🚚</span>
+            <strong>Nationwide delivery</strong>
+            <small>We deliver across Nigeria.</small>
+          </div>
+
+          <div>
+            <span>◎</span>
+            <strong>Order tracking</strong>
+            <small>Follow your order.</small>
+          </div>
+        </section>
 
         {/* =================================================
             SHOP
@@ -5675,6 +5675,54 @@ export default function App() {
             Sign out
           </button>
         </Modal>
+      )}
+
+      {/* ===================================================
+          STICKY ADD TO CART (mobile, on a product page)
+          =================================================== */}
+
+      {routedProductId && selectedProduct && (
+        <div className="sticky-buy-bar">
+          <div className="sticky-buy-info">
+            <span>{selectedProduct.name}</span>
+            <strong>{money(selectedProduct.price)}</strong>
+          </div>
+          <button
+            className="btn-primary"
+            onClick={async () => {
+              if (Number(selectedProduct.stock || 0) <= 0) {
+                await requestStockNotify(selectedProduct);
+                return;
+              }
+              const ok = await addToCart(selectedProduct);
+              if (ok) celebrateAdd(selectedProduct.id);
+            }}
+          >
+            {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me"}
+          </button>
+        </div>
+      )}
+
+      {/* ===================================================
+          STICKY ORDER TOTAL (mobile, on the checkout page)
+          =================================================== */}
+
+      {isCheckoutRoute && (
+        <div className="sticky-buy-bar">
+          <div className="sticky-buy-info">
+            <span>Total to pay</span>
+            <strong>{money(orderTotal)}</strong>
+          </div>
+          <button
+            className="btn-primary"
+            disabled={processing}
+            onClick={() => {
+              document.querySelector(".pay-button")?.click();
+            }}
+          >
+            {processing ? "Processing..." : "Pay now"}
+          </button>
+        </div>
       )}
 
       {/* ===================================================
