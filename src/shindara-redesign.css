@@ -2175,3 +2175,32 @@ a { color: inherit; }
   .shop-section > .product-grid,
   .shop-section > .empty-shop { grid-area: grid; }
 }
+
+/* ---------- hero badge shine sweep ---------- */
+
+.hero-eyebrow { position: relative; overflow: hidden; }
+.hero-eyebrow-shine {
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: hero-shine-sweep 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes hero-shine-sweep {
+  0% { left: -60%; }
+  60% { left: 140%; }
+  100% { left: 140%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-eyebrow-shine { animation: none; display: none; }
+}
+
+/* ---------- header search bar (mobile: hidden by default, shown on request is overkill — keep it compact and always visible) ---------- */
+
+@media (max-width: 480px) {
+  .header-search { flex-basis: 90px; }
+  .header-search input { font-size: 14px; }
+}
