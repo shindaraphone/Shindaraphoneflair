@@ -1311,6 +1311,7 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const galleryScrollRef = useRef(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
 
@@ -1352,6 +1353,7 @@ export default function App() {
   const [hasSavedAddress, setHasSavedAddress] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
   const [saveAddress, setSaveAddress] = useState(true);
+  const [promoCode, setPromoCode] = useState("");
 
 
   const [theme, setTheme] = useState(() => {
@@ -1571,63 +1573,6 @@ export default function App() {
     }
   }, []);
 
-
-  /* =======================================================
-     LIVE PURCHASE TICKER — real recent orders (product name,
-     state, date only — never customer identity), pulled from
-     a public-safe database view
-     ======================================================= */
-
-
-  const [purchaseTicker, setPurchaseTicker] = useState([]);
-  const [tickerIndex, setTickerIndex] = useState(0);
-  const [tickerVisible, setTickerVisible] = useState(false);
-
-  const loadPurchaseTicker = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("public_recent_purchases")
-        .select("*")
-        .limit(15);
-
-      if (error) throw error;
-
-      setPurchaseTicker(data || []);
-    } catch (error) {
-      console.error("Purchase ticker:", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (purchaseTicker.length === 0) return;
-
-    const firstShow = setTimeout(() => setTickerVisible(true), 3000);
-
-    const cycle = setInterval(() => {
-      setTickerVisible(false);
-      setTimeout(() => {
-        setTickerIndex((prev) => (prev + 1) % purchaseTicker.length);
-        setTickerVisible(true);
-      }, 400);
-    }, 9000);
-
-    return () => {
-      clearTimeout(firstShow);
-      clearInterval(cycle);
-    };
-  }, [purchaseTicker]);
-
-  const relativeTime = useCallback((date) => {
-    if (!date) return "";
-    const diffMs = Date.now() - new Date(date).getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  }, []);
 
 
   const uploadReviewPhoto = useCallback(
@@ -2015,7 +1960,6 @@ export default function App() {
           loadSiteSettings(),
           loadDeliveryFees(),
           loadReviews(),
-          loadPurchaseTicker(),
         ]);
 
 
@@ -2950,6 +2894,7 @@ export default function App() {
         payment_reference: paymentReference,
         status: "processing",
         tracking_number: trackingNumber,
+        promo_code: promoCode.trim() || null,
       };
 
 
@@ -3025,6 +2970,7 @@ export default function App() {
 
       /* Only clear cart after order + items have been saved */
       await clearCart();
+      setPromoCode("");
 
 
       if (user) {
@@ -3046,6 +2992,7 @@ export default function App() {
       cartTotal,
       deliveryFee,
       orderTotal,
+      promoCode,
       clearCart,
       loadOrders,
       loadProducts,
@@ -3723,6 +3670,62 @@ export default function App() {
 
 
   /* =======================================================
+     BUY NOW — skips the cart entirely, checks out with
+     just this one item (replaces whatever else was in cart)
+     ======================================================= */
+
+
+  const buyNow = useCallback(
+    async (product) => {
+      const stock = Number(product?.stock || 0);
+
+      if (stock <= 0) {
+        await requestStockNotify(product);
+        return;
+      }
+
+      if (!user) {
+        setCart([
+          {
+            id: `guest-${product.id}`,
+            product_id: product.id,
+            product,
+            quantity: 1,
+            subtotal: Number(product.price || 0),
+          },
+        ]);
+        try {
+          sessionStorage.setItem("shindara-pending-checkout", "1");
+        } catch {}
+        setAuthMode("signup");
+        resetAuthForm();
+        setModal("auth");
+        showNotice("Create an account or sign in to complete your order.");
+        return;
+      }
+
+      try {
+        await supabase.from("cart_items").delete().eq("user_id", user.id);
+
+        const { error } = await supabase
+          .from("cart_items")
+          .insert({ user_id: user.id, product_id: product.id, quantity: 1 });
+
+        if (error) throw error;
+
+        await loadCart(user.id);
+        setCheckoutError("");
+        navigate("/checkout");
+      } catch (error) {
+        console.error("Buy now:", error);
+        showNotice("Could not start checkout.");
+      }
+    },
+    [user, loadCart, showNotice, navigate, resetAuthForm, requestStockNotify]
+  );
+
+
+  /* =======================================================
      LOADING SCREEN
      ======================================================= */
 
@@ -3907,9 +3910,25 @@ export default function App() {
 
               return (
                 <div className="product-modal-image">
-                  <div className="product-modal-image-frame">
-                    {activeImage ? (
-                      <img src={activeImage} alt={selectedProduct.name} />
+                  <div
+                    className="product-modal-image-frame product-carousel"
+                    key={selectedProduct.id}
+                    ref={galleryScrollRef}
+                    onScroll={(event) => {
+                      const frame = event.currentTarget;
+                      const index = Math.round(frame.scrollLeft / Math.max(frame.clientWidth, 1));
+                      if (index !== galleryIndex) setGalleryIndex(index);
+                    }}
+                  >
+                    {allImages.length > 0 ? (
+                      allImages.map((url, index) => (
+                        <img
+                          key={url + index}
+                          src={url}
+                          alt={`${selectedProduct.name} ${index + 1}`}
+                          className="product-carousel-slide"
+                        />
+                      ))
                     ) : (
                       <div className="product-placeholder large">
                         <span>S</span>
@@ -3918,16 +3937,21 @@ export default function App() {
                   </div>
 
                   {allImages.length > 1 && (
-                    <div className="product-modal-thumbs">
-                      {allImages.map((url, index) => (
+                    <div className="product-carousel-dots">
+                      {allImages.map((_, index) => (
                         <button
-                          key={url + index}
+                          key={index}
                           type="button"
                           className={index === galleryIndex ? "active" : ""}
-                          onClick={() => setGalleryIndex(index)}
-                        >
-                          <img src={url} alt={`${selectedProduct.name} ${index + 1}`} />
-                        </button>
+                          aria-label={`Photo ${index + 1}`}
+                          onClick={() => {
+                            setGalleryIndex(index);
+                            const frame = galleryScrollRef.current;
+                            if (frame) {
+                              frame.scrollTo({ left: index * frame.clientWidth, behavior: "smooth" });
+                            }
+                          }}
+                        />
                       ))}
                     </div>
                   )}
@@ -3970,19 +3994,30 @@ export default function App() {
                 </strong>
               </div>
 
-              <button
-                className="btn-primary full"
-                onClick={async () => {
-                  if (Number(selectedProduct.stock || 0) <= 0) {
-                    await requestStockNotify(selectedProduct);
-                    return;
-                  }
-                  const ok = await addToCart(selectedProduct);
-                  if (ok) celebrateAdd(selectedProduct.id);
-                }}
-              >
-                {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me when back in stock"}
-              </button>
+              <div className="product-buy-buttons">
+                <button
+                  className="btn-secondary"
+                  onClick={async () => {
+                    if (Number(selectedProduct.stock || 0) <= 0) {
+                      await requestStockNotify(selectedProduct);
+                      return;
+                    }
+                    const ok = await addToCart(selectedProduct);
+                    if (ok) celebrateAdd(selectedProduct.id);
+                  }}
+                >
+                  {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me"}
+                </button>
+
+                {Number(selectedProduct.stock || 0) > 0 && (
+                  <button
+                    className="btn-primary"
+                    onClick={() => buyNow(selectedProduct)}
+                  >
+                    Buy Now
+                  </button>
+                )}
+              </div>
 
               <div className="product-trust-strip">
                 <span>🔒 Secure payment</span>
@@ -4228,6 +4263,15 @@ export default function App() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="promo-code-field">
+                <input
+                  type="text"
+                  placeholder="Have a promo code?"
+                  value={promoCode}
+                  onChange={(event) => setPromoCode(event.target.value)}
+                />
               </div>
 
               <div className="cart-summary">
@@ -5122,11 +5166,6 @@ export default function App() {
           Home
         </button>
 
-        <button className="bottom-tab" onClick={() => scrollToSection("shop")}>
-          <span>▤</span>
-          Shop
-        </button>
-
         <button className="bottom-tab" onClick={() => scrollToSection("categories")}>
           <span>▦</span>
           Categories
@@ -5134,13 +5173,19 @@ export default function App() {
 
         <button
           className="bottom-tab"
-          onClick={() => navigate("/cart")}
+          onClick={() => {
+            if (user) {
+              setModal("wishlist");
+            } else {
+              setAuthMode("login");
+              resetAuthForm();
+              setModal("auth");
+              showNotice("Sign in to view your wishlist.");
+            }
+          }}
         >
-          <span className="bottom-tab-cart-icon">
-            🛒
-            {cartCount > 0 && <b className="bottom-tab-count">{cartCount}</b>}
-          </span>
-          Cart
+          <span>♡</span>
+          Wishlist
         </button>
 
         <button
@@ -5778,19 +5823,27 @@ export default function App() {
             <span>{selectedProduct.name}</span>
             <strong>{money(selectedProduct.price)}</strong>
           </div>
-          <button
-            className="btn-primary"
-            onClick={async () => {
-              if (Number(selectedProduct.stock || 0) <= 0) {
-                await requestStockNotify(selectedProduct);
-                return;
-              }
-              const ok = await addToCart(selectedProduct);
-              if (ok) celebrateAdd(selectedProduct.id);
-            }}
-          >
-            {Number(selectedProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me"}
-          </button>
+          <div className="sticky-buy-actions">
+            <button
+              className="btn-secondary"
+              onClick={async () => {
+                if (Number(selectedProduct.stock || 0) <= 0) {
+                  await requestStockNotify(selectedProduct);
+                  return;
+                }
+                const ok = await addToCart(selectedProduct);
+                if (ok) celebrateAdd(selectedProduct.id);
+              }}
+            >
+              {Number(selectedProduct.stock || 0) > 0 ? "Add" : "🔔"}
+            </button>
+
+            {Number(selectedProduct.stock || 0) > 0 && (
+              <button className="btn-primary" onClick={() => buyNow(selectedProduct)}>
+                Buy Now
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -5813,23 +5866,6 @@ export default function App() {
           >
             {processing ? "Processing..." : "Pay now"}
           </button>
-        </div>
-      )}
-
-      {/* ===================================================
-          LIVE PURCHASE TICKER
-          =================================================== */}
-
-      {purchaseTicker.length > 0 && tickerVisible && (
-        <div className="purchase-ticker">
-          <span className="purchase-ticker-dot" />
-          <div className="purchase-ticker-text">
-            <strong>Someone in {purchaseTicker[tickerIndex].delivery_state}</strong>
-            <span>
-              just got {purchaseTicker[tickerIndex].product_name} ·{" "}
-              {relativeTime(purchaseTicker[tickerIndex].created_at)}
-            </span>
-          </div>
         </div>
       )}
 
