@@ -3769,6 +3769,23 @@ export default function App() {
           )}
         </nav>
 
+        <form
+          className="header-search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (location.pathname !== "/") navigate("/");
+            scrollToSection("shop");
+          }}
+        >
+          <span>⌕</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search products..."
+          />
+        </form>
+
         <div className="header-actions">
           <button
             className="header-account desktop-only"
@@ -4419,6 +4436,7 @@ export default function App() {
             <div className="hero-eyebrow">
               <span className="hero-dot" />
               Shindara, with flair
+              <span className="hero-eyebrow-shine" />
             </div>
 
             <h1>
