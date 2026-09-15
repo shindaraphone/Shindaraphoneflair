@@ -2238,3 +2238,91 @@ a { color: inherit; }
   padding-bottom: 16px;
   border-bottom: 1px dashed var(--line);
 }
+
+/* ---------- live purchase ticker ---------- */
+
+.purchase-ticker {
+  position: fixed;
+  left: 18px;
+  bottom: 90px;
+  z-index: 89;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-pop);
+  max-width: 260px;
+  animation: ticker-in 0.35s ease both;
+}
+.purchase-ticker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  flex-shrink: 0;
+  animation: ticker-pulse 1.6s ease-in-out infinite;
+}
+.purchase-ticker-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.purchase-ticker-text strong { font-size: 12.5px; }
+.purchase-ticker-text span { font-size: 11px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@keyframes ticker-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ticker-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.6; }
+}
+
+@media (max-width: 860px) {
+  .purchase-ticker { bottom: 90px; }
+}
+@media (min-width: 861px) {
+  .purchase-ticker { bottom: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .purchase-ticker-dot { animation: none; }
+}
+
+/* ---------- customer photo wall ---------- */
+
+.customer-wall-section { padding: 60px 0; }
+
+.customer-wall-scroll {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 4px clamp(20px, 5vw, 56px) 10px;
+  scroll-snap-type: x mandatory;
+}
+.customer-wall-scroll::-webkit-scrollbar { height: 6px; }
+.customer-wall-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
+
+.customer-wall-card {
+  flex: 0 0 auto;
+  width: 150px;
+  scroll-snap-align: start;
+  text-align: left;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.customer-wall-card img { width: 100%; height: 150px; object-fit: cover; display: block; }
+.customer-wall-caption {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.customer-wall-caption .stars { color: var(--gold); font-size: 11px; letter-spacing: 1px; }
+.customer-wall-caption strong { font-size: 12px; }
+
+@media (max-width: 600px) {
+  .customer-wall-section { padding: 36px 0; }
+}
