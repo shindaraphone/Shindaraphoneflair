@@ -1277,6 +1277,7 @@ export default function App() {
         support_email: cached.support_email || "",
         whatsapp_number: cached.whatsapp_number || "",
         hero_image_url: cached.hero_image_url || "",
+        hero_images: cached.hero_images || [],
       };
     } catch {
       return {
@@ -1287,6 +1288,7 @@ export default function App() {
         support_email: "",
         whatsapp_number: "",
         hero_image_url: "",
+        hero_images: [],
       };
     }
   });
@@ -1311,6 +1313,7 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [heroBannerIndex, setHeroBannerIndex] = useState(0);
   const galleryScrollRef = useRef(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -1526,6 +1529,7 @@ export default function App() {
           support_email: data.support_email || "",
           whatsapp_number: data.whatsapp_number || "",
           hero_image_url: data.hero_image_url || "",
+          hero_images: data.hero_images || [],
         };
         setSiteSettings(settings);
 
@@ -3412,6 +3416,23 @@ export default function App() {
 
 
   /* =======================================================
+     HERO BANNER CAROUSEL — auto-rotates admin-uploaded
+     promotional banners, if any are set
+     ======================================================= */
+
+
+  useEffect(() => {
+    if (!siteSettings.hero_images || siteSettings.hero_images.length < 2) return;
+
+    const timer = setInterval(() => {
+      setHeroBannerIndex((prev) => (prev + 1) % siteSettings.hero_images.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [siteSettings.hero_images]);
+
+
+  /* =======================================================
      GRID SKELETON — brief "loading" feel when the customer
      switches category, searches, or changes the sort order
      ======================================================= */
@@ -3763,6 +3784,45 @@ export default function App() {
 
   return (
     <div className="app">
+
+      {/* ===================================================
+          UTILITY TOP BAR
+          =================================================== */}
+
+      <div className="utility-bar">
+        <div className="utility-bar-inner">
+          {siteSettings.whatsapp_number && (
+            <a
+              href={`https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              💬 WhatsApp: {siteSettings.whatsapp_number}
+            </a>
+          )}
+
+          {siteSettings.support_email && (
+            <a href={`mailto:${siteSettings.support_email}`} className="desktop-only">
+              ✉ {siteSettings.support_email}
+            </a>
+          )}
+
+          <button
+            className="utility-bar-account"
+            onClick={() => {
+              if (user) {
+                setModal("settings");
+              } else {
+                setAuthMode("login");
+                resetAuthForm();
+                setModal("auth");
+              }
+            }}
+          >
+            {user ? "My Account" : "Login / Sign Up"}
+          </button>
+        </div>
+      </div>
 
       {/* ===================================================
           ANNOUNCEMENT
@@ -4555,6 +4615,35 @@ export default function App() {
 
         <section className="hero" id="top">
 
+          {siteSettings.hero_images && siteSettings.hero_images.length > 0 ? (
+
+          <div className="hero-banner-carousel">
+            {siteSettings.hero_images.map((url, index) => (
+              <img
+                key={url + index}
+                src={url}
+                alt={`Promotion ${index + 1}`}
+                className={`hero-banner-slide ${index === heroBannerIndex ? "active" : ""}`}
+              />
+            ))}
+
+            {siteSettings.hero_images.length > 1 && (
+              <div className="hero-banner-dots">
+                {siteSettings.hero_images.map((_, index) => (
+                  <button
+                    key={index}
+                    className={index === heroBannerIndex ? "active" : ""}
+                    aria-label={`Banner ${index + 1}`}
+                    onClick={() => setHeroBannerIndex(index)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          ) : (
+          <>
+
           <div className="hero-glow hero-glow-one" />
           <div className="hero-glow hero-glow-two" />
 
@@ -4666,6 +4755,9 @@ export default function App() {
 
           </div>
 
+          </>
+          )}
+
         </section>
 
         {/* =================================================
@@ -4691,24 +4783,27 @@ export default function App() {
             </button>
           </div>
 
-          <div className="category-scroll">
+          <div className="category-grid-promo">
             {categories.map((item) => (
               <button
-                className={`category-tile ${category === item.name ? "active" : ""}`}
+                className={`category-promo-card ${category === item.name ? "active" : ""}`}
                 key={item.name}
                 onClick={() => {
                   setCategory(item.name);
                   scrollToSection("shop");
                 }}
               >
-                <span className="category-tile-image">
+                <div className="category-promo-image">
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.name} />
                   ) : (
-                    <span className="category-tile-icon">{item.icon || "◆"}</span>
+                    <span className="category-promo-icon">{item.icon || "◆"}</span>
                   )}
-                </span>
-                <span className="category-tile-name">{item.name}</span>
+                </div>
+                <div className="category-promo-caption">
+                  <strong>{item.name}</strong>
+                  <span>Shop now →</span>
+                </div>
               </button>
             ))}
           </div>
