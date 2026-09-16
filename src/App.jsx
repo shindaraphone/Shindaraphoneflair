@@ -3786,45 +3786,6 @@ export default function App() {
     <div className="app">
 
       {/* ===================================================
-          UTILITY TOP BAR
-          =================================================== */}
-
-      <div className="utility-bar">
-        <div className="utility-bar-inner">
-          {siteSettings.whatsapp_number && (
-            <a
-              href={`https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              💬 WhatsApp: {siteSettings.whatsapp_number}
-            </a>
-          )}
-
-          {siteSettings.support_email && (
-            <a href={`mailto:${siteSettings.support_email}`} className="desktop-only">
-              ✉ {siteSettings.support_email}
-            </a>
-          )}
-
-          <button
-            className="utility-bar-account"
-            onClick={() => {
-              if (user) {
-                setModal("settings");
-              } else {
-                setAuthMode("login");
-                resetAuthForm();
-                setModal("auth");
-              }
-            }}
-          >
-            {user ? "My Account" : "Login / Sign Up"}
-          </button>
-        </div>
-      </div>
-
-      {/* ===================================================
           ANNOUNCEMENT
           =================================================== */}
 
@@ -4783,27 +4744,35 @@ export default function App() {
             </button>
           </div>
 
-          <div className="category-grid-promo">
+          <div className="category-icon-row">
+            <button
+              className={`category-icon-tile ${category === "All" ? "active" : ""}`}
+              onClick={() => {
+                setCategory("All");
+                scrollToSection("shop");
+              }}
+            >
+              <span className="category-icon-box">▦</span>
+              <span>All</span>
+            </button>
+
             {categories.map((item) => (
               <button
-                className={`category-promo-card ${category === item.name ? "active" : ""}`}
+                className={`category-icon-tile ${category === item.name ? "active" : ""}`}
                 key={item.name}
                 onClick={() => {
                   setCategory(item.name);
                   scrollToSection("shop");
                 }}
               >
-                <div className="category-promo-image">
+                <span className="category-icon-box">
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.name} />
                   ) : (
-                    <span className="category-promo-icon">{item.icon || "◆"}</span>
+                    item.icon || "◆"
                   )}
-                </div>
-                <div className="category-promo-caption">
-                  <strong>{item.name}</strong>
-                  <span>Shop now →</span>
-                </div>
+                </span>
+                <span>{item.name}</span>
               </button>
             ))}
           </div>
