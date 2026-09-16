@@ -4026,9 +4026,70 @@ export default function App() {
               </div>
             </div>
           </div>
+          {(() => {
+            const related = products
+              .filter(
+                (p) =>
+                  p.id !== selectedProduct.id &&
+                  normalizeCategory(p.category) === normalizeCategory(selectedProduct.category)
+              )
+              .slice(0, 4);
+
+            if (related.length === 0) return null;
+
+            return (
+              <div className="related-section">
+                <div className="settings-block-title">You may also like</div>
+                <div className="related-scroll">
+                  {related.map((product) => {
+                    const image = getProductImage(product);
+                    return (
+                      <button
+                        className="related-card"
+                        key={product.id}
+                        onClick={() => navigate(`/product/${product.id}`)}
+                      >
+                        <div className="related-card-image">
+                          {image ? (
+                            <img src={image} alt={product.name} />
+                          ) : (
+                            <div className="product-placeholder">
+                              <span>S</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="related-card-name">{product.name}</span>
+                        <strong className="related-card-price">{money(product.price)}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
 
           <div className="reviews-section">
             <div className="settings-block-title">Ratings &amp; reviews</div>
+
+            {(() => {
+              const summary = getProductRatingSummary(selectedProduct.id);
+              if (summary.count === 0) return null;
+              return (
+                <div className="reviews-summary-header">
+                  <strong className="reviews-summary-number">{summary.average.toFixed(1)}</strong>
+                  <div>
+                    <span className="reviews-summary-stars">
+                      {"★".repeat(Math.round(summary.average))}
+                      {"☆".repeat(5 - Math.round(summary.average))}
+                    </span>
+                    <span className="reviews-summary-count">
+                      {summary.count} review{summary.count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {(() => {
               const myReview = myReviewFor(selectedProduct.id);
@@ -4148,48 +4209,6 @@ export default function App() {
               )}
             </div>
           </div>
-
-          {(() => {
-            const related = products
-              .filter(
-                (p) =>
-                  p.id !== selectedProduct.id &&
-                  normalizeCategory(p.category) === normalizeCategory(selectedProduct.category)
-              )
-              .slice(0, 4);
-
-            if (related.length === 0) return null;
-
-            return (
-              <div className="related-section">
-                <div className="settings-block-title">You may also like</div>
-                <div className="related-scroll">
-                  {related.map((product) => {
-                    const image = getProductImage(product);
-                    return (
-                      <button
-                        className="related-card"
-                        key={product.id}
-                        onClick={() => navigate(`/product/${product.id}`)}
-                      >
-                        <div className="related-card-image">
-                          {image ? (
-                            <img src={image} alt={product.name} />
-                          ) : (
-                            <div className="product-placeholder">
-                              <span>S</span>
-                            </div>
-                          )}
-                        </div>
-                        <span className="related-card-name">{product.name}</span>
-                        <strong className="related-card-price">{money(product.price)}</strong>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
 
         </div>
 
