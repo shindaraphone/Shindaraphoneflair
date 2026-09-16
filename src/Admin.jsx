@@ -1399,8 +1399,10 @@ function BrandingTab({ settings, reload, showNotice }) {
   const [supportEmail, setSupportEmail] = useState(settings.support_email || "");
   const [whatsappNumber, setWhatsappNumber] = useState(settings.whatsapp_number || "");
   const [heroImageUrl, setHeroImageUrl] = useState(settings.hero_image_url || "");
+  const [heroImages, setHeroImages] = useState(settings.hero_images || []);
   const [uploading, setUploading] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
+  const [uploadingBanners, setUploadingBanners] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const uploadLogo = useCallback(
@@ -1455,6 +1457,42 @@ function BrandingTab({ settings, reload, showNotice }) {
     [showNotice]
   );
 
+  const uploadBannerImages = useCallback(
+    async (files) => {
+      if (!files || files.length === 0) return;
+      setUploadingBanners(true);
+
+      try {
+        const uploadedUrls = [];
+
+        for (const file of Array.from(files)) {
+          const ext = file.name.split(".").pop();
+          const path = `branding/banner-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(path, file, { cacheControl: "3600", upsert: false });
+
+          if (uploadError) throw uploadError;
+
+          const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+          uploadedUrls.push(data.publicUrl);
+        }
+
+        setHeroImages((prev) => [...prev, ...uploadedUrls]);
+      } catch (err) {
+        showNotice(err.message || "Could not upload banner images.");
+      } finally {
+        setUploadingBanners(false);
+      }
+    },
+    [showNotice]
+  );
+
+  const removeBannerImage = useCallback((url) => {
+    setHeroImages((prev) => prev.filter((img) => img !== url));
+  }, []);
+
   const save = useCallback(
     async (event) => {
       event.preventDefault();
@@ -1471,6 +1509,7 @@ function BrandingTab({ settings, reload, showNotice }) {
             support_email: supportEmail.trim(),
             whatsapp_number: whatsappNumber.trim(),
             hero_image_url: heroImageUrl.trim(),
+            hero_images: heroImages,
           })
           .eq("id", 1);
 
@@ -1492,6 +1531,7 @@ function BrandingTab({ settings, reload, showNotice }) {
       supportEmail,
       whatsappNumber,
       heroImageUrl,
+      heroImages,
       reload,
       showNotice,
     ]
@@ -1633,7 +1673,39 @@ function BrandingTab({ settings, reload, showNotice }) {
           </small>
         </div>
 
-        <button className="btn-primary full" type="submit" disabled={saving || uploading || uploadingHero}>
+        <div className="settings-block-title admin-section-title">Rotating promo banners</div>
+
+        <div className="field">
+          <div className="admin-gallery-grid">
+            {heroImages.map((url) => (
+              <div className="admin-gallery-thumb" key={url}>
+                <img src={url} alt="Banner" />
+                <button type="button" onClick={() => removeBannerImage(url)} aria-label="Remove banner">
+                  ×
+                </button>
+              </div>
+            ))}
+
+            <label className="admin-gallery-add">
+              {uploadingBanners ? "..." : "+ Add"}
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                multiple
+                disabled={uploadingBanners}
+                onChange={(event) => uploadBannerImages(event.target.files)}
+              />
+            </label>
+          </div>
+          <small className="admin-hint">
+            Upload 2 or more full-width promo banners (like Jumia/Konga's rotating homepage ads) and they'll
+            auto-rotate every few seconds, replacing the homepage hero entirely. Leave empty to keep the
+            regular hero design above.
+          </small>
+        </div>
+
+        <button className="btn-primary full" type="submit" disabled={saving || uploading || uploadingHero || uploadingBanners}>
           {saving ? "Saving..." : "Save branding"}
         </button>
       </form>
@@ -2090,6 +2162,9 @@ export default function Admin() {
     instagram_url: "",
     tiktok_url: "",
     support_email: "",
+    whatsapp_number: "",
+    hero_image_url: "",
+    hero_images: [],
   });
   const [deliveryFees, setDeliveryFees] = useState({});
   const [reviews, setReviews] = useState([]);
@@ -2190,6 +2265,9 @@ export default function Admin() {
       instagram_url: data?.instagram_url || "",
       tiktok_url: data?.tiktok_url || "",
       support_email: data?.support_email || "",
+      whatsapp_number: data?.whatsapp_number || "",
+      hero_image_url: data?.hero_image_url || "",
+      hero_images: data?.hero_images || [],
     });
   }, []);
 
