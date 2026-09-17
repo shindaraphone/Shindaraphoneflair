@@ -10,7 +10,6 @@ if ("serviceWorker" in navigator) {
 
 import App from "./App.jsx";
 import "./shindara-redesign.css";
-import "./midnight-purple.css";
 import "./system-theme.css";
 import ProtectedAdmin from "./ProtectedAdmin.jsx";
 import PrivacyPolicy from "./PrivacyPolicy.jsx";
