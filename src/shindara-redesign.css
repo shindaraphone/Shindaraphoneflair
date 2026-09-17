@@ -2540,3 +2540,99 @@ a { color: inherit; }
 .category-icon-tile.active .category-icon-box { background: var(--gold); color: #fff; border-color: var(--gold); }
 .category-icon-tile span:last-child { font-size: 11.5px; font-weight: 500; text-align: center; line-height: 1.2; }
 .category-icon-tile.active span:last-child { color: var(--gold); font-weight: 600; }
+
+/* ---------- hero: plain eyebrow label + static dots (mockup match) ---------- */
+
+.hero-eyebrow-plain {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+  margin-bottom: 16px;
+}
+
+.hero-static-dots {
+  display: flex;
+  gap: 7px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+}
+.hero-static-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.hero-static-dots span.active { background: var(--gold); }
+
+@media (min-width: 941px) {
+  .hero-static-dots { justify-content: flex-start; }
+}
+
+/* ---------- header search icon (collapsed by default, matches mockup) ---------- */
+
+.header-search-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.header-search-icon:hover { color: var(--gold); }
+.header-search-open { flex: 1 1 160px; }
+
+/* ---------- category tiles: bordered card wrapper (mockup match) ---------- */
+
+.category-icon-tile {
+  width: auto;
+  flex-basis: 84px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px 8px;
+  gap: 8px;
+}
+.category-icon-tile .category-icon-box {
+  border: none;
+  background: transparent;
+  width: 32px;
+  height: 32px;
+  font-size: 24px;
+}
+.category-icon-tile.active {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.category-icon-tile.active .category-icon-box { background: transparent; color: #fff; }
+.category-icon-tile.active span:last-child { color: #fff; }
+
+/* ---------- full trust strip (mockup match) ---------- */
+
+.trust-strip-full {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 36px clamp(20px, 5vw, 56px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px 28px;
+  border-top: 1px solid var(--line);
+}
+.trust-strip-item {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.trust-strip-item span {
+  font-size: 22px;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+.trust-strip-item strong { display: block; font-size: 14px; margin-bottom: 2px; }
+.trust-strip-item small { color: var(--ink-soft); font-size: 12.5px; line-height: 1.4; }
