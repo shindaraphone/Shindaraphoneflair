@@ -271,6 +271,7 @@ a { color: inherit; }
 }
 .header-account:hover, .header-cart:hover { border-color: var(--gold); }
 .header-account-icon { color: var(--flair); }
+.cart-icon { font-size: 15px; }
 .cart-label { display: none; }
 
 @media (min-width: 861px) {
