@@ -1,0 +1,122 @@
+/* System theme overrides: follow the visitor's device preference. */
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --case: #ffffff;
+    --paper: #f8fafc;
+    --ink: #111827;
+    --ink-soft: #6b7280;
+    --line: #e5e7eb;
+    --gold: #7c3aed;
+    --gold-soft: rgba(124, 58, 237, 0.12);
+    --flair: #8b5cf6;
+    --flair-dark: #6d28d9;
+    --teal: #7c3aed;
+    --teal-soft: rgba(124, 58, 237, 0.1);
+    --brand-gradient: linear-gradient(135deg, #7c3aed, #a855f7);
+    --shadow-card: 0 12px 30px rgba(15, 23, 42, 0.08);
+    --shadow-pop: 0 22px 55px rgba(15, 23, 42, 0.14);
+  }
+
+  html,
+  body {
+    background: #ffffff;
+    color: #111827;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at 12% 0%, rgba(124, 58, 237, 0.1), transparent 28%),
+      radial-gradient(circle at 92% 18%, rgba(168, 85, 247, 0.08), transparent 25%),
+      #ffffff;
+  }
+
+  .header {
+    background: rgba(255, 255, 255, 0.84);
+    border-bottom-color: #e5e7eb;
+    box-shadow: 0 10px 32px rgba(15, 23, 42, 0.08);
+  }
+
+  .announcement,
+  .footer,
+  .brand-cta {
+    background: #f8fafc;
+  }
+
+  .hero,
+  .app,
+  .product-page,
+  .cart-page,
+  .checkout-page {
+    background: transparent;
+  }
+
+  .hero-copy h1,
+  .product-content h3,
+  .product-price,
+  .product-card h3,
+  .modal-head h2,
+  .product-page h2,
+  .checkout-page h2,
+  .section-heading h2,
+  .brand-cta-content h2 {
+    color: #111827;
+  }
+
+  .hero-copy p {
+    color: #4b5563;
+  }
+
+  .hero-floating,
+  .search-box,
+  .sort-select,
+  .category-tile-image,
+  .product-card,
+  .trending-card,
+  .customer-wall-card,
+  .trust-strip-item,
+  .modal,
+  .cart-item,
+  .order-card,
+  .wishlist-row,
+  .related-card,
+  .review-row,
+  .saved-address-card {
+    background: #ffffff;
+    border-color: #e5e7eb;
+  }
+
+  .product-visual,
+  .product-placeholder {
+    background: #f8fafc;
+  }
+
+  .filter-chip,
+  .btn-secondary,
+  .header-account,
+  .header-cart,
+  .field input,
+  .field textarea,
+  .field select,
+  .password-field,
+  .search-box,
+  .sort-select {
+    color: #374151;
+    background: #ffffff;
+    border-color: #e5e7eb;
+  }
+
+  .footer-brand p,
+  .footer-column button,
+  .footer-link,
+  .footer-bottom,
+  .checkout-note,
+  .trust-strip-item small {
+    color: #6b7280;
+  }
+
+  .bottom-tabs {
+    background: rgba(255, 255, 255, 0.94);
+    border-top-color: #e5e7eb;
+  }
+}
