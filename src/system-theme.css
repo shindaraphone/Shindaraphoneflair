@@ -1,68 +1,315 @@
+/* Shindara Phoneflair — system-aware luxury theme.
+   This file is imported after shindara-redesign.css so these tokens and
+   component overrides remain consistent in both appearance modes. */
+
+:root {
+  --case: #08080b;
+  --paper: #101014;
+  --ink: #ffffff;
+  --ink-soft: #a1a1aa;
+  --line: #27232f;
+  --gold: #8b3dff;
+  --gold-soft: rgba(139, 61, 255, 0.16);
+  --flair: #a855f7;
+  --flair-dark: #6d28d9;
+  --teal: #22c55e;
+  --teal-soft: rgba(34, 197, 94, 0.14);
+  --urgent: #f97316;
+  --brand-gradient: linear-gradient(135deg, #7c3aed, #a855f7 52%, #6d28d9);
+  --shadow-card: 0 14px 34px rgba(0, 0, 0, 0.28);
+  --shadow-pop: 0 24px 60px rgba(0, 0, 0, 0.48);
+}
+
+/* Shared component treatment */
+html,
+body {
+  background: var(--case);
+  color: var(--ink);
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(139, 61, 255, 0.13), transparent 28%),
+    radial-gradient(circle at 92% 18%, rgba(168, 85, 247, 0.08), transparent 25%),
+    var(--case);
+}
+
+.app,
+.product-page,
+.cart-page,
+.checkout-page {
+  background: transparent;
+  color: var(--ink);
+}
+
+.header {
+  background: color-mix(in srgb, var(--case) 88%, transparent);
+  border-bottom-color: var(--line);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.18);
+}
+
+.announcement {
+  background: var(--ink);
+  color: var(--case);
+}
+
+.announcement-track {
+  color: inherit;
+}
+
+.footer,
+.brand-cta {
+  background: var(--ink);
+  color: var(--case);
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 68% 42%, rgba(139, 61, 255, 0.16), transparent 34%),
+    transparent;
+}
+
+.hero-copy h1,
+.section-heading h2,
+.brand-cta-content h2,
+.modal-head h2,
+.product-page h2,
+.checkout-page h2,
+.product-card h3,
+.product-content h3,
+.order-card-main h3,
+.wishlist-row-info h4,
+.cart-item-info h4,
+.tracking-section-title {
+  color: var(--ink);
+}
+
+.hero-copy p,
+.section-heading p,
+.footer-brand p,
+.footer-bottom,
+.checkout-note,
+.trust-strip-item small,
+.product-modal-description,
+.review-row p {
+  color: var(--ink-soft);
+}
+
+.hero-eyebrow,
+.hero-eyebrow-plain {
+  color: #fff !important;
+  background: var(--brand-gradient);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.section-kicker {
+  color: var(--flair) !important;
+  background: var(--gold-soft);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.hero-card {
+  background: linear-gradient(160deg, #1b1722, #101014);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  box-shadow: var(--shadow-pop);
+}
+
+.hero-floating,
+.category-tile-image,
+.product-card,
+.trending-card,
+.customer-wall-card,
+.trust-strip-item,
+.modal,
+.cart-item,
+.order-card,
+.wishlist-row,
+.related-card,
+.review-row,
+.saved-address-card,
+.search-box,
+.sort-select {
+  background: var(--paper);
+  border-color: var(--line);
+  box-shadow: var(--shadow-card);
+}
+
+.product-visual,
+.product-placeholder {
+  background: #17131e;
+}
+
+.product-category {
+  color: var(--flair) !important;
+  background: var(--gold-soft);
+}
+
+.product-price,
+.spotlight-price,
+.related-card-price,
+.trending-card-price,
+.view-all-link,
+.footer-shop {
+  color: var(--flair);
+}
+
+.filter-chip,
+.btn-secondary,
+.header-account,
+.header-cart,
+.field input,
+.field textarea,
+.field select,
+.password-field,
+.search-box,
+.sort-select {
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--line);
+}
+
+.btn-primary,
+.product-add,
+.header-cart,
+.filter-chip.active {
+  background: var(--brand-gradient);
+  color: #fff !important;
+  border-color: transparent;
+}
+
+.product-add,
+.product-add:hover,
+.product-add:focus-visible,
+.product-add.just-added,
+.product-add svg,
+.product-add span,
+.header-cart,
+.header-cart * {
+  color: #fff !important;
+  fill: currentColor;
+}
+
+.product-add {
+  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.28);
+}
+
+.btn-secondary:hover,
+.filter-chip:hover,
+.header-account:hover,
+.header-cart:hover {
+  border-color: var(--flair);
+}
+
+.category-tile-image:hover,
+.product-card:hover,
+.trending-card:hover,
+.customer-wall-card:hover,
+.related-card:hover {
+  border-color: rgba(168, 85, 247, 0.7);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35), 0 0 26px rgba(139, 61, 255, 0.14);
+}
+
+.field input::placeholder,
+.field textarea::placeholder,
+.search-box input::placeholder {
+  color: #71717a;
+}
+
+.footer {
+  border-top-color: var(--gold);
+}
+
+.footer-column h4,
+.footer-logo small {
+  color: var(--flair);
+}
+
+.footer-column button,
+.footer-link {
+  color: var(--ink-soft);
+}
+
+.footer-column button:hover,
+.footer-link:hover,
+.footer-shop:hover {
+  color: var(--flair);
+}
+
+.bottom-tabs {
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  border-top-color: var(--line);
+}
+
+.bottom-tab {
+  color: var(--ink-soft);
+}
+
+.bottom-tab.active {
+  color: var(--flair);
+}
+
+.hero-copy h1,
+.brand-cta-content h2,
+.section-heading h2 {
+  background-image: linear-gradient(120deg, var(--ink) 0%, var(--flair) 48%, var(--ink) 100%);
+}
+
+/* Light mode follows the operating system/browser preference. */
 @media (prefers-color-scheme: light) {
   :root {
-    --case: #ffffff;
-    --paper: #f8fafc;
-    --ink: #111827;
-    --ink-soft: #6b7280;
-    --line: #e5e7eb;
-    --gold: #7c3aed;
-    --gold-soft: rgba(124, 58, 237, 0.12);
-    --flair: #8b5cf6;
-    --flair-dark: #6d28d9;
-    --teal: #7c3aed;
-    --teal-soft: rgba(124, 58, 237, 0.1);
-    --brand-gradient: linear-gradient(135deg, #7c3aed, #a855f7 52%, #6d28d9);
-    --shadow-card: 0 12px 30px rgba(15, 23, 42, 0.08);
-    --shadow-pop: 0 22px 55px rgba(15, 23, 42, 0.14);
+    --case: #fbfaff;
+    --paper: #ffffff;
+    --ink: #171321;
+    --ink-soft: #625d6d;
+    --line: #e8e2f0;
+    --gold: #6d28d9;
+    --gold-soft: rgba(109, 40, 217, 0.1);
+    --flair: #7c3aed;
+    --flair-dark: #5b21b6;
+    --teal: #15803d;
+    --teal-soft: rgba(21, 128, 61, 0.1);
+    --brand-gradient: linear-gradient(135deg, #6d28d9, #a855f7 52%, #7c3aed);
+    --shadow-card: 0 12px 30px rgba(61, 42, 83, 0.08);
+    --shadow-pop: 0 22px 55px rgba(61, 42, 83, 0.14);
   }
 
   html,
   body {
-    background: #ffffff;
-    color: #111827;
+    background: var(--case);
+    color: var(--ink);
   }
 
   body {
     background:
-      radial-gradient(circle at 12% 0%, rgba(124, 58, 237, 0.1), transparent 28%),
-      radial-gradient(circle at 92% 18%, rgba(168, 85, 247, 0.08), transparent 25%),
-      #ffffff;
+      radial-gradient(circle at 12% 0%, rgba(124, 58, 237, 0.08), transparent 28%),
+      radial-gradient(circle at 92% 18%, rgba(168, 85, 247, 0.06), transparent 25%),
+      var(--case);
   }
 
   .header {
-    background: rgba(255, 255, 255, 0.84);
-    border-bottom-color: #e5e7eb;
-    box-shadow: 0 10px 32px rgba(15, 23, 42, 0.08);
+    background: color-mix(in srgb, var(--case) 88%, transparent);
+    border-bottom-color: var(--line);
+    box-shadow: 0 10px 32px rgba(61, 42, 83, 0.08);
   }
 
-  .announcement,
+  .announcement {
+    background: #21152f;
+    color: #fff;
+  }
+
   .footer,
   .brand-cta {
-    background: #f8fafc;
-  }
-
-  .hero-copy h1,
-  .hero-copy p,
-  .product-content h3,
-  .product-price,
-  .product-card h3,
-  .section-heading h2,
-  .brand-cta-content h2,
-  .modal-head h2,
-  .product-page h2,
-  .checkout-page h2 {
-    color: #111827;
+    background: #21152f;
+    color: #fff;
   }
 
   .hero-card {
-    background: linear-gradient(160deg, #ffffff, #f8fafc);
-    border-color: rgba(124, 58, 237, 0.16);
-    box-shadow: 0 28px 80px rgba(124, 58, 237, 0.1);
+    background: linear-gradient(160deg, #ffffff, #f7f2fb);
+    border-color: rgba(124, 58, 237, 0.18);
+    box-shadow: var(--shadow-pop);
   }
 
   .hero-floating,
-  .search-box,
-  .sort-select,
   .category-tile-image,
   .product-card,
   .trending-card,
@@ -74,42 +321,64 @@
   .wishlist-row,
   .related-card,
   .review-row,
-  .saved-address-card {
-    background: #ffffff;
-    border-color: #e5e7eb;
+  .saved-address-card,
+  .search-box,
+  .sort-select {
+    background: var(--paper);
+    border-color: var(--line);
+    box-shadow: var(--shadow-card);
   }
 
   .product-visual,
   .product-placeholder {
-    background: #f8fafc;
-  }
-
-  .field input,
-  .field textarea,
-  .field select,
-  .password-field,
-  .search-box,
-  .sort-select,
-  .filter-chip,
-  .btn-secondary,
-  .header-account,
-  .header-cart {
-    color: #374151;
-    background: #ffffff;
-    border-color: #e5e7eb;
+    background: #f7f2fb;
   }
 
   .footer-brand p,
+  .footer-bottom,
   .footer-column button,
   .footer-link,
-  .footer-bottom,
   .checkout-note,
   .trust-strip-item small {
-    color: #6b7280;
+    color: #d7cde1;
+  }
+
+  .footer-column h4,
+  .footer-logo small,
+  .footer-shop {
+    color: #d8b4fe;
+  }
+
+  .footer {
+    border-top-color: #a855f7;
   }
 
   .bottom-tabs {
     background: rgba(255, 255, 255, 0.94);
-    border-top-color: #e5e7eb;
+    border-top-color: var(--line);
+  }
+
+  .bottom-tab {
+    color: var(--ink-soft);
+  }
+
+  .bottom-tab.active {
+    color: var(--flair);
+  }
+
+  .brand-cta-content .section-kicker {
+    color: #e9d5ff !important;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
