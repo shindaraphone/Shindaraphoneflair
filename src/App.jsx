@@ -12,7 +12,7 @@ import React, {
 } from "react";
 import { supabase } from "./supabaseClient.js";
 import { useLocation, useNavigate } from "react-router-dom";
-import "./shindara-redesign.css";
+import "./shindara-modern.css";
 
 
 /* =========================================================
