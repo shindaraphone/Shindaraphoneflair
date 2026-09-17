@@ -56,6 +56,24 @@ body {
 .footer-brand p, .footer-column button, .footer-link, .footer-bottom, .checkout-note, .trust-strip-item small { color: #A1A1AA; }
 .bottom-tabs { background: rgba(16,16,20,.94); border-top-color: #17171C; }
 
+/* Requested white hero label and white product cart icons. */
+.hero-eyebrow-plain {
+  color: #FFFFFF !important;
+}
+
+.product-add,
+.product-add:hover,
+.product-add:focus-visible,
+.product-add.just-added {
+  color: #FFFFFF !important;
+}
+
+.product-add svg,
+.product-add span {
+  color: #FFFFFF !important;
+  fill: currentColor;
+}
+
 .hero-art, .hero-photo, .hero-collage, .hero-card { animation: hero-float 10s ease-in-out infinite; }
 .hero-copy, .product-card, .category-tile, .trending-card, .customer-wall-card, .trust-strip-item { animation: product-enter .65s cubic-bezier(.2,.8,.2,1) both; }
 .product-card:nth-child(2), .category-tile:nth-child(2) { animation-delay: 60ms; }
