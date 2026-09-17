@@ -1369,6 +1369,7 @@ export default function App() {
 
 
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [headerSearchOpen, setHeaderSearchOpen] = useState(false);
 
 
   const noticeTimer = useRef(null);
@@ -3857,22 +3858,37 @@ export default function App() {
           )}
         </nav>
 
-        <form
-          className="header-search"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (location.pathname !== "/") navigate("/");
-            scrollToSection("shop");
-          }}
-        >
-          <span>⌕</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search products..."
-          />
-        </form>
+        {headerSearchOpen ? (
+          <form
+            className="header-search header-search-open"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (location.pathname !== "/") navigate("/");
+              scrollToSection("shop");
+              setHeaderSearchOpen(false);
+            }}
+          >
+            <span>⌕</span>
+            <input
+              autoFocus
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search products..."
+              onBlur={() => {
+                if (!search) setHeaderSearchOpen(false);
+              }}
+            />
+          </form>
+        ) : (
+          <button
+            className="header-search-icon"
+            onClick={() => setHeaderSearchOpen(true)}
+            aria-label="Search"
+          >
+            ⌕
+          </button>
+        )}
 
         <div className="header-actions">
           <button
@@ -4610,20 +4626,15 @@ export default function App() {
 
           <div className="hero-copy">
 
-            <div className="hero-eyebrow">
-              <span className="hero-dot" />
-              Shindara, with flair
-              <span className="hero-eyebrow-shine" />
-            </div>
+            <span className="hero-eyebrow-plain">PREMIUM PHONE ACCESSORIES</span>
 
             <h1>
-              Everyday tech, <em>elevated.</em>
+              Top Quality<br />
+              <em>Phone Accessories &amp; Gadgets</em>
             </h1>
 
             <p>
-              Cases, chargers, cables and more, chosen for people who
-              treat their setup like it matters. Add a little Shindara
-              flair to the things you touch every day.
+              Keep your device safe, stylish and powered up.
             </p>
 
             <div className="hero-buttons">
@@ -4714,6 +4725,12 @@ export default function App() {
               </>
             )}
 
+          </div>
+
+          <div className="hero-static-dots">
+            <span className="active" />
+            <span />
+            <span />
           </div>
 
           </>
@@ -5051,6 +5068,41 @@ export default function App() {
             </div>
           )}
 
+        </section>
+
+        {/* =================================================
+            TRUST STRIP
+            ================================================= */}
+
+        <section className="trust-strip-full">
+          <div className="trust-strip-item">
+            <span>🚚</span>
+            <div>
+              <strong>Fast Delivery</strong>
+              <small>Get your orders delivered to your doorstep.</small>
+            </div>
+          </div>
+          <div className="trust-strip-item">
+            <span>🔒</span>
+            <div>
+              <strong>Secure Checkout</strong>
+              <small>Your information and payment are always safe.</small>
+            </div>
+          </div>
+          <div className="trust-strip-item">
+            <span>🛒</span>
+            <div>
+              <strong>Easy Shopping</strong>
+              <small>Browse, add to cart, and checkout in just a few clicks.</small>
+            </div>
+          </div>
+          <div className="trust-strip-item">
+            <span>🎧</span>
+            <div>
+              <strong>Customer Support</strong>
+              <small>We're here to help whenever you need us.</small>
+            </div>
+          </div>
         </section>
 
         {/* =================================================
