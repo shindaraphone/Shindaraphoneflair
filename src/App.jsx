@@ -3819,6 +3819,16 @@ export default function App() {
             className="desktop-only"
             onClick={() => {
               setMobileMenu(false);
+              scrollToSection("top");
+            }}
+          >
+            Home
+          </button>
+
+          <button
+            className="desktop-only"
+            onClick={() => {
+              setMobileMenu(false);
               scrollToSection("shop");
             }}
           >
@@ -3914,6 +3924,7 @@ export default function App() {
             onClick={() => navigate("/cart")}
             aria-label="Shopping cart"
           >
+            <span className="cart-icon">🛒</span>
             <span className="cart-label">Cart</span>
             {cartCount > 0 && (
               <b className={`cart-count ${cartBounce ? "count-pop" : ""}`}>{cartCount}</b>
