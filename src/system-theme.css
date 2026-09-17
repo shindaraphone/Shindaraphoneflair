@@ -15,12 +15,12 @@
   --teal: #22c55e;
   --teal-soft: rgba(34, 197, 94, 0.14);
   --urgent: #f97316;
+  --soft-bg: rgba(255, 255, 255, 0.04);
   --brand-gradient: linear-gradient(135deg, #7c3aed, #a855f7 52%, #6d28d9);
   --shadow-card: 0 14px 34px rgba(0, 0, 0, 0.28);
   --shadow-pop: 0 24px 60px rgba(0, 0, 0, 0.48);
 }
 
-/* Shared component treatment */
 html,
 body {
   background: var(--case);
@@ -91,7 +91,8 @@ body {
 .checkout-note,
 .trust-strip-item small,
 .product-modal-description,
-.review-row p {
+.review-row p,
+.empty-shop p {
   color: var(--ink-soft);
 }
 
@@ -254,6 +255,67 @@ body {
   background-image: linear-gradient(120deg, var(--ink) 0%, var(--flair) 48%, var(--ink) 100%);
 }
 
+/* Luxury polish for product cards, CTAs, and trust details */
+.product-card,
+.trending-card,
+.customer-wall-card,
+.related-card,
+.review-row,
+.cart-item,
+.order-card,
+.wishlist-row,
+.trust-strip-item {
+  border-radius: 24px;
+}
+
+.product-card:hover,
+.trending-card:hover,
+.customer-wall-card:hover,
+.related-card:hover {
+  transform: translateY(-4px);
+}
+
+.product-add,
+.btn-primary,
+.filter-chip.active,
+.header-cart {
+  border-radius: 999px;
+}
+
+.cart-count {
+  background: #fff;
+  color: var(--flair-dark) !important;
+  box-shadow: 0 8px 18px rgba(139, 61, 255, 0.28);
+}
+
+.review-row,
+.cart-item,
+.order-card,
+.wishlist-row,
+.saved-address-card,
+.modal {
+  border: 1px solid var(--line);
+}
+
+.empty-shop-icon {
+  background: var(--gold-soft);
+  color: var(--flair);
+}
+
+.hero-glow,
+.hero-glow-two {
+  opacity: 1;
+}
+
+.brand-cta {
+  border-radius: 30px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.brand-cta-pattern {
+  color: rgba(255, 255, 255, 0.04);
+}
+
 /* Light mode follows the operating system/browser preference. */
 @media (prefers-color-scheme: light) {
   :root {
@@ -268,6 +330,7 @@ body {
     --flair-dark: #5b21b6;
     --teal: #15803d;
     --teal-soft: rgba(21, 128, 61, 0.1);
+    --soft-bg: rgba(109, 40, 217, 0.04);
     --brand-gradient: linear-gradient(135deg, #6d28d9, #a855f7 52%, #7c3aed);
     --shadow-card: 0 12px 30px rgba(61, 42, 83, 0.08);
     --shadow-pop: 0 22px 55px rgba(61, 42, 83, 0.14);
