@@ -169,6 +169,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
       image_url: "",
       is_featured: false,
       images: [],
+      variantsText: "",
     });
 
   const uploadPhoto = useCallback(
@@ -239,6 +240,11 @@ function ProductsTab({ products, categories, reload, showNotice }) {
       event.preventDefault();
       setSaving(true);
 
+      const variantsValue =
+        editing.variantsText !== undefined
+          ? editing.variantsText
+          : (editing.variants || []).join(", ");
+
       const payload = {
         name: editing.name.trim(),
         category: editing.category,
@@ -248,6 +254,10 @@ function ProductsTab({ products, categories, reload, showNotice }) {
         image_url: editing.image_url?.trim() || "",
         is_featured: Boolean(editing.is_featured),
         images: editing.images || [],
+        variants: variantsValue
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean),
       };
 
       try {
@@ -643,6 +653,25 @@ function ProductsTab({ products, categories, reload, showNotice }) {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="field">
+              <label>Color / variant options</label>
+              <input
+                value={
+                  editing.variantsText !== undefined
+                    ? editing.variantsText
+                    : (editing.variants || []).join(", ")
+                }
+                onChange={(event) =>
+                  setEditing((p) => ({ ...p, variantsText: event.target.value }))
+                }
+                placeholder="e.g. Purple, Black, Clear"
+              />
+              <small className="admin-hint">
+                Comma-separated. Customers pick one as a display choice — leave blank if this
+                product has no variants. All variants share the same stock and price.
+              </small>
             </div>
 
             <div className="field">
