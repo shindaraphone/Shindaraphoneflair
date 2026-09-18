@@ -12,7 +12,7 @@ import React, {
 } from "react";
 import { supabase } from "./supabaseClient.js";
 import { useLocation, useNavigate } from "react-router-dom";
-import "./shindara-modern.css";
+import "./shindara-redesign.css";
 
 
 /* =========================================================
@@ -1313,6 +1313,8 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [productQuantity, setProductQuantity] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [heroBannerIndex, setHeroBannerIndex] = useState(0);
   const galleryScrollRef = useRef(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -1369,6 +1371,7 @@ export default function App() {
 
 
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [accountView, setAccountView] = useState("menu");
   const [headerSearchOpen, setHeaderSearchOpen] = useState(false);
 
 
@@ -1422,6 +1425,7 @@ export default function App() {
   const routedProductId = productRouteMatch ? productRouteMatch[1] : null;
   const isCartRoute = location.pathname === "/cart";
   const isCheckoutRoute = location.pathname === "/checkout";
+  const isCategoriesRoute = location.pathname === "/categories";
 
 
   useEffect(() => {
@@ -1435,6 +1439,8 @@ export default function App() {
       setReviewFormOpen(false);
       setReviewRating(0);
       setReviewComment("");
+      setProductQuantity(1);
+      setSelectedVariant(found.variants && found.variants.length > 0 ? found.variants[0] : null);
       window.scrollTo({ top: 0, behavior: "instant" });
     }
   }, [routedProductId, products]);
@@ -2077,7 +2083,9 @@ export default function App() {
 
 
   const addToCart = useCallback(
-    async (product) => {
+    async (product, options = {}) => {
+      const qty = Math.max(1, Number(options.quantity) || 1);
+      const variant = options.variant || null;
       const stock = Number(product?.stock || 0);
 
 
@@ -2088,10 +2096,12 @@ export default function App() {
 
 
       if (!user) {
-        const existing = cart.find((item) => item.product_id === product.id);
+        const existing = cart.find(
+          (item) => item.product_id === product.id && (item.variant || null) === variant
+        );
 
         if (existing) {
-          const nextQuantity = Number(existing.quantity || 0) + 1;
+          const nextQuantity = Number(existing.quantity || 0) + qty;
 
           if (nextQuantity > stock) {
             showNotice(`Only ${stock} available.`);
@@ -2100,7 +2110,7 @@ export default function App() {
 
           setCart((prev) =>
             prev.map((item) =>
-              item.product_id === product.id
+              item.product_id === product.id && (item.variant || null) === variant
                 ? { ...item, quantity: nextQuantity, subtotal: nextQuantity * Number(product.price || 0) }
                 : item
             )
@@ -2109,11 +2119,12 @@ export default function App() {
           setCart((prev) => [
             ...prev,
             {
-              id: `guest-${product.id}`,
+              id: `guest-${product.id}-${variant || "default"}`,
               product_id: product.id,
               product,
-              quantity: 1,
-              subtotal: Number(product.price || 0),
+              variant,
+              quantity: qty,
+              subtotal: qty * Number(product.price || 0),
             },
           ]);
         }
@@ -2125,12 +2136,12 @@ export default function App() {
 
       try {
         const existing = cart.find(
-          (item) => item.product_id === product.id
+          (item) => item.product_id === product.id && (item.variant || null) === variant
         );
 
 
         if (existing) {
-          const nextQuantity = Number(existing.quantity || 0) + 1;
+          const nextQuantity = Number(existing.quantity || 0) + qty;
 
 
           if (nextQuantity > stock) {
@@ -2153,7 +2164,8 @@ export default function App() {
             .insert({
               user_id: user.id,
               product_id: product.id,
-              quantity: 1,
+              quantity: qty,
+              variant,
             });
 
 
@@ -2245,7 +2257,7 @@ export default function App() {
 
       if (!user) {
         if (next <= 0) {
-          setCart((prev) => prev.filter((c) => c.product_id !== item.product_id));
+          setCart((prev) => prev.filter((c) => c.id !== item.id));
           return;
         }
 
@@ -2258,7 +2270,7 @@ export default function App() {
 
         setCart((prev) =>
           prev.map((c) =>
-            c.product_id === item.product_id
+            c.id === item.id
               ? { ...c, quantity: next, subtotal: next * Number(c.product?.price || 0) }
               : c
           )
@@ -2321,7 +2333,7 @@ export default function App() {
 
 
       if (!user) {
-        setCart((prev) => prev.filter((c) => c.product_id !== item.product_id));
+        setCart((prev) => prev.filter((c) => c.id !== item.id));
         showNotice("Item removed.");
         return;
       }
@@ -2927,6 +2939,7 @@ export default function App() {
         product_name: item.product?.name || "Product",
         quantity: Number(item.quantity),
         price: Number(item.product?.price || 0),
+        variant: item.variant || null,
       }));
 
 
@@ -3698,7 +3711,9 @@ export default function App() {
 
 
   const buyNow = useCallback(
-    async (product) => {
+    async (product, options = {}) => {
+      const qty = Math.max(1, Number(options.quantity) || 1);
+      const variant = options.variant || null;
       const stock = Number(product?.stock || 0);
 
       if (stock <= 0) {
@@ -3709,11 +3724,12 @@ export default function App() {
       if (!user) {
         setCart([
           {
-            id: `guest-${product.id}`,
+            id: `guest-${product.id}-${variant || "default"}`,
             product_id: product.id,
             product,
-            quantity: 1,
-            subtotal: Number(product.price || 0),
+            variant,
+            quantity: qty,
+            subtotal: qty * Number(product.price || 0),
           },
         ]);
         try {
@@ -3731,7 +3747,7 @@ export default function App() {
 
         const { error } = await supabase
           .from("cart_items")
-          .insert({ user_id: user.id, product_id: product.id, quantity: 1 });
+          .insert({ user_id: user.id, product_id: product.id, quantity: qty, variant });
 
         if (error) throw error;
 
@@ -3839,7 +3855,7 @@ export default function App() {
             className="desktop-only"
             onClick={() => {
               setMobileMenu(false);
-              scrollToSection("categories");
+              navigate("/categories");
             }}
           >
             Categories
@@ -4042,6 +4058,49 @@ export default function App() {
                 </strong>
               </div>
 
+              {selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                <div className="product-variant-picker">
+                  <span className="product-variant-label">Color / Option</span>
+                  <div className="product-variant-swatches">
+                    {selectedProduct.variants.map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`product-variant-chip ${selectedVariant === v ? "active" : ""}`}
+                        onClick={() => setSelectedVariant(v)}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {Number(selectedProduct.stock || 0) > 0 && (
+                <div className="product-quantity-picker">
+                  <span className="product-variant-label">Quantity</span>
+                  <div className="quantity">
+                    <button
+                      type="button"
+                      onClick={() => setProductQuantity((q) => Math.max(1, q - 1))}
+                    >
+                      −
+                    </button>
+                    <span>{productQuantity}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProductQuantity((q) =>
+                          Math.min(Number(selectedProduct.stock || 1), q + 1)
+                        )
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="product-buy-buttons">
                 <button
                   className="btn-secondary"
@@ -4050,7 +4109,10 @@ export default function App() {
                       await requestStockNotify(selectedProduct);
                       return;
                     }
-                    const ok = await addToCart(selectedProduct);
+                    const ok = await addToCart(selectedProduct, {
+                      quantity: productQuantity,
+                      variant: selectedVariant,
+                    });
                     if (ok) celebrateAdd(selectedProduct.id);
                   }}
                 >
@@ -4060,7 +4122,7 @@ export default function App() {
                 {Number(selectedProduct.stock || 0) > 0 && (
                   <button
                     className="btn-primary"
-                    onClick={() => buyNow(selectedProduct)}
+                    onClick={() => buyNow(selectedProduct, { quantity: productQuantity, variant: selectedVariant })}
                   >
                     Buy Now
                   </button>
@@ -4312,6 +4374,7 @@ export default function App() {
                     <div className="cart-item-info">
                       <span>{item.product?.category || "Shindara"}</span>
                       <h4>{item.product?.name}</h4>
+                      {item.variant && <small className="cart-item-variant">{item.variant}</small>}
                       <strong>{money(item.product?.price)}</strong>
                     </div>
 
@@ -4382,6 +4445,23 @@ export default function App() {
             <span className="modal-kicker">Secure checkout</span>
             <h2>Where should we deliver?</h2>
             <p>Enter your details below and complete payment securely.</p>
+          </div>
+
+          <div className="checkout-step-bar">
+            <div className="checkout-step active">
+              <span className="checkout-step-dot">1</span>
+              <span>Address</span>
+            </div>
+            <div className="checkout-step-line" />
+            <div className="checkout-step">
+              <span className="checkout-step-dot">2</span>
+              <span>Payment</span>
+            </div>
+            <div className="checkout-step-line" />
+            <div className="checkout-step">
+              <span className="checkout-step-dot">3</span>
+              <span>Review</span>
+            </div>
           </div>
 
           {checkoutError && (
@@ -4592,6 +4672,55 @@ export default function App() {
             </div>
           </form>
 
+        </div>
+
+        ) : isCategoriesRoute ? (
+
+        <div className="categories-page">
+          <button className="product-page-back" onClick={() => navigate(-1)}>
+            ← Back
+          </button>
+
+          <div className="modal-head">
+            <span className="modal-kicker">Browse</span>
+            <h2>All categories.</h2>
+            <p>Pick a category to see everything we have in it.</p>
+          </div>
+
+          <div className="categories-page-grid">
+            <button
+              className={`category-icon-tile ${category === "All" ? "active" : ""}`}
+              onClick={() => {
+                setCategory("All");
+                navigate("/");
+                scrollToSection("shop");
+              }}
+            >
+              <span className="category-icon-box">▦</span>
+              <span>All</span>
+            </button>
+
+            {categories.map((item) => (
+              <button
+                className={`category-icon-tile ${category === item.name ? "active" : ""}`}
+                key={item.name}
+                onClick={() => {
+                  setCategory(item.name);
+                  navigate("/");
+                  scrollToSection("shop");
+                }}
+              >
+                <span className="category-icon-box">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} />
+                  ) : (
+                    item.icon || "◆"
+                  )}
+                </span>
+                <span>{item.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         ) : (
@@ -5312,26 +5441,17 @@ export default function App() {
           Home
         </button>
 
-        <button className="bottom-tab" onClick={() => scrollToSection("categories")}>
+        <button className="bottom-tab" onClick={() => navigate("/categories")}>
           <span>▦</span>
           Categories
         </button>
 
-        <button
-          className="bottom-tab"
-          onClick={() => {
-            if (user) {
-              setModal("wishlist");
-            } else {
-              setAuthMode("login");
-              resetAuthForm();
-              setModal("auth");
-              showNotice("Sign in to view your wishlist.");
-            }
-          }}
-        >
-          <span>♡</span>
-          Wishlist
+        <button className="bottom-tab" onClick={() => navigate("/cart")}>
+          <span className="bottom-tab-cart-icon">
+            🛒
+            {cartCount > 0 && <b className="bottom-tab-count">{cartCount}</b>}
+          </span>
+          Cart
         </button>
 
         <button
@@ -5886,76 +6006,132 @@ export default function App() {
           =================================================== */}
 
       {modal === "settings" && user && (
-        <Modal onClose={() => setModal(null)} processing={processing}>
+        <Modal
+          onClose={() => {
+            setModal(null);
+            setAccountView("menu");
+          }}
+          processing={processing}
+        >
           <div className="modal-head">
             <span className="modal-kicker">Your account</span>
-            <h2>Account settings.</h2>
-            <p>Update your details for faster checkout.</p>
+            <h2>{accountView === "profile" ? "Edit profile." : "My account."}</h2>
           </div>
 
           <div className="profile-avatar">
             {(profile?.full_name || user.email || "S").charAt(0).toUpperCase()}
           </div>
 
-          <div className="field">
-            <label>Email</label>
-            <input value={user.email || ""} readOnly />
-          </div>
-
-          <div className="field">
-            <label>Full name</label>
-            <input
-              value={profile?.full_name || ""}
-              onChange={(event) =>
-                setProfile((previous) => ({ ...(previous || {}), full_name: event.target.value }))
-              }
-              placeholder="Your full name"
-            />
-          </div>
-
-          <div className="field">
-            <label>Phone number</label>
-            <input
-              value={profile?.phone || ""}
-              onChange={(event) =>
-                setProfile((previous) => ({ ...(previous || {}), phone: event.target.value }))
-              }
-              placeholder="08012345678"
-              inputMode="tel"
-            />
-          </div>
-
-          <button className="btn-primary full" onClick={saveProfile}>
-            Save profile
-          </button>
-
-          <div className="settings-block">
-            <div className="settings-block-title">Appearance</div>
-
-            <div className="appearance-switch">
-              <button
-                className={theme === "light" ? "active" : ""}
-                onClick={() => setTheme("light")}
-              >
-                ☀ Light
+          {accountView === "menu" ? (
+            <div className="account-menu-list">
+              <button className="account-menu-row" onClick={() => setAccountView("profile")}>
+                <span>👤 Edit profile</span>
+                <span>→</span>
               </button>
 
               <button
-                className={theme === "dark" ? "active" : ""}
-                onClick={() => setTheme("dark")}
+                className="account-menu-row"
+                onClick={() => {
+                  setAccountView("menu");
+                  setModal("orders");
+                }}
               >
-                ◐ Dark
+                <span>📦 My orders</span>
+                <span>→</span>
+              </button>
+
+              <button
+                className="account-menu-row"
+                onClick={() => {
+                  setModal("wishlist");
+                }}
+              >
+                <span>♡ Wishlist</span>
+                <span>→</span>
+              </button>
+
+              <div className="account-menu-row account-menu-row-static">
+                <span>◐ Appearance</span>
+                <div className="appearance-switch appearance-switch-compact">
+                  <button
+                    className={theme === "light" ? "active" : ""}
+                    onClick={() => setTheme("light")}
+                  >
+                    ☀ Light
+                  </button>
+                  <button
+                    className={theme === "dark" ? "active" : ""}
+                    onClick={() => setTheme("dark")}
+                  >
+                    ◐ Dark
+                  </button>
+                </div>
+              </div>
+
+              <button
+                className="account-menu-row"
+                onClick={() => {
+                  if (siteSettings.whatsapp_number) {
+                    window.open(
+                      `https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}`,
+                      "_blank"
+                    );
+                  }
+                }}
+              >
+                <span>🎧 Help &amp; Support</span>
+                <span>→</span>
+              </button>
+
+              <button className="logout-button" onClick={logout}>
+                Sign out
               </button>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="field">
+                <label>Email</label>
+                <input value={user.email || ""} readOnly />
+              </div>
 
-          <button className="btn-secondary full" onClick={() => setModal("orders")}>
-            View my orders
-          </button>
+              <div className="field">
+                <label>Full name</label>
+                <input
+                  value={profile?.full_name || ""}
+                  onChange={(event) =>
+                    setProfile((previous) => ({ ...(previous || {}), full_name: event.target.value }))
+                  }
+                  placeholder="Your full name"
+                />
+              </div>
 
-          <button className="logout-button" onClick={logout}>
-            Sign out
-          </button>
+              <div className="field">
+                <label>Phone number</label>
+                <input
+                  value={profile?.phone || ""}
+                  onChange={(event) =>
+                    setProfile((previous) => ({ ...(previous || {}), phone: event.target.value }))
+                  }
+                  placeholder="08012345678"
+                  inputMode="tel"
+                />
+              </div>
+
+              <button
+                className="btn-primary full"
+                onClick={async () => {
+                  await saveProfile();
+                  setAccountView("menu");
+                }}
+              >
+                Save profile
+              </button>
+
+              <button className="btn-text" style={{ marginTop: "14px" }} onClick={() => setAccountView("menu")}>
+                ← Back to account menu
+              </button>
+            </>
+          )}
         </Modal>
       )}
 
