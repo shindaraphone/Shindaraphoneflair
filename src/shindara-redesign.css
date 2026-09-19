@@ -7,19 +7,19 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
-  --ink: #1e1e24;
-  --ink-soft: #6b6b76;
+  --ink: #27272a;
+  --ink-soft: #6b7280;
   --case: #f8fafc;
   --paper: #ffffff;
-  --gold: #7c3aed;
-  --gold-soft: #e5d7ff;
-  --flair: #a78bfa;
-  --flair-dark: #6d28d9;
+  --gold: #0f4c81;
+  --gold-soft: #dbe9f5;
+  --flair: #64748b;
+  --flair-dark: #334155;
   --teal: #16a34a;
   --teal-soft: #dcfce7;
-  --line: #e5e1ee;
+  --line: #e2e8f0;
   --urgent: #f97316;
-  --brand-gradient: linear-gradient(135deg, #7c3aed, #a78bfa);
+  --brand-gradient: linear-gradient(135deg, #0f4c81, #27272a);
 
   --font-display: "Montserrat", "Inter", sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -32,19 +32,19 @@
 }
 
 [data-theme="dark"] {
-  --ink: #f8fafc;
-  --ink-soft: #a1a1ac;
-  --case: #1e1e24;
-  --paper: #28282f;
-  --gold: #7c3aed;
-  --gold-soft: #a78bfa;
-  --flair: #a78bfa;
-  --flair-dark: #c4b5fd;
+  --ink: #f1f5f9;
+  --ink-soft: #94a3b8;
+  --case: #18181b;
+  --paper: #27272a;
+  --gold: #3b82f6;
+  --gold-soft: #1e3a5f;
+  --flair: #94a3b8;
+  --flair-dark: #cbd5e1;
   --teal: #22c55e;
   --teal-soft: #14291c;
-  --line: #38383f;
+  --line: #3f3f46;
   --urgent: #fb923c;
-  --brand-gradient: linear-gradient(135deg, #7c3aed, #a78bfa);
+  --brand-gradient: linear-gradient(135deg, #3b82f6, #27272a);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 32px -16px rgba(0, 0, 0, 0.6);
   --shadow-pop: 0 18px 44px -16px rgba(0, 0, 0, 0.7);
 }
@@ -129,7 +129,7 @@ a { color: inherit; }
   background: var(--brand-gradient);
   color: #fff;
   padding: 15px 26px;
-  box-shadow: 0 10px 24px -10px rgba(168, 85, 247, 0.5);
+  box-shadow: 0 10px 24px -10px rgba(15, 76, 129, 0.5);
 }
 .btn-primary:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
 .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
