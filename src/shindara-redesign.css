@@ -7,19 +7,19 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
-  --ink: #27272a;
-  --ink-soft: #6b7280;
-  --case: #f8fafc;
-  --paper: #ffffff;
-  --gold: #0f4c81;
-  --gold-soft: #dbe9f5;
-  --flair: #64748b;
-  --flair-dark: #334155;
+  --ink: #3a2e22;
+  --ink-soft: #8a7a68;
+  --case: #f5f1e8;
+  --paper: #fefcf7;
+  --gold: #c1652f;
+  --gold-soft: #f3e0d0;
+  --flair: #a8693f;
+  --flair-dark: #8a4f28;
   --teal: #16a34a;
   --teal-soft: #dcfce7;
-  --line: #e2e8f0;
-  --urgent: #f97316;
-  --brand-gradient: linear-gradient(135deg, #0f4c81, #27272a);
+  --line: #e8ddc8;
+  --urgent: #c0392b;
+  --brand-gradient: linear-gradient(135deg, #c1652f, #a8693f);
 
   --font-display: "Montserrat", "Inter", sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -27,24 +27,24 @@
   --radius-lg: 22px;
   --radius-md: 14px;
   --radius-sm: 8px;
-  --shadow-card: 0 1px 2px rgba(30, 30, 36, 0.04), 0 10px 22px -16px rgba(30, 30, 36, 0.16);
-  --shadow-pop: 0 16px 34px -18px rgba(30, 30, 36, 0.26);
+  --shadow-card: 0 1px 2px rgba(58, 46, 34, 0.05), 0 10px 22px -16px rgba(58, 46, 34, 0.18);
+  --shadow-pop: 0 16px 34px -18px rgba(58, 46, 34, 0.28);
 }
 
 [data-theme="dark"] {
-  --ink: #f1f5f9;
-  --ink-soft: #94a3b8;
-  --case: #18181b;
-  --paper: #27272a;
-  --gold: #3b82f6;
-  --gold-soft: #1e3a5f;
-  --flair: #94a3b8;
-  --flair-dark: #cbd5e1;
-  --teal: #22c55e;
+  --ink: #f5ede0;
+  --ink-soft: #c9b8a0;
+  --case: #241c14;
+  --paper: #322619;
+  --gold: #e08a4f;
+  --gold-soft: #4a3220;
+  --flair: #c9915f;
+  --flair-dark: #e8b98a;
+  --teal: #4ade80;
   --teal-soft: #14291c;
-  --line: #3f3f46;
-  --urgent: #fb923c;
-  --brand-gradient: linear-gradient(135deg, #3b82f6, #27272a);
+  --line: #4a3826;
+  --urgent: #ef4444;
+  --brand-gradient: linear-gradient(135deg, #e08a4f, #c9915f);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 32px -16px rgba(0, 0, 0, 0.6);
   --shadow-pop: 0 18px 44px -16px rgba(0, 0, 0, 0.7);
 }
@@ -129,7 +129,7 @@ a { color: inherit; }
   background: var(--brand-gradient);
   color: #fff;
   padding: 15px 26px;
-  box-shadow: 0 10px 24px -10px rgba(15, 76, 129, 0.5);
+  box-shadow: 0 10px 24px -10px rgba(193, 101, 47, 0.45);
 }
 .btn-primary:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
 .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
