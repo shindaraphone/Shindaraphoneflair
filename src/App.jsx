@@ -3482,6 +3482,12 @@ export default function App() {
     return () => clearInterval(timer);
   }, [siteSettings.hero_images]);
 
+  useEffect(() => {
+    setHeroBannerIndex((current) =>
+      Math.min(current, Math.max((siteSettings.hero_images || []).length - 1, 0))
+    );
+  }, [siteSettings.hero_images]);
+
 
   /* =======================================================
      GRID SKELETON — brief "loading" feel when the customer
@@ -4822,7 +4828,7 @@ export default function App() {
 
           {siteSettings.hero_images && siteSettings.hero_images.length > 0 ? (
 
-          <div className="hero-banner-carousel">
+          <div className="hero-banner-carousel" aria-label="Promotional banners">
             {siteSettings.hero_images.map((url, index) => (
               <img
                 key={url + index}
@@ -4833,16 +4839,45 @@ export default function App() {
             ))}
 
             {siteSettings.hero_images.length > 1 && (
-              <div className="hero-banner-dots">
-                {siteSettings.hero_images.map((_, index) => (
-                  <button
-                    key={index}
-                    className={index === heroBannerIndex ? "active" : ""}
-                    aria-label={`Banner ${index + 1}`}
-                    onClick={() => setHeroBannerIndex(index)}
-                  />
-                ))}
-              </div>
+              <>
+                <button
+                  type="button"
+                  className="hero-banner-control hero-banner-prev"
+                  aria-label="Previous promotional banner"
+                  onClick={() =>
+                    setHeroBannerIndex((current) =>
+                      (current - 1 + siteSettings.hero_images.length) % siteSettings.hero_images.length
+                    )
+                  }
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="hero-banner-control hero-banner-next"
+                  aria-label="Next promotional banner"
+                  onClick={() =>
+                    setHeroBannerIndex((current) => (current + 1) % siteSettings.hero_images.length)
+                  }
+                >
+                  ›
+                </button>
+                <div className="hero-banner-status" aria-live="polite">
+                  {heroBannerIndex + 1} / {siteSettings.hero_images.length}
+                </div>
+                <div className="hero-banner-dots">
+                  {siteSettings.hero_images.map((_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className={index === heroBannerIndex ? "active" : ""}
+                      aria-label={`Show banner ${index + 1}`}
+                      aria-current={index === heroBannerIndex ? "true" : undefined}
+                      onClick={() => setHeroBannerIndex(index)}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
