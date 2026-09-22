@@ -2704,6 +2704,42 @@ main { max-width: 1280px; margin: 0 auto; }
 }
 .hero-banner-slide.active { opacity: 1; }
 
+.hero-banner-control {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, .42);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 32px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity .2s ease, background .2s ease, transform .2s ease;
+}
+.hero-banner-carousel:hover .hero-banner-control,
+.hero-banner-carousel:focus-within .hero-banner-control { opacity: 1; }
+.hero-banner-control:hover { background: rgba(246, 139, 30, .95); transform: translateY(-50%) scale(1.05); }
+.hero-banner-prev { left: 16px; }
+.hero-banner-next { right: 16px; }
+.hero-banner-status {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 3;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .42);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .hero-banner-dots {
   position: absolute;
   bottom: 14px;
@@ -2728,6 +2764,10 @@ main { max-width: 1280px; margin: 0 auto; }
 
 @media (max-width: 600px) {
   .hero-banner-carousel { aspect-ratio: 4 / 3; border-radius: var(--radius-md); }
+  .hero-banner-control { width: 36px; height: 36px; font-size: 27px; opacity: 1; }
+  .hero-banner-prev { left: 10px; }
+  .hero-banner-next { right: 10px; }
+  .hero-banner-status { top: 10px; right: 10px; }
 }
 
 /* ---------- bigger promotional category cards (Konga-style) ---------- */
