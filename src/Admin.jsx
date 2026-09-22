@@ -2507,3 +2507,29 @@ export default function Admin() {
     </div>
   );
 }
+
+/* =========================================================
+   WIRING NOTES (not executed — read before deploying)
+   =========================================================
+
+   This file is rendered by your existing ProtectedAdmin.jsx, which
+   already handles: checking the session, checking profiles.is_admin,
+   showing AdminLogin.jsx when needed, and rendering <Admin /> only
+   once verified. This file assumes that's already true and just
+   renders the dashboard — it does no auth checking of its own.
+
+   IMPORTANT: This file imports supabase from "./supabaseAdminClient",
+   NOT "./supabaseClient" — this keeps the admin session completely
+   separate from the customer storefront's session. Make sure
+   supabaseAdminClient.js exists in src/ already (it should, from
+   earlier fixes).
+
+   Route /admin at <ProtectedAdmin /> (not <Admin /> directly).
+
+   Database: make sure `profiles.is_admin` exists (boolean, default
+   false) and is `true` for your own account.
+
+   Supabase Row Level Security: `products`, `orders`, and
+   `order_items` need UPDATE/INSERT/DELETE policies for authenticated
+   users where profiles.is_admin = true.
+   ========================================================= */
