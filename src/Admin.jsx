@@ -796,7 +796,7 @@ function OrdersTab({ orders, reload, showNotice }) {
     setNote(order.status_note || "");
   };
 
-  const sendDeliveryEmail = useCallback((order) => {
+  const sendStatusEmail = useCallback((order, previousStatus) => {
     if (!order.customer_email) return;
 
     const itemsHtml = (order.items || [])
@@ -811,14 +811,25 @@ function OrdersTab({ orders, reload, showNotice }) {
       )
       .join("");
 
-    const html = `
+    const statusLabel = String(order.status || "pending").replace(/_/g, " ");
+    const statusCopy = {
+      confirmed: "Your payment has been confirmed and your order is being prepared.",
+      processing: "Your order is being prepared for dispatch.",
+      shipped: "Your order has been shipped and is on its way.",
+      in_transit: "Your order is currently in transit.",
+      out_for_delivery: "Your order is out for delivery and should arrive soon.",
+      delivered: "Your order has been delivered. We hope you love it!",
+    }[order.status] || "Your order status has been updated.",
+      html = `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#170f28;">
-        <div style="background:linear-gradient(135deg,#7c3aed,#ec4899);padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+        <div style="background:#f68b1e;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
           <h1 style="color:#fff;margin:0;font-size:20px;">Shindara PhoneFlair</h1>
         </div>
         <div style="padding:24px;border:1px solid #eee;border-top:none;border-radius:0 0 12px 12px;">
-          <h2 style="font-size:18px;">Your order has arrived, ${order.customer_name}! 📦</h2>
-          <p style="color:#555;font-size:14px;">Your order has been marked as delivered. We hope you love it!</p>
+          <h2 style="font-size:18px;">Order update for ${order.customer_name}</h2>
+          <p style="color:#555;font-size:14px;">${statusCopy}</p>
+          <p style="font-size:14px;"><strong>Current status:</strong> ${statusLabel}</p>
+          ${previousStatus ? `<p style="font-size:13px;color:#777;">Previously: ${String(previousStatus).replace(/_/g, " ")}</p>` : ""}
           <p style="font-size:14px;"><strong>Tracking number:</strong> ${order.tracking_number}</p>
           <table style="width:100%;border-collapse:collapse;margin:16px 0;">
             ${itemsHtml}
@@ -827,9 +838,7 @@ function OrdersTab({ orders, reload, showNotice }) {
               <td style="padding:10px 0;text-align:right;font-weight:bold;">${money(order.total)}</td>
             </tr>
           </table>
-          <p style="font-size:13px;color:#888;margin-top:20px;">
-            Loved what you bought? Leave a review on the product page to let others know.
-          </p>
+          <p style="font-size:13px;color:#888;margin-top:20px;">Track your order from your Shindara PhoneFlair account.</p>
         </div>
       </div>`;
 
@@ -838,7 +847,7 @@ function OrdersTab({ orders, reload, showNotice }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: order.customer_email,
-        subject: "Your Shindara PhoneFlair order has arrived! 📦",
+        subject: `Order update: ${statusLabel} — Shindara PhoneFlair`,
         html,
       }),
     }).catch((err) => console.error("Delivery email error:", err));
@@ -854,8 +863,8 @@ function OrdersTab({ orders, reload, showNotice }) {
         await reload();
         setSelected((prev) => {
           const updated = prev ? { ...prev, ...changes } : prev;
-          if (changes.status === "delivered" && prev?.status !== "delivered" && updated) {
-            sendDeliveryEmail(updated);
+          if (changes.status && prev?.status !== changes.status && updated) {
+            sendStatusEmail(updated, prev?.status);
           }
           return updated;
         });
@@ -865,7 +874,7 @@ function OrdersTab({ orders, reload, showNotice }) {
         setSaving(false);
       }
     },
-    [reload, showNotice, sendDeliveryEmail]
+    [reload, showNotice, sendStatusEmail]
   );
 
   const saveNote = useCallback(async () => {
