@@ -738,14 +738,30 @@ function OrdersTab({ orders, reload, showNotice }) {
   const [selected, setSelected] = useState(null);
   const [note, setNote] = useState("");
   const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return orders;
-    if (filter === "unpaid") return orders.filter((o) => o.payment_status !== "paid");
-    return orders.filter((o) => o.status === filter);
-  }, [orders, filter]);
+    const query = search.trim().toLowerCase();
+    return orders.filter((order) => {
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "unpaid" && order.payment_status !== "paid") ||
+        (filter !== "unpaid" && filter !== "all" && order.status === filter);
+      const searchable = [
+        order.tracking_number,
+        order.customer_name,
+        order.customer_email,
+        order.customer_phone,
+        order.delivery_state,
+        order.delivery_city,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .join(" ");
+      return matchesFilter && (!query || searchable.includes(query));
+    });
+  }, [orders, filter, search]);
 
   const exportCSV = useCallback(() => {
     const headers = [
@@ -903,6 +919,12 @@ function OrdersTab({ orders, reload, showNotice }) {
           <p>{orders.length} order{orders.length !== 1 ? "s" : ""} total.</p>
         </div>
         <div className="admin-panel-actions">
+          <input
+            className="admin-search"
+            placeholder="Search orders..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
           <select className="admin-search" value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="all">All orders</option>
             <option value="unpaid">Unpaid only</option>
@@ -2489,25 +2511,3 @@ export default function Admin() {
 /* =========================================================
    WIRING NOTES (not executed — read before deploying)
    =========================================================
-
-   This file is rendered by your existing ProtectedAdmin.jsx, which
-   already handles: checking the session, checking profiles.is_admin,
-   showing AdminLogin.jsx when needed, and rendering <Admin /> only
-   once verified. This file assumes that's already true and just
-   renders the dashboard — it does no auth checking of its own.
-
-   IMPORTANT: This file imports supabase from "./supabaseAdminClient",
-   NOT "./supabaseClient" — this keeps the admin session completely
-   separate from the customer storefront's session. Make sure
-   supabaseAdminClient.js exists in src/ already (it should, from
-   earlier fixes).
-
-   Route /admin at <ProtectedAdmin /> (not <Admin /> directly).
-
-   Database: make sure `profiles.is_admin` exists (boolean, default
-   false) and is `true` for your own account.
-
-   Supabase Row Level Security: `products`, `orders`, and
-   `order_items` need UPDATE/INSERT/DELETE policies for authenticated
-   users where profiles.is_admin = true.
-   ========================================================= */
