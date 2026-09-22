@@ -396,3 +396,69 @@
 .admin-spotlight-star:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .admin-review-comment { max-width: 260px; font-size: 13px; color: var(--ink-soft); }
+
+/* =========================================================
+   MARKETPLACE ADMIN SKIN
+   ========================================================= */
+
+.admin-app {
+  --admin-orange: #f68b1e;
+  --admin-orange-soft: #fff0df;
+  --admin-dark: #242424;
+  background: #f5f5f5;
+}
+
+.admin-sidebar {
+  background: var(--admin-dark);
+  border-right: 4px solid var(--admin-orange);
+}
+.admin-brand span { color: var(--admin-orange); }
+.admin-brand small { color: #ffbd7a; }
+.admin-nav button { color: #c9c9c9; border-radius: 3px; }
+.admin-nav button:hover { background: #333; color: #fff; }
+.admin-nav button.active { background: var(--admin-orange); color: #fff; }
+.admin-sidebar .logout-button { color: #ff9b9b; }
+
+.admin-main { background: #f5f5f5; }
+.admin-panel-head { border-bottom: 1px solid #dedede; padding-bottom: 18px; }
+.admin-panel-head h2 { font-size: 26px; letter-spacing: -.02em; }
+.admin-panel-head p { color: #777; }
+.admin-search { border-radius: 3px; background: #fff; border-color: #d2d2d2; }
+.admin-search:focus { border-color: var(--admin-orange); outline: 2px solid rgba(246, 139, 30, .15); }
+
+.admin-table-wrap { border: 0; border-radius: 3px; box-shadow: 0 2px 8px rgba(0, 0, 0, .06); }
+.admin-table th { background: #fafafa; color: #777; padding-top: 13px; padding-bottom: 13px; }
+.admin-table td { padding-top: 14px; padding-bottom: 14px; }
+.admin-table tr:hover td { background: #fffaf5; }
+.admin-tag { background: var(--admin-orange-soft); color: #c96600; border-radius: 3px; }
+.admin-stock.low { color: #d95732; }
+.admin-thumb { border-radius: 3px; }
+.admin-danger { color: #d95732; }
+.admin-spotlight-star.active, .admin-spotlight-star:hover { color: var(--admin-orange); }
+
+.admin-stat-card, .admin-analytics-block, .admin-fee-row {
+  border: 0;
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+}
+.admin-stat-card { border-top: 3px solid var(--admin-orange); }
+.admin-stat-card span { color: #777; }
+.admin-stat-card strong { color: #242424; }
+.admin-rank-number { background: var(--admin-orange-soft); color: #c96600; border-radius: 3px; }
+.admin-analytics-block .settings-block-title { color: #242424; }
+
+.admin-bulk-bar, .admin-notify-banner {
+  background: var(--admin-orange-soft);
+  border: 1px solid #ffd6ad;
+  border-radius: 3px;
+}
+.admin-reorder button, .admin-fee-input { border-radius: 3px; }
+.admin-reorder button:hover:not(:disabled) { border-color: var(--admin-orange); }
+
+@media (max-width: 860px) {
+  .admin-sidebar { border-right: 0; border-bottom: 3px solid var(--admin-orange); }
+  .admin-main { padding: 22px 14px 50px; }
+  .admin-panel-head { align-items: stretch; }
+  .admin-panel-actions { width: 100%; }
+  .admin-panel-actions .admin-search { flex: 1; min-width: 0; }
+}
