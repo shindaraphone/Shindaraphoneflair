@@ -2507,7 +2507,3 @@ export default function Admin() {
     </div>
   );
 }
-
-/* =========================================================
-   WIRING NOTES (not executed — read before deploying)
-   =========================================================
