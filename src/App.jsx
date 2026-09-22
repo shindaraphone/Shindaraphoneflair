@@ -1014,6 +1014,24 @@ const FALLBACK_CATEGORIES = [
   { name: "Screen Protectors", icon: "◈" },
 ];
 
+const PICKUP_LOCATIONS = [
+  { name: "Ikeja Pickup Hub", city: "Ikeja", state: "Lagos", address: "Allen Avenue, Ikeja" },
+  { name: "Lekki Pickup Hub", city: "Lekki", state: "Lagos", address: "Admiralty Way, Lekki Phase 1" },
+  { name: "Wuse Pickup Hub", city: "Wuse", state: "FCT", address: "Aminu Kano Crescent, Wuse 2" },
+  { name: "Port Harcourt Pickup Hub", city: "Port Harcourt", state: "Rivers", address: " Aba Road, Port Harcourt" },
+];
+
+const getDeliveryEstimate = (state, city, method = "delivery") => {
+  if (method === "pickup") return { min: 1, max: 2, label: "Ready for pickup in 1–2 business days" };
+  if (!state) return { min: 3, max: 7, label: "Select your location for an estimate" };
+
+  const sameRegion = ["Lagos", "FCT"].includes(state);
+  const majorCity = /ikeja|lekki|victoria island|wuse|garki|abuja|port harcourt|ibadan/i.test(city || "");
+  const min = sameRegion && majorCity ? 1 : sameRegion ? 2 : 3;
+  const max = sameRegion && majorCity ? 3 : sameRegion ? 4 : 7;
+  return { min, max, label: `Delivery in ${min}–${max} business days` };
+};
+
 
 /* =========================================================
    HELPERS
@@ -1351,6 +1369,8 @@ export default function App() {
     address: "",
     state: "",
     city: "",
+    deliveryMethod: "delivery",
+    pickupLocation: "",
   });
 
 
@@ -2056,8 +2076,13 @@ export default function App() {
 
 
   const deliveryFee = useMemo(
-    () => Number(deliveryFees[checkout.state] || 0),
-    [deliveryFees, checkout.state]
+    () => checkout.deliveryMethod === "pickup" ? 0 : Number(deliveryFees[checkout.state] || 0),
+    [deliveryFees, checkout.state, checkout.deliveryMethod]
+  );
+
+  const deliveryEstimate = useMemo(
+    () => getDeliveryEstimate(checkout.state, checkout.city, checkout.deliveryMethod),
+    [checkout.state, checkout.city, checkout.deliveryMethod]
   );
 
 
@@ -2902,7 +2927,10 @@ export default function App() {
         customer_name: checkout.name.trim(),
         customer_phone: checkout.phone.trim(),
         customer_email: checkout.email.trim(),
-        delivery_address: checkout.address.trim(),
+        delivery_address:
+          checkout.deliveryMethod === "pickup"
+            ? `Pickup: ${checkout.pickupLocation}`
+            : checkout.address.trim(),
         delivery_state: checkout.state,
         delivery_city: checkout.city,
         delivery_fee: Number(deliveryFee),
@@ -3109,9 +3137,8 @@ export default function App() {
         ["name", "full name"],
         ["phone", "phone number"],
         ["email", "email"],
-        ["address", "delivery address"],
-        ["state", "state"],
-        ["city", "city"],
+        ["state", checkout.deliveryMethod === "pickup" ? "pickup location state" : "state"],
+        ["city", checkout.deliveryMethod === "pickup" ? "pickup location" : "city"],
       ];
 
 
@@ -3120,6 +3147,16 @@ export default function App() {
           setCheckoutError(`Please enter your ${label}.`);
           return;
         }
+      }
+
+      if (checkout.deliveryMethod === "delivery" && !checkout.address.trim()) {
+        setCheckoutError("Please enter your delivery address.");
+        return;
+      }
+
+      if (checkout.deliveryMethod === "pickup" && !checkout.pickupLocation) {
+        setCheckoutError("Please choose a pickup location.");
+        return;
       }
 
 
@@ -4506,10 +4543,74 @@ export default function App() {
 
             <div className="checkout-section-title">
               <span>2</span>
-              Delivery location
+              Delivery options
             </div>
 
-            {hasSavedAddress && !editingAddress ? (
+            <div className="delivery-methods">
+              <label className={`delivery-method-card ${checkout.deliveryMethod === "delivery" ? "active" : ""}`}>
+                <input
+                  type="radio"
+                  name="delivery-method"
+                  value="delivery"
+                  checked={checkout.deliveryMethod === "delivery"}
+                  onChange={() => setCheckout((previous) => ({ ...previous, deliveryMethod: "delivery", pickupLocation: "" }))}
+                  disabled={processing}
+                />
+                <span>
+                  <strong>Home delivery</strong>
+                  <small>Delivered to your address</small>
+                </span>
+              </label>
+              <label className={`delivery-method-card ${checkout.deliveryMethod === "pickup" ? "active" : ""}`}>
+                <input
+                  type="radio"
+                  name="delivery-method"
+                  value="pickup"
+                  checked={checkout.deliveryMethod === "pickup"}
+                  onChange={() => setCheckout((previous) => ({ ...previous, deliveryMethod: "pickup", address: "" }))}
+                  disabled={processing}
+                />
+                <span>
+                  <strong>Pickup location</strong>
+                  <small>Collect from a Shindara hub</small>
+                </span>
+              </label>
+            </div>
+
+            {checkout.deliveryMethod === "pickup" ? (
+              <div className="checkout-grid">
+                <div className="field field-full">
+                  <label>Choose a pickup location</label>
+                  <select
+                    value={checkout.pickupLocation}
+                    onChange={(event) => {
+                      const location = PICKUP_LOCATIONS.find((item) => item.name === event.target.value);
+                      setCheckout((previous) => ({
+                        ...previous,
+                        pickupLocation: event.target.value,
+                        state: location?.state || "",
+                        city: location?.city || "",
+                      }));
+                    }}
+                    required
+                    disabled={processing}
+                  >
+                    <option value="">Select a pickup hub</option>
+                    {PICKUP_LOCATIONS.map((location) => (
+                      <option value={location.name} key={location.name}>
+                        {location.name} - {location.city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {checkout.pickupLocation && (
+                  <div className="delivery-estimate field-full">
+                    <strong>{PICKUP_LOCATIONS.find((item) => item.name === checkout.pickupLocation)?.address}</strong>
+                    <span>{deliveryEstimate.label}</span>
+                  </div>
+                )}
+              </div>
+            ) : hasSavedAddress && !editingAddress ? (
               <div className="saved-address-card">
                 <div className="saved-address-info">
                   <strong>{checkout.name || "Delivery address"}</strong>
@@ -4618,6 +4719,14 @@ export default function App() {
               </>
             )}
 
+            {checkout.deliveryMethod === "delivery" && (
+              <div className="delivery-estimator">
+                <span>Estimated arrival</span>
+                <strong>{deliveryEstimate.label}</strong>
+                <small>{checkout.state ? `Delivery fee: ${money(deliveryFee)}` : "Choose a state to calculate delivery fee"}</small>
+              </div>
+            )}
+
             <div className="checkout-section-title">
               <span>3</span>
               Order summary
@@ -4634,8 +4743,8 @@ export default function App() {
               ))}
 
               <div>
-                <span>Delivery{checkout.state ? ` to ${checkout.state}` : ""}</span>
-                <strong>{checkout.state ? money(deliveryFee) : "Select a state"}</strong>
+                <span>{checkout.deliveryMethod === "pickup" ? "Pickup" : `Delivery${checkout.state ? ` to ${checkout.state}` : ""}`}</span>
+                <strong>{checkout.deliveryMethod === "pickup" ? "Free" : checkout.state ? money(deliveryFee) : "Select a state"}</strong>
               </div>
 
               <div className="checkout-total">
