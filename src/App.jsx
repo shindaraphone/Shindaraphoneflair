@@ -3543,12 +3543,6 @@ export default function App() {
   );
 
 
-  const spotlightProduct = useMemo(() => {
-    if (products.length === 0) return null;
-    return products.find((p) => p.is_featured) || products[0];
-  }, [products]);
-
-
   const trendingProducts = useMemo(() => products.slice(0, 8), [products]);
 
   const photoReviews = useMemo(
@@ -5028,52 +5022,6 @@ export default function App() {
             ))}
           </div>
         </section>
-
-        {/* =================================================
-            SPOTLIGHT
-            ================================================= */}
-
-        {spotlightProduct && (
-          <section className="spotlight">
-            <div className="spotlight-mesh" />
-
-            <Reveal className="spotlight-image-wrap">
-              <div className="spotlight-image">
-                {getProductImage(spotlightProduct) ? (
-                  <img src={getProductImage(spotlightProduct)} alt={spotlightProduct.name} />
-                ) : (
-                  <div className="product-placeholder large">
-                    <span>S</span>
-                  </div>
-                )}
-              </div>
-            </Reveal>
-
-            <Reveal delay={120} className="spotlight-content">
-              <span className="section-kicker">Spotlight</span>
-              <h2>{spotlightProduct.name}</h2>
-              <p>
-                {spotlightProduct.description ||
-                  "A standout pick from the collection, worth a closer look."}
-              </p>
-              <strong className="spotlight-price">{money(spotlightProduct.price)}</strong>
-
-              <button
-                className="btn-primary"
-                onClick={async () => {
-                  if (Number(spotlightProduct.stock || 0) <= 0) {
-                    await requestStockNotify(spotlightProduct);
-                    return;
-                  }
-                  const ok = await addToCart(spotlightProduct);
-                  if (ok) celebrateAdd(spotlightProduct.id);
-                }}
-              >
-                {Number(spotlightProduct.stock || 0) > 0 ? "Add to Cart" : "🔔 Notify me"}
-              </button>
-            </Reveal>
-          </section>
-        )}
 
         {/* =================================================
             TRENDING NOW
