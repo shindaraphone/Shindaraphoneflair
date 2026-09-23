@@ -506,3 +506,23 @@
   .admin-gallery-grid { gap: 6px; }
   .admin-gallery-thumb, .admin-gallery-add { width: 58px; height: 58px; }
 }
+
+/* ---------- premium purple admin finish ---------- */
+
+.admin-app {
+  --admin-orange: #7652d6;
+  --admin-orange-soft: #eee9ff;
+  --admin-dark: #241b35;
+}
+.admin-sidebar { background: var(--admin-dark); border-right-color: var(--admin-orange); }
+.admin-brand span, .admin-nav button.active { color: #fff; }
+.admin-nav button.active, .admin-stat-card { border-color: var(--admin-orange); }
+.admin-nav button.active, .admin-stat-card { background-color: var(--admin-orange); }
+.admin-stat-card { background: var(--paper); border-top-color: var(--admin-orange); }
+.admin-tag, .admin-bulk-bar, .admin-notify-banner { background: var(--admin-orange-soft); }
+.admin-tag { color: var(--admin-orange); }
+.admin-search:focus, .admin-reorder button:hover:not(:disabled) { border-color: var(--admin-orange); }
+
+@media (max-width: 860px) {
+  .admin-sidebar { border-bottom-color: var(--admin-orange); }
+}
