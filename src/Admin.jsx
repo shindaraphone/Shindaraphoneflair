@@ -1378,11 +1378,7 @@ function BrandingTab({ settings, reload, showNotice }) {
   const [tiktokUrl, setTiktokUrl] = useState(settings.tiktok_url || "");
   const [supportEmail, setSupportEmail] = useState(settings.support_email || "");
   const [whatsappNumber, setWhatsappNumber] = useState(settings.whatsapp_number || "");
-  const [heroImageUrl, setHeroImageUrl] = useState(settings.hero_image_url || "");
-  const [heroImages, setHeroImages] = useState(settings.hero_images || []);
   const [uploading, setUploading] = useState(false);
-  const [uploadingHero, setUploadingHero] = useState(false);
-  const [uploadingBanners, setUploadingBanners] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const uploadLogo = useCallback(
@@ -1411,68 +1407,6 @@ function BrandingTab({ settings, reload, showNotice }) {
     [showNotice]
   );
 
-  const uploadHeroImage = useCallback(
-    async (file) => {
-      if (!file) return;
-      setUploadingHero(true);
-
-      try {
-        const ext = file.name.split(".").pop();
-        const path = `branding/hero-${Date.now()}.${ext}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(STORAGE_BUCKET)
-          .upload(path, file, { cacheControl: "3600", upsert: false });
-
-        if (uploadError) throw uploadError;
-
-        const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-        setHeroImageUrl(data.publicUrl);
-      } catch (err) {
-        showNotice(err.message || "Could not upload hero image.");
-      } finally {
-        setUploadingHero(false);
-      }
-    },
-    [showNotice]
-  );
-
-  const uploadBannerImages = useCallback(
-    async (files) => {
-      if (!files || files.length === 0) return;
-      setUploadingBanners(true);
-
-      try {
-        const uploadedUrls = [];
-
-        for (const file of Array.from(files)) {
-          const ext = file.name.split(".").pop();
-          const path = `branding/banner-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from(STORAGE_BUCKET)
-            .upload(path, file, { cacheControl: "3600", upsert: false });
-
-          if (uploadError) throw uploadError;
-
-          const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-          uploadedUrls.push(data.publicUrl);
-        }
-
-        setHeroImages((prev) => [...prev, ...uploadedUrls]);
-      } catch (err) {
-        showNotice(err.message || "Could not upload banner images.");
-      } finally {
-        setUploadingBanners(false);
-      }
-    },
-    [showNotice]
-  );
-
-  const removeBannerImage = useCallback((url) => {
-    setHeroImages((prev) => prev.filter((img) => img !== url));
-  }, []);
-
   const save = useCallback(
     async (event) => {
       event.preventDefault();
@@ -1488,8 +1422,8 @@ function BrandingTab({ settings, reload, showNotice }) {
             tiktok_url: tiktokUrl.trim(),
             support_email: supportEmail.trim(),
             whatsapp_number: whatsappNumber.trim(),
-            hero_image_url: heroImageUrl.trim(),
-            hero_images: heroImages,
+            hero_image_url: "",
+            hero_images: [],
           })
           .eq("id", 1);
 
@@ -1510,8 +1444,6 @@ function BrandingTab({ settings, reload, showNotice }) {
       tiktokUrl,
       supportEmail,
       whatsappNumber,
-      heroImageUrl,
-      heroImages,
       reload,
       showNotice,
     ]
@@ -1617,75 +1549,7 @@ function BrandingTab({ settings, reload, showNotice }) {
           Leave any of these blank to hide that link on the storefront.
         </small>
 
-        <div className="settings-block-title admin-section-title">Hero image</div>
-
-        <div className="field">
-          <div className="admin-photo-upload">
-            <div className="admin-photo-preview admin-hero-preview">
-              {heroImageUrl ? <img src={heroImageUrl} alt="Hero preview" /> : <span>No image</span>}
-            </div>
-
-            <div className="admin-photo-controls">
-              <label className="btn-secondary admin-upload-btn">
-                {uploadingHero ? "Uploading..." : heroImageUrl ? "Replace image" : "Upload image"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  disabled={uploadingHero}
-                  onChange={(event) => uploadHeroImage(event.target.files?.[0])}
-                />
-              </label>
-
-              {heroImageUrl && (
-                <button
-                  type="button"
-                  className="admin-danger"
-                  onClick={() => setHeroImageUrl("")}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
-          <small className="admin-hint">
-            A product photo collage for the homepage banner. If not set, a decorative illustration shows instead.
-          </small>
-        </div>
-
-        <div className="settings-block-title admin-section-title">Rotating promo banners</div>
-
-        <div className="field">
-          <div className="admin-gallery-grid">
-            {heroImages.map((url) => (
-              <div className="admin-gallery-thumb" key={url}>
-                <img src={url} alt="Banner" />
-                <button type="button" onClick={() => removeBannerImage(url)} aria-label="Remove banner">
-                  ×
-                </button>
-              </div>
-            ))}
-
-            <label className="admin-gallery-add">
-              {uploadingBanners ? "..." : "+ Add"}
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                multiple
-                disabled={uploadingBanners}
-                onChange={(event) => uploadBannerImages(event.target.files)}
-              />
-            </label>
-          </div>
-          <small className="admin-hint">
-            Upload 2 or more full-width promo banners (like Jumia/Konga's rotating homepage ads) and they'll
-            auto-rotate every few seconds, replacing the homepage hero entirely. Leave empty to keep the
-            regular hero design above.
-          </small>
-        </div>
-
-        <button className="btn-primary full" type="submit" disabled={saving || uploading || uploadingHero || uploadingBanners}>
+        <button className="btn-primary full" type="submit" disabled={saving || uploading}>
           {saving ? "Saving..." : "Save branding"}
         </button>
       </form>
