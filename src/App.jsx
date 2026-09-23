@@ -1294,8 +1294,6 @@ export default function App() {
         tiktok_url: cached.tiktok_url || "",
         support_email: cached.support_email || "",
         whatsapp_number: cached.whatsapp_number || "",
-        hero_image_url: cached.hero_image_url || "",
-        hero_images: cached.hero_images || [],
       };
     } catch {
       return {
@@ -1305,14 +1303,25 @@ export default function App() {
         tiktok_url: "",
         support_email: "",
         whatsapp_number: "",
-        hero_image_url: "",
-        hero_images: [],
       };
     }
   });
   const [deliveryFees, setDeliveryFees] = useState({});
   const [wishlist, setWishlist] = useState([]);
   const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    if (!siteSettings.logo_url) return;
+
+    let icon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (!icon) {
+      icon = document.createElement("link");
+      icon.rel = "apple-touch-icon";
+      document.head.appendChild(icon);
+    }
+    icon.href = siteSettings.logo_url;
+  }, [siteSettings.logo_url]);
+
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewPhotoUrl, setReviewPhotoUrl] = useState("");
@@ -1333,7 +1342,6 @@ export default function App() {
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [productQuantity, setProductQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(null);
-  const [heroBannerIndex, setHeroBannerIndex] = useState(0);
   const galleryScrollRef = useRef(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -1555,8 +1563,6 @@ export default function App() {
           tiktok_url: data.tiktok_url || "",
           support_email: data.support_email || "",
           whatsapp_number: data.whatsapp_number || "",
-          hero_image_url: data.hero_image_url || "",
-          hero_images: data.hero_images || [],
         };
         setSiteSettings(settings);
 
@@ -3467,29 +3473,6 @@ export default function App() {
 
 
   /* =======================================================
-     HERO BANNER CAROUSEL — auto-rotates admin-uploaded
-     promotional banners, if any are set
-     ======================================================= */
-
-
-  useEffect(() => {
-    if (!siteSettings.hero_images || siteSettings.hero_images.length < 2) return;
-
-    const timer = setInterval(() => {
-      setHeroBannerIndex((prev) => (prev + 1) % siteSettings.hero_images.length);
-    }, 5000);
-
-    return () => clearInterval(timer);
-  }, [siteSettings.hero_images]);
-
-  useEffect(() => {
-    setHeroBannerIndex((current) =>
-      Math.min(current, Math.max((siteSettings.hero_images || []).length - 1, 0))
-    );
-  }, [siteSettings.hero_images]);
-
-
-  /* =======================================================
      GRID SKELETON — brief "loading" feel when the customer
      switches category, searches, or changes the sort order
      ======================================================= */
@@ -4826,64 +4809,6 @@ export default function App() {
 
         <section className="hero" id="top">
 
-          {siteSettings.hero_images && siteSettings.hero_images.length > 0 ? (
-
-          <div className="hero-banner-carousel" aria-label="Promotional banners">
-            {siteSettings.hero_images.map((url, index) => (
-              <img
-                key={url + index}
-                src={url}
-                alt={`Promotion ${index + 1}`}
-                className={`hero-banner-slide ${index === heroBannerIndex ? "active" : ""}`}
-              />
-            ))}
-
-            {siteSettings.hero_images.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  className="hero-banner-control hero-banner-prev"
-                  aria-label="Previous promotional banner"
-                  onClick={() =>
-                    setHeroBannerIndex((current) =>
-                      (current - 1 + siteSettings.hero_images.length) % siteSettings.hero_images.length
-                    )
-                  }
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  className="hero-banner-control hero-banner-next"
-                  aria-label="Next promotional banner"
-                  onClick={() =>
-                    setHeroBannerIndex((current) => (current + 1) % siteSettings.hero_images.length)
-                  }
-                >
-                  ›
-                </button>
-                <div className="hero-banner-status" aria-live="polite">
-                  {heroBannerIndex + 1} / {siteSettings.hero_images.length}
-                </div>
-                <div className="hero-banner-dots">
-                  {siteSettings.hero_images.map((_, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className={index === heroBannerIndex ? "active" : ""}
-                      aria-label={`Show banner ${index + 1}`}
-                      aria-current={index === heroBannerIndex ? "true" : undefined}
-                      onClick={() => setHeroBannerIndex(index)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          ) : (
-          <>
-
           <div className="hero-glow hero-glow-one" />
           <div className="hero-glow hero-glow-two" />
 
@@ -4921,9 +4846,7 @@ export default function App() {
 
           <div className="hero-art">
 
-            {siteSettings.hero_image_url ? (
-              <img className="hero-photo" src={siteSettings.hero_image_url} alt="Featured products" />
-            ) : trendingProducts.length > 0 ? (
+            {trendingProducts.length > 0 ? (
               <div className="hero-collage">
                 {trendingProducts.slice(0, 3).map((product, index) => {
                   const image = getProductImage(product);
@@ -4996,8 +4919,7 @@ export default function App() {
             <span />
           </div>
 
-          </>
-          )}
+          
 
         </section>
 
