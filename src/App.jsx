@@ -14,19 +14,11 @@ import { supabase } from "./supabaseClient.js";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./shindara-redesign.css";
 
-
-/* =========================================================
-   CONFIG
-   ========================================================= */
-
-
 const PAYSTACK_KEY =
   "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
-
 const money = (value) =>
   `₦${Number(value || 0).toLocaleString("en-NG")}`;
-
 
 const generateTrackingNumber = () =>
   `SHP-${Date.now().toString(36).toUpperCase()}-${Math.random()
@@ -34,44 +26,16 @@ const generateTrackingNumber = () =>
     .slice(2, 7)
     .toUpperCase()}`;
 
-
-/* =========================================================
-   NIGERIA LOCATIONS
-   State -> Local Government Areas / major cities
-   ========================================================= */
-
-
 const NIGERIA_LOCATIONS = {
   Abia: [
-    "Aba North",
-    "Aba South",
-    "Arochukwu",
-    "Bende",
-    "Ikwuano",
-    "Isiala Ngwa North",
-    "Isiala Ngwa South",
-    "Isuikwuato",
-    "Obi Ngwa",
-    "Ohafia",
-    "Osisioma Ngwa",
-    "Umuahia North",
-    "Umuahia South",
+    "Aba North", "Aba South", "Arochukwu", "Bende", "Ikwuano", "Isiala Ngwa North",
+    "Isiala Ngwa South", "Isuikwuato", "Obingwa", "Ohafia", "Osisioma Ngwa",
+    "Ugwunagbo", "Ukwa East", "Ukwa West", "Umuahia North", "Umuahia South",
     "Umunneochi",
   ],
-
-
   Adamawa: [
-    "Demsa",
-    "Fufore",
-    "Ganye",
-    "Girei",
-    "Gombi",
-    "Guyuk",
-    "Hong",
-    "Jada",
-    "Jimeta",
-    "Lamurde",
-    "Madagali",
+    "Demsa", "Fufore", "Ganye", "Gayuk", "Gombi", "Grie", "Hong", "Jada",
+    "Lamurde", "Madagali",
     "Maiha",
     "Mayo Belwa",
     "Michika",
@@ -4845,81 +4809,56 @@ export default function App() {
           </div>
 
           <div className="hero-art">
+            <div className="hero-showcase">
+              <div className="hero-showcase-head">
+                <span>THE EVERYDAY EDIT</span>
+                <strong>01 / {String(Math.max(trendingProducts.length, 1)).padStart(2, "0")}</strong>
+              </div>
 
-            {trendingProducts.length > 0 ? (
-              <div className="hero-collage">
-                {trendingProducts.slice(0, 3).map((product, index) => {
-                  const image = getProductImage(product);
-                  return (
-                    <div className={`hero-collage-card hero-collage-card-${index}`} key={product.id}>
-                      {image ? (
-                        <img src={image} alt={product.name} />
-                      ) : (
-                        <div className="product-placeholder large">
-                          <span>S</span>
-                        </div>
-                      )}
-                      {index === 0 && (
-                        <div className="hero-collage-tag">
-                          <strong>{product.name}</strong>
-                          <span>{money(product.price)}</span>
-                        </div>
-                      )}
+              <div className="hero-showcase-main">
+                {trendingProducts[0] ? (
+                  <>
+                    {getProductImage(trendingProducts[0]) ? (
+                      <img src={getProductImage(trendingProducts[0])} alt={trendingProducts[0].name} />
+                    ) : (
+                      <div className="hero-showcase-placeholder">S</div>
+                    )}
+                    <div className="hero-showcase-label">
+                      <span>FEATURED PICK</span>
+                      <strong>{trendingProducts[0].name}</strong>
+                      <b>{money(trendingProducts[0].price)}</b>
                     </div>
-                  );
-                })}
+                  </>
+                ) : (
+                  <div className="hero-showcase-empty">
+                    <span className="hero-showcase-mark">S</span>
+                    <strong>Curated essentials</strong>
+                    <small>Premium accessories are arriving soon.</small>
+                  </div>
+                )}
+              </div>
 
-                <div className="hero-floating hero-floating-two">
-                  <strong>Fast delivery</strong>
-                  <small>Across all 36 states</small>
+              <div className="hero-showcase-bottom">
+                {trendingProducts.slice(1, 3).map((product) => (
+                  <div className="hero-showcase-mini" key={product.id}>
+                    {getProductImage(product) ? (
+                      <img src={getProductImage(product)} alt="" />
+                    ) : (
+                      <span>S</span>
+                    )}
+                    <div>
+                      <strong>{product.name}</strong>
+                      <small>{money(product.price)}</small>
+                    </div>
+                  </div>
+                ))}
+                <div className="hero-showcase-trust">
+                  <span>✓</span>
+                  <div><strong>Ready to ship</strong><small>Across all 36 states</small></div>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="hero-card-back" />
-
-                <div className="hero-card">
-                  <div className="hero-card-top">
-                    <span>SHINDARA</span>
-                    <span>PHONEFLAIR</span>
-                  </div>
-
-                  <div className="hero-card-center">
-                    <div className="hero-ring">
-                      <div className="hero-ring-inner">S</div>
-                    </div>
-                    <strong>The everyday edit</strong>
-                    <span>BETTER ACCESSORIES</span>
-                  </div>
-
-                  <div className="hero-card-bottom">
-                    <span>SINCE DAY ONE</span>
-                    <span>✦</span>
-                  </div>
-                </div>
-
-                <div className="hero-floating hero-floating-one">
-                  <span>Handpicked</span>
-                  <strong>Premium builds</strong>
-                  <small>Not mass-market filler</small>
-                </div>
-
-                <div className="hero-floating hero-floating-two">
-                  <strong>Fast delivery</strong>
-                  <small>Across all 36 states</small>
-                </div>
-              </>
-            )}
-
+            </div>
           </div>
-
-          <div className="hero-static-dots">
-            <span className="active" />
-            <span />
-            <span />
-          </div>
-
-          
 
         </section>
 
