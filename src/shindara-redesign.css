@@ -3174,3 +3174,90 @@ body, .app { background: var(--case); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .hero-message-line, .hero-message-bottom-mark { animation: none; }
 }
+
+/* ---------- system dark mode and text-only hero finish ---------- */
+
+[data-theme="dark"] {
+  --ink: #f4efff;
+  --ink-soft: #b9afca;
+  --case: #17131f;
+  --paper: #231d30;
+  --gold: #b69aff;
+  --gold-soft: #34294a;
+  --flair: #a98af5;
+  --flair-dark: #c2adff;
+  --teal: #5bd0a0;
+  --teal-soft: #19372e;
+  --line: #413650;
+  --brand-gradient: linear-gradient(135deg, #a98af5, #7652d6);
+  --shadow-card: 0 3px 16px rgba(0, 0, 0, .24);
+  --shadow-pop: 0 18px 44px -20px rgba(0, 0, 0, .62);
+}
+
+[data-theme="dark"] body,
+[data-theme="dark"] .app { background: var(--case); color: var(--ink); }
+[data-theme="dark"] .header { background: rgba(35, 29, 48, .96); border-color: var(--line); }
+[data-theme="dark"] .header-search,
+[data-theme="dark"] .search-box,
+[data-theme="dark"] .sort-select,
+[data-theme="dark"] .filter-row { background-color: var(--paper); color: var(--ink); }
+[data-theme="dark"] .categories-section,
+[data-theme="dark"] .trending-section,
+[data-theme="dark"] .shop-header,
+[data-theme="dark"] .trust-strip-full,
+[data-theme="dark"] .bottom-tabs { background: var(--paper); }
+[data-theme="dark"] .section-heading h2,
+[data-theme="dark"] .product-price { color: var(--ink); }
+[data-theme="dark"] .spotlight { background: #211a2d; }
+[data-theme="dark"] .shop-trust-line,
+[data-theme="dark"] .category-icon-tile,
+[data-theme="dark"] .trending-card-image,
+[data-theme="dark"] .product-visual,
+[data-theme="dark"] .product-visual-wrap,
+[data-theme="dark"] .related-card-image,
+[data-theme="dark"] .category-promo-image { background: var(--case); border-color: var(--line); }
+[data-theme="dark"] .product-card,
+[data-theme="dark"] .admin-panel-head { background: var(--paper); border-color: var(--line); }
+[data-theme="dark"] .hero-message-top,
+[data-theme="dark"] .hero-message-bottom { color: rgba(255, 255, 255, .76); }
+[data-theme="dark"] .hero-message-edition { color: rgba(255, 255, 255, .6); }
+
+.hero-message-panel {
+  min-height: 330px;
+  padding: 24px 18px;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.hero-message-panel::before { display: none; }
+.hero-message-top { color: rgba(255, 255, 255, .84); }
+.hero-message-edition { color: rgba(255, 255, 255, .68); }
+.hero-message-copy { font-family: var(--font-display); font-size: 38px; font-weight: 800; }
+.hero-message-accent, .hero-message-here { color: #e4d8ff; }
+.hero-message-here span { color: #fff; }
+.hero-message-bottom { border-color: rgba(255, 255, 255, .28); color: rgba(255, 255, 255, .78); }
+.hero-message-bottom-mark { display: none; }
+.hero-message-line { animation-name: hero-line-arrive; }
+@keyframes hero-line-arrive {
+  from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateY(9px); }
+  to { opacity: 1; clip-path: inset(0); transform: translateY(0); }
+}
+.appearance-switch-compact { flex-shrink: 0; }
+.appearance-switch-compact button { padding: 6px 8px; font-size: 11px; white-space: nowrap; }
+
+@media (max-width: 860px) {
+  .hero-message-panel { min-height: 285px; padding: 12px 4px; }
+  .hero-message-copy { font-size: 34px; }
+}
+@media (max-width: 480px) {
+  .hero-message-panel { min-height: 250px; padding: 8px 2px; }
+  .hero-message-copy { font-size: 29px; }
+}
+@media (max-width: 360px) {
+  .hero-message-copy { font-size: 25px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-message-line { animation: none; clip-path: none; }
+}
