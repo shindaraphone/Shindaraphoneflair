@@ -4809,53 +4809,25 @@ export default function App() {
           </div>
 
           <div className="hero-art">
-            <div className="hero-showcase">
-              <div className="hero-showcase-head">
-                <span>THE EVERYDAY EDIT</span>
-                <strong>01 / {String(Math.max(trendingProducts.length, 1)).padStart(2, "0")}</strong>
+            <div className="hero-message-panel">
+              <div className="hero-message-top">
+                <span className="hero-message-monogram">S</span>
+                <span>SHINDARA PHONEFLAIR</span>
+                <span className="hero-message-edition">THE ACCESSORY EDIT</span>
               </div>
 
-              <div className="hero-showcase-main">
-                {trendingProducts[0] ? (
-                  <>
-                    {getProductImage(trendingProducts[0]) ? (
-                      <img src={getProductImage(trendingProducts[0])} alt={trendingProducts[0].name} />
-                    ) : (
-                      <div className="hero-showcase-placeholder">S</div>
-                    )}
-                    <div className="hero-showcase-label">
-                      <span>FEATURED PICK</span>
-                      <strong>{trendingProducts[0].name}</strong>
-                      <b>{money(trendingProducts[0].price)}</b>
-                    </div>
-                  </>
-                ) : (
-                  <div className="hero-showcase-empty">
-                    <span className="hero-showcase-mark">S</span>
-                    <strong>Curated essentials</strong>
-                    <small>Premium accessories are arriving soon.</small>
-                  </div>
-                )}
+              <div className="hero-message-copy" aria-label="Premium and quality accessories are screaming here">
+                <span className="hero-message-line">PREMIUM</span>
+                <span className="hero-message-line hero-message-accent">AND QUALITY</span>
+                <span className="hero-message-line">ACCESSORIES</span>
+                <span className="hero-message-line hero-message-small">ARE SCREAMING</span>
+                <span className="hero-message-line hero-message-here">HERE<span>.</span></span>
               </div>
 
-              <div className="hero-showcase-bottom">
-                {trendingProducts.slice(1, 3).map((product) => (
-                  <div className="hero-showcase-mini" key={product.id}>
-                    {getProductImage(product) ? (
-                      <img src={getProductImage(product)} alt="" />
-                    ) : (
-                      <span>S</span>
-                    )}
-                    <div>
-                      <strong>{product.name}</strong>
-                      <small>{money(product.price)}</small>
-                    </div>
-                  </div>
-                ))}
-                <div className="hero-showcase-trust">
-                  <span>✓</span>
-                  <div><strong>Ready to ship</strong><small>Across all 36 states</small></div>
-                </div>
+              <div className="hero-message-bottom">
+                <span>Made for your everyday</span>
+                <span className="hero-message-bottom-mark">✳</span>
+                <span>Designed to stand out</span>
               </div>
             </div>
           </div>
