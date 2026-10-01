@@ -1355,9 +1355,9 @@ export default function App() {
 
   const [theme, setTheme] = useState(() => {
     try {
-      return localStorage.getItem("theme") || "dark";
+      return localStorage.getItem("themePreference") || "system";
     } catch {
-      return "dark";
+      return "system";
     }
   });
 
@@ -1396,12 +1396,19 @@ export default function App() {
 
 
   useEffect(() => {
+    const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      const resolvedTheme = theme === "system" ? (colorScheme.matches ? "dark" : "light") : theme;
+      document.documentElement.dataset.theme = resolvedTheme;
+    };
+
     try {
-      localStorage.setItem("theme", theme);
+      localStorage.setItem("themePreference", theme);
     } catch {}
 
-
-    document.documentElement.dataset.theme = theme;
+    applyTheme();
+    colorScheme.addEventListener("change", applyTheme);
+    return () => colorScheme.removeEventListener("change", applyTheme);
   }, [theme]);
 
 
@@ -4811,7 +4818,6 @@ export default function App() {
           <div className="hero-art">
             <div className="hero-message-panel">
               <div className="hero-message-top">
-                <span className="hero-message-monogram">S</span>
                 <span>SHINDARA PHONEFLAIR</span>
                 <span className="hero-message-edition">THE ACCESSORY EDIT</span>
               </div>
@@ -4826,7 +4832,6 @@ export default function App() {
 
               <div className="hero-message-bottom">
                 <span>Made for your everyday</span>
-                <span className="hero-message-bottom-mark">✳</span>
                 <span>Designed to stand out</span>
               </div>
             </div>
@@ -5963,6 +5968,12 @@ export default function App() {
               <div className="account-menu-row account-menu-row-static">
                 <span>◐ Appearance</span>
                 <div className="appearance-switch appearance-switch-compact">
+                  <button
+                    className={theme === "system" ? "active" : ""}
+                    onClick={() => setTheme("system")}
+                  >
+                    System
+                  </button>
                   <button
                     className={theme === "light" ? "active" : ""}
                     onClick={() => setTheme("light")}
