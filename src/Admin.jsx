@@ -15,13 +15,16 @@ import "./admin-panel.css";
 const STORAGE_BUCKET = "product-images";
 
 const ORDER_STATUSES = [
-  "pending",
-  "confirmed",
-  "processing",
-  "shipped",
-  "in_transit",
-  "out_for_delivery",
-  "delivered",
+  "WhatsApp Order Received",
+  "Confirmed",
+  "Payment Pending",
+  "Payment Confirmed",
+  "Processing",
+  "Shipped",
+  "In Transit",
+  "Out for Delivery",
+  "Delivered",
+  "Cancelled",
 ];
 
 const NIGERIA_STATES = [
@@ -49,6 +52,21 @@ const formatDate = (value) => {
 
 const getProductImage = (product) =>
   product?.image_url || product?.image || product?.imageUrl || "";
+
+const getOrderStatus = (order) => {
+  const status = order?.order_status || order?.status || "WhatsApp Order Received";
+  const legacyLabels = {
+    pending: "WhatsApp Order Received",
+    confirmed: "Confirmed",
+    processing: "Processing",
+    shipped: "Shipped",
+    in_transit: "In Transit",
+    out_for_delivery: "Out for Delivery",
+    delivered: "Delivered",
+    cancelled: "Cancelled",
+  };
+  return legacyLabels[status] || status;
+};
 
 /* =========================================================
    SHARED MODAL (matches storefront modal styling)
@@ -668,8 +686,9 @@ function OrdersTab({ orders, reload, showNotice }) {
       const matchesFilter =
         filter === "all" ||
         (filter === "unpaid" && order.payment_status !== "paid") ||
-        (filter !== "unpaid" && filter !== "all" && order.status === filter);
+        (filter !== "unpaid" && filter !== "all" && getOrderStatus(order) === filter);
       const searchable = [
+        order.order_number,
         order.tracking_number,
         order.customer_name,
         order.customer_email,
@@ -685,18 +704,18 @@ function OrdersTab({ orders, reload, showNotice }) {
 
   const exportCSV = useCallback(() => {
     const headers = [
-      "Tracking Number", "Customer Name", "Phone", "Email", "Total",
+      "Order Number", "Customer Name", "Phone", "Email", "Total",
       "Payment Status", "Order Status", "Date", "Delivery Address", "State", "City",
     ];
 
     const rows = filtered.map((o) => [
-      o.tracking_number || o.id,
+      o.order_number || o.tracking_number || o.id,
       o.customer_name || "",
       o.customer_phone || "",
       o.customer_email || "",
       o.total || 0,
       o.payment_status || "",
-      o.status || "",
+      getOrderStatus(o),
       formatDate(o.created_at),
       o.delivery_address || "",
       o.delivery_state || "",
@@ -722,8 +741,8 @@ function OrdersTab({ orders, reload, showNotice }) {
     const phoneDigits = String(order.customer_phone || "").replace(/\D/g, "");
     const phone = phoneDigits.startsWith("0") ? `234${phoneDigits.slice(1)}` : phoneDigits;
     const message = `Hi ${order.customer_name}, this is Shindara PhoneFlair. An update on your order ${
-      order.tracking_number || ""
-    }: status is now "${String(order.status || "pending").replace(/_/g, " ")}". Thank you for shopping with us!`;
+      order.order_number || order.tracking_number || ""
+    }: status is now "${getOrderStatus(order)}".`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }, []);
 
@@ -747,15 +766,16 @@ function OrdersTab({ orders, reload, showNotice }) {
       )
       .join("");
 
-    const statusLabel = String(order.status || "pending").replace(/_/g, " ");
+    const statusLabel = getOrderStatus(order);
     const statusCopy = {
-      confirmed: "Your payment has been confirmed and your order is being prepared.",
-      processing: "Your order is being prepared for dispatch.",
-      shipped: "Your order has been shipped and is on its way.",
-      in_transit: "Your order is currently in transit.",
-      out_for_delivery: "Your order is out for delivery and should arrive soon.",
-      delivered: "Your order has been delivered. We hope you love it!",
-    }[order.status] || "Your order status has been updated.",
+      Confirmed: "Your order has been confirmed.",
+      "Payment Confirmed": "Your payment has been confirmed.",
+      Processing: "Your order is being prepared for dispatch.",
+      Shipped: "Your order has been shipped and is on its way.",
+      "In Transit": "Your order is currently in transit.",
+      "Out for Delivery": "Your order is out for delivery and should arrive soon.",
+      Delivered: "Your order has been delivered.",
+    }[statusLabel] || "Your order status has been updated.";
       html = `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#170f28;">
         <div style="background:#f68b1e;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
@@ -766,7 +786,7 @@ function OrdersTab({ orders, reload, showNotice }) {
           <p style="color:#555;font-size:14px;">${statusCopy}</p>
           <p style="font-size:14px;"><strong>Current status:</strong> ${statusLabel}</p>
           ${previousStatus ? `<p style="font-size:13px;color:#777;">Previously: ${String(previousStatus).replace(/_/g, " ")}</p>` : ""}
-          <p style="font-size:14px;"><strong>Tracking number:</strong> ${order.tracking_number}</p>
+          <p style="font-size:14px;"><strong>Order number:</strong> ${order.order_number || order.tracking_number}</p>
           <table style="width:100%;border-collapse:collapse;margin:16px 0;">
             ${itemsHtml}
             <tr>
@@ -799,8 +819,8 @@ function OrdersTab({ orders, reload, showNotice }) {
         await reload();
         setSelected((prev) => {
           const updated = prev ? { ...prev, ...changes } : prev;
-          if (changes.status && prev?.status !== changes.status && updated) {
-            sendStatusEmail(updated, prev?.status);
+          if (changes.order_status && prev?.order_status !== changes.order_status && updated) {
+            sendStatusEmail(updated, prev?.order_status);
           }
           return updated;
         });
@@ -848,9 +868,9 @@ function OrdersTab({ orders, reload, showNotice }) {
           <select className="admin-search" value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="all">All orders</option>
             <option value="unpaid">Unpaid only</option>
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                Status: {s.replace(/_/g, " ")}
+            {ORDER_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                Status: {status}
               </option>
             ))}
           </select>
@@ -864,7 +884,8 @@ function OrdersTab({ orders, reload, showNotice }) {
         <table className="admin-table">
           <thead>
             <tr>
-              <th>Tracking #</th>
+              <th>Order #</th>
+              <th>Product</th>
               <th>Customer</th>
               <th>Total</th>
               <th>Payment</th>
@@ -876,7 +897,21 @@ function OrdersTab({ orders, reload, showNotice }) {
           <tbody>
             {filtered.map((order) => (
               <tr key={order.id}>
-                <td>{order.tracking_number || `#${String(order.id).slice(0, 8)}`}</td>
+                <td>{order.order_number || order.tracking_number || `#${String(order.id).slice(0, 8)}`}</td>
+                <td className="admin-order-product-cell">
+                  {order.items?.[0] && (
+                    <>
+                      {(order.items[0].product_image || getProductImage(order.items[0].products)) && (
+                        <img
+                          src={order.items[0].product_image || getProductImage(order.items[0].products)}
+                          alt={order.items[0].product_name || ""}
+                          className="admin-order-image"
+                        />
+                      )}
+                      <span>{order.items[0].product_name || order.items[0].products?.name || "Product"}{order.items.length > 1 ? ` + ${order.items.length - 1} more` : ""}</span>
+                    </>
+                  )}
+                </td>
                 <td>{order.customer_name}</td>
                 <td>{money(order.total)}</td>
                 <td>
@@ -891,12 +926,12 @@ function OrdersTab({ orders, reload, showNotice }) {
                   </span>
                 </td>
                 <td>
-                  <span className="admin-tag">{String(order.status || "pending").replace(/_/g, " ")}</span>
+                  <span className="admin-tag">{getOrderStatus(order)}</span>
                 </td>
                 <td>{formatDate(order.created_at)}</td>
                 <td className="admin-row-actions">
                   <button className="btn-text" onClick={() => openOrder(order)}>
-                    View
+                    View Order
                   </button>
                 </td>
               </tr>
@@ -904,7 +939,7 @@ function OrdersTab({ orders, reload, showNotice }) {
 
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="admin-empty-row">
+                <td colSpan={8} className="admin-empty-row">
                   No orders match this filter.
                 </td>
               </tr>
@@ -917,7 +952,7 @@ function OrdersTab({ orders, reload, showNotice }) {
         <Modal onClose={() => setSelected(null)} wide>
           <div className="modal-head">
             <span className="modal-kicker">Order detail</span>
-            <h2>{selected.tracking_number || `Order #${String(selected.id).slice(0, 8)}`}</h2>
+            <h2>{selected.order_number || selected.tracking_number || `Order #${String(selected.id).slice(0, 8)}`}</h2>
             <p>Placed {formatDate(selected.created_at)}</p>
           </div>
 
@@ -929,7 +964,7 @@ function OrdersTab({ orders, reload, showNotice }) {
               rel="noopener noreferrer"
               style={{ marginBottom: "20px", display: "inline-flex" }}
             >
-              💬 Message on WhatsApp
+              Contact Customer on WhatsApp
             </a>
           )}
 
@@ -959,9 +994,16 @@ function OrdersTab({ orders, reload, showNotice }) {
           <div className="tracking-items">
             <div className="tracking-section-title">Items</div>
             {(selected.items || []).map((item) => (
-              <div className="tracking-item" key={item.id}>
+                <div className="tracking-item" key={item.id}>
+                  {(item.product_image || getProductImage(item.products)) && (
+                    <img
+                      src={item.product_image || getProductImage(item.products)}
+                      alt={item.product_name || item.products?.name || "Product"}
+                      className="admin-order-image"
+                    />
+                  )}
                 <div>
-                  <strong>{item.products?.name || "Product"}</strong>
+                    <strong>{item.product_name || item.products?.name || "Product"}</strong>
                   <span>
                     Qty {item.quantity} × {money(item.price)}
                   </span>
@@ -994,13 +1036,13 @@ function OrdersTab({ orders, reload, showNotice }) {
             <div className="field">
               <label>Order status</label>
               <select
-                value={selected.status || "pending"}
+                value={getOrderStatus(selected)}
                 disabled={saving}
-                onChange={(event) => updateOrder(selected.id, { status: event.target.value })}
+                onChange={(event) => updateOrder(selected.id, { order_status: event.target.value })}
               >
-                {ORDER_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s.replace(/_/g, " ")}
+                {ORDER_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
                   </option>
                 ))}
               </select>
@@ -1718,7 +1760,7 @@ function AnalyticsTab({ orders, products, supportEmail, showNotice }) {
 
     const statusCounts = {};
     orders.forEach((o) => {
-      const s = o.status || "pending";
+      const s = getOrderStatus(o);
       statusCounts[s] = (statusCounts[s] || 0) + 1;
     });
 
