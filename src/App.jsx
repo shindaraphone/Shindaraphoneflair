@@ -1,5 +1,5 @@
 // App.js — SHINDARA PHONEFLAIR COMPLETE REDESIGN
-// Supabase + Paystack + Cart + Checkout + Orders + Tracking
+// Supabase + Cart + WhatsApp Orders + Order Tracking
 // Mobile-first / responsive / Nigerian states + cities
 
 
@@ -11,11 +11,11 @@ import React, {
   useState,
 } from "react";
 import { supabase } from "./supabaseClient.js";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import "./shindara-redesign.css";
 
-const PAYSTACK_KEY =
-  "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
+const WHATSAPP_NUMBER = "2348118294548";
+const PAYSTACK_KEY = "pk_live_d7a7a78de15d84169736f5786afb59709b639905";
 
 const money = (value) =>
   `₦${Number(value || 0).toLocaleString("en-NG")}`;
@@ -1308,6 +1308,9 @@ export default function App() {
   const [selectedVariant, setSelectedVariant] = useState(null);
   const galleryScrollRef = useRef(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [whatsAppOrder, setWhatsAppOrder] = useState(null);
+  const [whatsAppDraft, setWhatsAppDraft] = useState([]);
+  const [whatsAppCustomer, setWhatsAppCustomer] = useState({ name: "", phone: "" });
 
 
   const [search, setSearch] = useState("");
@@ -1425,7 +1428,6 @@ export default function App() {
   const isCartRoute = location.pathname === "/cart";
   const isCheckoutRoute = location.pathname === "/checkout";
   const isCategoriesRoute = location.pathname === "/categories";
-
 
   useEffect(() => {
     if (!routedProductId) return;
@@ -3099,6 +3101,8 @@ export default function App() {
   const handlePayment = useCallback(
     async (event) => {
       event.preventDefault();
+      navigate("/cart", { replace: true });
+      return;
 
 
       if (processing) return;
@@ -3327,6 +3331,7 @@ export default function App() {
       checkout,
       cartTotal,
       orderTotal,
+      navigate,
       loadCart,
       loadPaystack,
       handlePaymentSuccess,
@@ -3586,9 +3591,24 @@ export default function App() {
     ).toLowerCase();
 
 
-    const status = String(
-      order?.status || "pending"
-    ).toLowerCase();
+    const rawStatus = order?.order_status || order?.status || "pending";
+    const status = String(rawStatus).toLowerCase().replace(/[\s-]+/g, "_");
+
+
+    if (order?.order_status) {
+      return {
+        whatsapp_order_received: 0,
+        confirmed: 1,
+        payment_pending: 1,
+        payment_confirmed: 1,
+        processing: 2,
+        shipped: 3,
+        in_transit: 3,
+        out_for_delivery: 4,
+        delivered: 5,
+        cancelled: 0,
+      }[status] ?? 0;
+    }
 
 
     if (payment !== "paid") return 0;
@@ -3657,47 +3677,62 @@ export default function App() {
       return;
     }
 
+    setWhatsAppDraft(cart);
+    setWhatsAppCustomer({
+      name: profile?.full_name || user?.user_metadata?.full_name || "",
+      phone: profile?.phone || "",
+    });
+    setWhatsAppOrder(null);
+    setModal("whatsappOrder");
+  }, [cart, profile, user, showNotice]);
 
-    if (!user) {
-      try {
-        sessionStorage.setItem("shindara-pending-checkout", "1");
-      } catch {}
-      setAuthMode("signup");
-      resetAuthForm();
-      setModal("auth");
-      showNotice("Create an account or sign in to complete your order.");
+
+  const saveWhatsAppOrder = useCallback(async () => {
+    const customerName = whatsAppCustomer.name.trim();
+    const customerPhone = whatsAppCustomer.phone.trim();
+    if (!customerName || !customerPhone) {
+      showNotice("Enter your name and phone number to continue.");
       return;
     }
 
+    const phoneDigits = customerPhone.replace(/\D/g, "");
+    if (phoneDigits.length < 10 || phoneDigits.length > 13) {
+      showNotice("Enter a valid Nigerian phone number.");
+      return;
+    }
+    const normalizedPhone = phoneDigits.startsWith("234")
+      ? `+${phoneDigits}`
+      : `+234${phoneDigits.startsWith("0") ? phoneDigits.slice(1) : phoneDigits}`;
 
-    setCheckoutError("");
+    setProcessing(true);
+    try {
+      const { data, error } = await supabase.rpc("create_whatsapp_order", {
+        p_customer_id: user?.id || null,
+        p_customer_name: customerName,
+        p_customer_phone: normalizedPhone,
+        p_customer_email: user?.email || null,
+        p_items: whatsAppDraft.map((item) => ({
+          product_id: item.product_id,
+          quantity: Number(item.quantity || 1),
+          variant: item.variant || null,
+        })),
+      });
+      if (error) throw error;
 
-
-    setCheckout((previous) => ({
-      ...previous,
-      name:
-        previous.name ||
-        profile?.full_name ||
-        "",
-      phone:
-        previous.phone ||
-        profile?.phone ||
-        "",
-      email:
-        previous.email ||
-        user?.email ||
-        "",
-    }));
-
-
-    setModal(null);
-    navigate("/checkout");
-  }, [cart.length, profile, user, showNotice, resetAuthForm, navigate]);
+      setWhatsAppOrder(data);
+      if (user) await loadOrders(user.id);
+      await loadProducts();
+    } catch (error) {
+      console.error("WhatsApp order:", error);
+      showNotice(error?.message || "Could not save your order. Please try again.");
+    } finally {
+      setProcessing(false);
+    }
+  }, [whatsAppCustomer, whatsAppDraft, user, loadOrders, loadProducts, showNotice]);
 
 
   /* =======================================================
-     BUY NOW — skips the cart entirely, checks out with
-     just this one item (replaces whatever else was in cart)
+     BUY NOW — starts a WhatsApp order for this product only
      ======================================================= */
 
 
@@ -3712,45 +3747,21 @@ export default function App() {
         return;
       }
 
-      if (!user) {
-        setCart([
-          {
-            id: `guest-${product.id}-${variant || "default"}`,
-            product_id: product.id,
-            product,
-            variant,
-            quantity: qty,
-            subtotal: qty * Number(product.price || 0),
-          },
-        ]);
-        try {
-          sessionStorage.setItem("shindara-pending-checkout", "1");
-        } catch {}
-        setAuthMode("signup");
-        resetAuthForm();
-        setModal("auth");
-        showNotice("Create an account or sign in to complete your order.");
-        return;
-      }
-
-      try {
-        await supabase.from("cart_items").delete().eq("user_id", user.id);
-
-        const { error } = await supabase
-          .from("cart_items")
-          .insert({ user_id: user.id, product_id: product.id, quantity: qty, variant });
-
-        if (error) throw error;
-
-        await loadCart(user.id);
-        setCheckoutError("");
-        navigate("/checkout");
-      } catch (error) {
-        console.error("Buy now:", error);
-        showNotice("Could not start checkout.");
-      }
+      setWhatsAppDraft([{
+        product_id: product.id,
+        product,
+        variant,
+        quantity: qty,
+        subtotal: qty * Number(product.price || 0),
+      }]);
+      setWhatsAppCustomer({
+        name: profile?.full_name || user?.user_metadata?.full_name || "",
+        phone: profile?.phone || "",
+      });
+      setWhatsAppOrder(null);
+      setModal("whatsappOrder");
     },
-    [user, loadCart, showNotice, navigate, resetAuthForm, requestStockNotify]
+    [profile, user, requestStockNotify]
   );
 
 
@@ -3783,6 +3794,9 @@ export default function App() {
       </div>
     );
   }
+
+
+  if (isCheckoutRoute) return <Navigate to="/cart" replace />;
 
 
   /* =======================================================
@@ -4100,13 +4114,13 @@ export default function App() {
                     className="btn-primary"
                     onClick={() => buyNow(selectedProduct, { quantity: productQuantity, variant: selectedVariant })}
                   >
-                    Buy Now
+                    Order on WhatsApp
                   </button>
                 )}
               </div>
 
               <div className="product-trust-strip">
-                <span>🔒 Secure payment</span>
+                <span>💬 WhatsApp ordering</span>
                 <span>🚚 Fast delivery</span>
                 <span>↩ Easy returns</span>
               </div>
@@ -4371,15 +4385,6 @@ export default function App() {
                 ))}
               </div>
 
-              <div className="promo-code-field">
-                <input
-                  type="text"
-                  placeholder="Have a promo code?"
-                  value={promoCode}
-                  onChange={(event) => setPromoCode(event.target.value)}
-                />
-              </div>
-
               <div className="cart-summary">
                 <div>
                   <span>Items</span>
@@ -4391,13 +4396,11 @@ export default function App() {
                 </div>
               </div>
 
-              <p className="checkout-note">Delivery fee is calculated at checkout based on your state.</p>
+              <p className="checkout-note">Confirm availability and delivery details with us on WhatsApp.</p>
 
               <button className="btn-primary full" onClick={openCheckout}>
-                Continue to checkout
+                Order Cart on WhatsApp
               </button>
-
-              <p className="checkout-note">🔒 Secure payment powered by Paystack</p>
             </>
           )}
 
@@ -4810,7 +4813,7 @@ export default function App() {
             <div className="hero-trust">
               <div><span className="hero-trust-icon">🛡</span>Quality Products</div>
               <div><span className="hero-trust-icon">🚚</span>Fast Delivery</div>
-              <div><span className="hero-trust-icon">🔒</span>Secure Payment</div>
+              <div><span className="hero-trust-icon">💬</span>WhatsApp Ordering</div>
             </div>
 
           </div>
@@ -5295,16 +5298,14 @@ export default function App() {
 
           <div className="footer-column">
             <h4>Connect</h4>
-            {siteSettings.whatsapp_number && (
-              <a
-                className="footer-link"
-                href={`https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                WhatsApp
-              </a>
-            )}
+            <a
+              className="footer-link"
+              href={`https://wa.me/${WHATSAPP_NUMBER}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              WhatsApp
+            </a>
             {siteSettings.instagram_url && (
               <a
                 className="footer-link"
@@ -5330,12 +5331,6 @@ export default function App() {
                 Contact us
               </a>
             )}
-            {!siteSettings.whatsapp_number &&
-              !siteSettings.instagram_url &&
-              !siteSettings.tiktok_url &&
-              !siteSettings.support_email && (
-                <span className="footer-link-placeholder">Contact links coming soon</span>
-              )}
           </div>
 
         </div>
@@ -5713,6 +5708,99 @@ export default function App() {
           ORDERS MODAL
           =================================================== */}
 
+      {modal === "whatsappOrder" && (
+        <Modal onClose={() => setModal(null)} wide processing={processing}>
+          <div className="modal-head">
+            <span className="modal-kicker">Order confirmation</span>
+            <h2>{whatsAppOrder ? `Order ${whatsAppOrder.order_number}` : "Review your order"}</h2>
+            <p>{whatsAppOrder ? "Your order has been saved. Continue to WhatsApp to confirm availability and delivery." : "Confirm your details and we'll save this order before opening WhatsApp."}</p>
+            {whatsAppOrder && <p>Customer: {whatsAppOrder.customer_name}</p>}
+          </div>
+
+          <div className="whatsapp-order-items">
+            {(whatsAppOrder?.items || whatsAppDraft).map((item, index) => {
+              const product = item.product || {};
+              const image = item.product_image || getProductImage(product);
+              const name = item.product_name || product.name || "Product";
+              const unitPrice = Number(item.unit_price ?? item.price ?? product.price ?? 0);
+              const quantity = Number(item.quantity || 1);
+              return (
+                <div className="whatsapp-order-item" key={item.id || item.product_id || index}>
+                  {image ? <img src={image} alt={name} /> : <div className="whatsapp-order-image-empty">S</div>}
+                  <div>
+                    <strong>{name}</strong>
+                    {item.variant && <small>{item.variant}</small>}
+                    <span>Quantity: {quantity}</span>
+                    <span>Unit price: {money(unitPrice)}</span>
+                  </div>
+                  <strong>{money(Number(item.total_price ?? unitPrice * quantity))}</strong>
+                </div>
+              );
+            })}
+            <div className="whatsapp-order-total">
+              <span>Total</span>
+              <strong>{money(whatsAppOrder?.total_price ?? whatsAppDraft.reduce((sum, item) => sum + Number(item.subtotal || 0), 0))}</strong>
+            </div>
+          </div>
+
+          {!whatsAppOrder ? (
+            <>
+              <div className="checkout-grid whatsapp-customer-fields">
+                <div className="field">
+                  <label htmlFor="whatsapp-customer-name">Your name</label>
+                  <input
+                    id="whatsapp-customer-name"
+                    autoComplete="name"
+                    value={whatsAppCustomer.name}
+                    onChange={(event) => setWhatsAppCustomer((current) => ({ ...current, name: event.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="whatsapp-customer-phone">Phone number</label>
+                  <input
+                    id="whatsapp-customer-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="08012345678"
+                    value={whatsAppCustomer.phone}
+                    onChange={(event) => setWhatsAppCustomer((current) => ({ ...current, phone: event.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+              <button className="btn-primary full" onClick={saveWhatsAppOrder} disabled={processing}>
+                {processing ? "Saving order..." : "Confirm Order"}
+              </button>
+              <button className="btn-secondary full" onClick={() => setModal(null)} disabled={processing}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <div className="whatsapp-order-actions">
+              <a
+                className="btn-primary full"
+                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+                  `Hello Shindara PhoneFlair 👋\n\nI’d like to place an order.\n\nOrder No: ${whatsAppOrder.order_number}\n${whatsAppOrder.items.map((item, index) => `${whatsAppOrder.items.length > 1 ? `${index + 1}. ` : "Product: "}${item.product_name} ${whatsAppOrder.items.length > 1 ? `× ${item.quantity} — ${money(item.unit_price)}` : `Quantity: ${item.quantity} Price: ${money(item.unit_price)}`}`).join("\n")}\nTotal: ${money(whatsAppOrder.total_price)}\n\nPlease confirm availability and delivery details.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  clearCart();
+                  setModal(null);
+                }}
+              >
+                Continue to WhatsApp
+              </a>
+              <button className="btn-secondary full" onClick={() => setModal(null)}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </Modal>
+      )}
+
       {modal === "orders" && (
         <Modal onClose={() => setModal(null)} wide processing={processing}>
           <div className="modal-head">
@@ -5753,7 +5841,7 @@ export default function App() {
                   <div className="order-card-main">
                     <span>{formatDate(order.created_at)}</span>
                     <h3>
-                      {order.tracking_number || `Order #${String(order.id).slice(0, 8)}`}
+                      {order.order_number || order.tracking_number || `Order #${String(order.id).slice(0, 8)}`}
                     </h3>
                     <p>
                       {order.items?.length || 0} item{order.items?.length !== 1 ? "s" : ""}{" "}
@@ -5762,14 +5850,8 @@ export default function App() {
                   </div>
 
                   <div className="order-card-status">
-                    <span
-                      className={
-                        String(order.payment_status).toLowerCase() === "paid"
-                          ? "status-paid"
-                          : "status-pending"
-                      }
-                    >
-                      {String(order.payment_status || "pending").toUpperCase()}
+                    <span className="status-pending">
+                      {String(order.order_status || order.status || "WhatsApp Order Received").toUpperCase()}
                     </span>
                     <strong>→</strong>
                   </div>
@@ -5813,7 +5895,7 @@ export default function App() {
         <Modal onClose={() => setModal("orders")} wide processing={processing}>
           <div className="modal-head">
             <span className="modal-kicker">Order tracking</span>
-            <h2>{selectedOrder.tracking_number || "Order"}</h2>
+            <h2>{selectedOrder.order_number || selectedOrder.tracking_number || "Order"}</h2>
             <p>Keep this tracking number for your delivery reference.</p>
           </div>
 
@@ -5826,7 +5908,7 @@ export default function App() {
             <div>
               <span>Order status</span>
               <strong>
-                {String(selectedOrder.status || "pending").replace(/_/g, " ").toUpperCase()}
+                {String(selectedOrder.order_status || selectedOrder.status || "WhatsApp Order Received").toUpperCase()}
               </strong>
             </div>
 
@@ -5992,12 +6074,7 @@ export default function App() {
               <button
                 className="account-menu-row"
                 onClick={() => {
-                  if (siteSettings.whatsapp_number) {
-                    window.open(
-                      `https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}`,
-                      "_blank"
-                    );
-                  }
+                  window.open(`https://wa.me/${WHATSAPP_NUMBER}`, "_blank", "noopener,noreferrer");
                 }}
               >
                 <span>🎧 Help &amp; Support</span>
@@ -6083,7 +6160,7 @@ export default function App() {
 
             {Number(selectedProduct.stock || 0) > 0 && (
               <button className="btn-primary" onClick={() => buyNow(selectedProduct)}>
-                Buy Now
+                Order on WhatsApp
               </button>
             )}
           </div>
@@ -6097,17 +6174,15 @@ export default function App() {
       {isCheckoutRoute && (
         <div className="sticky-buy-bar">
           <div className="sticky-buy-info">
-            <span>Total to pay</span>
+            <span>Cart total</span>
             <strong>{money(orderTotal)}</strong>
           </div>
           <button
             className="btn-primary"
             disabled={processing}
-            onClick={() => {
-              document.querySelector(".pay-button")?.click();
-            }}
+            onClick={() => navigate("/cart", { replace: true })}
           >
-            {processing ? "Processing..." : "Pay now"}
+            Order on WhatsApp
           </button>
         </div>
       )}
@@ -6116,19 +6191,17 @@ export default function App() {
           WHATSAPP FLOATING BUTTON
           =================================================== */}
 
-      {siteSettings.whatsapp_number && (
-        <a
-          className="whatsapp-floating"
-          href={`https://wa.me/${siteSettings.whatsapp_number.replace(/\D/g, "")}?text=${encodeURIComponent(
-            "Hi! I have a question about a product on Shindara PhoneFlair."
-          )}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Chat with us on WhatsApp"
-        >
-          <span>💬</span>
-        </a>
-      )}
+      <a
+        className="whatsapp-floating"
+        href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+          "Hi! I have a question about a product on Shindara PhoneFlair."
+        )}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat with us on WhatsApp"
+      >
+        <span>💬</span>
+      </a>
 
       {/* ===================================================
           NOTICE
