@@ -442,7 +442,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
           <tbody>
             {filtered.map((product) => (
               <tr key={product.id}>
-                <td>
+                <td data-label="Select">
                   <input
                     type="checkbox"
                     checked={selectedIds.includes(product.id)}
@@ -450,7 +450,7 @@ function ProductsTab({ products, categories, reload, showNotice }) {
                     aria-label={`Select ${product.name}`}
                   />
                 </td>
-                <td>
+                <td data-label="Image">
                   <div className="admin-thumb">
                     {getProductImage(product) ? (
                       <img src={getProductImage(product)} alt={product.name} />
@@ -459,17 +459,17 @@ function ProductsTab({ products, categories, reload, showNotice }) {
                     )}
                   </div>
                 </td>
-                <td>{product.name}</td>
-                <td>
+                <td data-label="Name">{product.name}</td>
+                <td data-label="Category">
                   <span className="admin-tag">{product.category || "—"}</span>
                 </td>
-                <td>{money(product.price)}</td>
-                <td>
+                <td data-label="Price">{money(product.price)}</td>
+                <td data-label="Stock">
                   <span className={Number(product.stock) <= 5 ? "admin-stock low" : "admin-stock"}>
                     {product.stock ?? 0}
                   </span>
                 </td>
-                <td className="admin-row-actions">
+                <td data-label="Actions" className="admin-row-actions">
                   <button className="btn-text" onClick={() => setEditing(product)}>
                     Edit
                   </button>
@@ -858,7 +858,7 @@ function OrdersTab({ orders, reload, showNotice }) {
           <h2>Orders</h2>
           <p>{orders.length} order{orders.length !== 1 ? "s" : ""} total.</p>
         </div>
-        <div className="admin-panel-actions">
+        <div className="admin-panel-actions admin-orders-actions">
           <input
             className="admin-search"
             placeholder="Search orders..."
@@ -886,7 +886,9 @@ function OrdersTab({ orders, reload, showNotice }) {
             <tr>
               <th>Order #</th>
               <th>Product</th>
+              <th>Qty</th>
               <th>Customer</th>
+              <th>Phone</th>
               <th>Total</th>
               <th>Payment</th>
               <th>Status</th>
@@ -897,10 +899,10 @@ function OrdersTab({ orders, reload, showNotice }) {
           <tbody>
             {filtered.map((order) => (
               <tr key={order.id}>
-                <td>{order.order_number || order.tracking_number || `#${String(order.id).slice(0, 8)}`}</td>
-                <td className="admin-order-product-cell">
+                <td data-label="Order">{order.order_number || order.tracking_number || `#${String(order.id).slice(0, 8)}`}</td>
+                <td data-label="Product" className="admin-order-product-cell">
                   {order.items?.[0] && (
-                    <>
+                    <div className="admin-order-product-summary">
                       {(order.items[0].product_image || getProductImage(order.items[0].products)) && (
                         <img
                           src={order.items[0].product_image || getProductImage(order.items[0].products)}
@@ -909,12 +911,14 @@ function OrdersTab({ orders, reload, showNotice }) {
                         />
                       )}
                       <span>{order.items[0].product_name || order.items[0].products?.name || "Product"}{order.items.length > 1 ? ` + ${order.items.length - 1} more` : ""}</span>
-                    </>
+                    </div>
                   )}
                 </td>
-                <td>{order.customer_name}</td>
-                <td>{money(order.total)}</td>
-                <td>
+                <td data-label="Qty">{(order.items || []).reduce((quantity, item) => quantity + Number(item.quantity || 0), 0)}</td>
+                <td data-label="Customer">{order.customer_name}</td>
+                <td data-label="Phone">{order.customer_phone}</td>
+                <td data-label="Total">{money(order.total)}</td>
+                <td data-label="Payment">
                   <span
                     className={
                       String(order.payment_status).toLowerCase() === "paid"
@@ -925,21 +929,31 @@ function OrdersTab({ orders, reload, showNotice }) {
                     {String(order.payment_status || "pending").toUpperCase()}
                   </span>
                 </td>
-                <td>
+                <td data-label="Status">
                   <span className="admin-tag">{getOrderStatus(order)}</span>
                 </td>
-                <td>{formatDate(order.created_at)}</td>
-                <td className="admin-row-actions">
+                <td data-label="Date">{formatDate(order.created_at)}</td>
+                <td data-label="Actions" className="admin-row-actions">
                   <button className="btn-text" onClick={() => openOrder(order)}>
                     View Order
                   </button>
+                  {order.customer_phone && (
+                    <a
+                      className="btn-text"
+                      href={buildWhatsAppLink(order)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Contact Customer on WhatsApp
+                    </a>
+                  )}
                 </td>
               </tr>
             ))}
 
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="admin-empty-row">
+                <td colSpan={10} className="admin-empty-row">
                   No orders match this filter.
                 </td>
               </tr>
@@ -1034,7 +1048,7 @@ function OrdersTab({ orders, reload, showNotice }) {
             </div>
 
             <div className="field">
-              <label>Order status</label>
+              <label>Change Status</label>
               <select
                 value={getOrderStatus(selected)}
                 disabled={saving}
@@ -1123,10 +1137,10 @@ function CustomersTab({ customers }) {
           <tbody>
             {filtered.map((customer) => (
               <tr key={customer.id}>
-                <td>{customer.full_name || "—"}</td>
-                <td>{customer.email || "—"}</td>
-                <td>{customer.phone || "—"}</td>
-                <td>{customer.orderCount || 0}</td>
+                <td data-label="Name">{customer.full_name || "—"}</td>
+                <td data-label="Email">{customer.email || "—"}</td>
+                <td data-label="Phone">{customer.phone || "—"}</td>
+                <td data-label="Orders">{customer.orderCount || 0}</td>
               </tr>
             ))}
 
@@ -1285,7 +1299,7 @@ function CategoriesTab({ categories, reload, showNotice }) {
           <tbody>
             {categories.map((cat, index) => (
               <tr key={cat.id}>
-                <td className="admin-reorder">
+                <td data-label="Reorder" className="admin-reorder">
                   <button
                     disabled={index === 0}
                     onClick={() => move(index, -1)}
@@ -1301,15 +1315,15 @@ function CategoriesTab({ categories, reload, showNotice }) {
                     ↓
                   </button>
                 </td>
-                <td className="admin-icon-cell">
+                <td data-label="Icon" className="admin-icon-cell">
                   {cat.image_url ? (
                     <img className="admin-cat-thumb" src={cat.image_url} alt={cat.name} />
                   ) : (
                     cat.icon || "◆"
                   )}
                 </td>
-                <td>{cat.name}</td>
-                <td className="admin-row-actions">
+                <td data-label="Name">{cat.name}</td>
+                <td data-label="Actions" className="admin-row-actions">
                   <button className="btn-text" onClick={() => setEditing(cat)}>
                     Edit
                   </button>
@@ -1994,12 +2008,12 @@ function ReviewsTab({ reviews, products, reload, showNotice }) {
           <tbody>
             {filtered.map((review) => (
               <tr key={review.id}>
-                <td>{productName(review.product_id)}</td>
-                <td>{review.customer_name}</td>
-                <td>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</td>
-                <td className="admin-review-comment">{review.comment || "—"}</td>
-                <td>{new Date(review.created_at).toLocaleDateString()}</td>
-                <td className="admin-row-actions">
+                <td data-label="Product">{productName(review.product_id)}</td>
+                <td data-label="Customer">{review.customer_name}</td>
+                <td data-label="Rating">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</td>
+                <td data-label="Comment" className="admin-review-comment">{review.comment || "—"}</td>
+                <td data-label="Date">{new Date(review.created_at).toLocaleDateString()}</td>
+                <td data-label="Actions" className="admin-row-actions">
                   <button className="admin-danger" onClick={() => remove(review)}>
                     Delete
                   </button>
