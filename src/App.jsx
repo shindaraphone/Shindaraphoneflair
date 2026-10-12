@@ -6217,3 +6217,12 @@ export default function App() {
     </div>
   );
 }
+import LaunchGate from "./LaunchGate";
+
+function App() {
+  return (
+    <LaunchGate>
+      {/* your existing website here */}
+    </LaunchGate>
+  );
+}
