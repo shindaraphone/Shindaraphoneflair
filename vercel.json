@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/admin",
-      "destination": "/"
+      "destination": "/admin.html"
     },
     {
       "source": "/admin-login",
