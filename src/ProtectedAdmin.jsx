@@ -175,6 +175,24 @@ function ProtectedAdmin() {
             opacity: .5;
           }
 
+          @media (prefers-color-scheme: dark) {
+            .protected-admin-loading {
+              background:
+                radial-gradient(
+                  circle at 20% 10%,
+                  rgba(124,58,237,.22),
+                  transparent 35%
+                ),
+                #15111d;
+              color: #ece8f5;
+            }
+
+            .protected-admin-spinner {
+              border-color: rgba(255,255,255,.12);
+              border-top-color: #ece8f5;
+            }
+          }
+
           @keyframes protectedSpin {
             to {
               transform: rotate(360deg);
