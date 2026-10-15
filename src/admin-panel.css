@@ -715,3 +715,65 @@
     padding-top: calc(12px + env(safe-area-inset-top));
   }
 }
+
+/* =========================================================
+   ADMIN DARK MODE (follows system setting)
+   Turned on by data-theme="dark" on <html>, set in main.jsx /
+   admin.html. Scoped to admin screens so the store is untouched.
+   ========================================================= */
+
+html.is-admin[data-theme="dark"] body { background: #15111d; color: #ece8f5; }
+
+[data-theme="dark"] .admin-app,
+[data-theme="dark"] .admin-gate {
+  color-scheme: dark;
+  --ink: #ece8f5;
+  --ink-soft: #a9a1bb;
+  --case: #15111d;
+  --paper: #1f1a2b;
+  --line: #342b47;
+  --admin-orange-soft: #2d2450;
+  --admin-dark: #0e0a15;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 26px -16px rgba(0, 0, 0, 0.7);
+  --shadow-pop: 0 18px 44px -16px rgba(0, 0, 0, 0.8);
+}
+
+/* login screen */
+[data-theme="dark"] .admin-gate { background: #0e0a15; }
+
+/* app shell */
+[data-theme="dark"] .admin-app,
+[data-theme="dark"] .admin-main { background: var(--case); }
+[data-theme="dark"] .admin-panel-head { border-bottom-color: var(--line); }
+[data-theme="dark"] .admin-panel-head p { color: var(--ink-soft); }
+[data-theme="dark"] .admin-search { background: var(--paper); border-color: var(--line); color: var(--ink); }
+
+/* tables */
+[data-theme="dark"] .admin-table-wrap { box-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+[data-theme="dark"] .admin-table th { background: #1a1524; color: var(--ink-soft); }
+[data-theme="dark"] .admin-table tr:hover td { background: #251e36; }
+
+/* tags, stats, banners */
+[data-theme="dark"] .admin-tag,
+[data-theme="dark"] .admin-rank-number { color: #b8a3ff; }
+[data-theme="dark"] .admin-stock.low,
+[data-theme="dark"] .admin-danger { color: #ff8a6b; }
+[data-theme="dark"] .admin-stat-card,
+[data-theme="dark"] .admin-analytics-block,
+[data-theme="dark"] .admin-fee-row { box-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+[data-theme="dark"] .admin-stat-card span { color: var(--ink-soft); }
+[data-theme="dark"] .admin-stat-card strong,
+[data-theme="dark"] .admin-analytics-block .settings-block-title { color: var(--ink); }
+[data-theme="dark"] .admin-bulk-bar,
+[data-theme="dark"] .admin-notify-banner { border-color: #46386b; }
+
+/* phone layout: tables turn into cards */
+@media (max-width: 860px) {
+  [data-theme="dark"] .admin-table tbody tr {
+    background: var(--paper);
+    border-color: var(--line);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+  [data-theme="dark"] .admin-table td::before { color: var(--ink-soft); }
+  [data-theme="dark"] .admin-table td.admin-row-actions { border-top-color: var(--line) !important; }
+}
