@@ -708,3 +708,10 @@
     border-radius: 12px 12px 0 0;
   }
 }
+
+/* ---------- installed-app (Add to Home Screen) ---------- */
+@media (display-mode: standalone) {
+  .admin-sidebar {
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+}
