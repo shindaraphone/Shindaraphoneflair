@@ -6,7 +6,10 @@ import ProtectedAdmin from "./ProtectedAdmin";
 import PrivacyPolicy from "./PrivacyPolicy";
 import TermsOfService from "./TermsOfService";
 import LaunchGate from "./LaunchGate";
+import { setupAdminPwa } from "./adminPwa";
 import "./index.css";
+
+setupAdminPwa();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
