@@ -50,9 +50,16 @@ function AdminLogin({ onLogin }) {
         {error && <div className="message error">{error}</div>}
 
         <div className="field">
-          <label>Email address</label>
+          <label htmlFor="admin-email">Email address</label>
           <input
+            id="admin-email"
+            name="email"
             type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@shindara.com"
@@ -62,9 +69,15 @@ function AdminLogin({ onLogin }) {
         </div>
 
         <div className="field">
-          <label>Password</label>
+          <label htmlFor="admin-password">Password</label>
           <div className="password-field">
             <input
+              id="admin-password"
+              name="password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="go"
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
