@@ -56,7 +56,25 @@ function setupAdminPwa() {
   }
 }
 
+// Admin dark mode: follows the phone/computer's light/dark setting (like the
+// store's "system" mode) and updates live when the setting changes.
+function setupAdminTheme() {
+  if (typeof window === "undefined") return;
+  if (!window.location.pathname.startsWith("/admin")) return;
+
+  const root = document.documentElement;
+  root.classList.add("is-admin");
+
+  const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+  const apply = () => {
+    root.dataset.theme = scheme.matches ? "dark" : "light";
+  };
+  apply();
+  scheme.addEventListener("change", apply);
+}
+
 setupAdminPwa();
+setupAdminTheme();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
