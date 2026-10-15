@@ -30,7 +30,8 @@ export default function LaunchGate({ children }) {
   }, []);
 
   // Launch time reached: show the real website
-  if (!timeLeft) return children;
+  const isAdmin = window.location.pathname.startsWith("/admin");
+if (!timeLeft || isAdmin) return children;
 
   const boxStyle = {
     background: "#222",
