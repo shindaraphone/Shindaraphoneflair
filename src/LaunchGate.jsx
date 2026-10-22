@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 // MASTER SWITCH
 //   true  = website is LOCKED (countdown shows for everyone)
 //   false = website is UNLOCKED (everyone sees the real site)
-const SITE_LOCKED = true;
+const SITE_LOCKED = false;
 
 // Launch: Dec 23, 2026 at 12:00 AM, Lagos time (UTC+01:00)
 const LAUNCH_TIME = new Date("2026-12-23T00:00:00+01:00").getTime();
