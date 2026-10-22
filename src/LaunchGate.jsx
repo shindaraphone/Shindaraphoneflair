@@ -6,11 +6,11 @@ const LAUNCH_TIME = new Date("2026-12-23T00:00:00+01:00").getTime();
 const pad = (n) => String(n).padStart(2, "0");
 
 // Private preview: lets you (only) see the real site before launch.
-//   Unlock: shindaraphoneflair.vercel.app/
+//   Unlock: yoursite.com/?preview=PREVIEW_CODE
 //   Lock again: yoursite.com/?preview=off  (or just close the tab)
 // It is stored only in your own browser tab, so customers still see the countdown.
-// CHANGE this code to your own secret word before using it.
-const PREVIEW_CODE = "shindara-preview-2026";
+// Keep this code private. Change it any time if you want a new one.
+const PREVIEW_CODE = "open-sesame-7391";
 const PREVIEW_KEY = "shindara-preview-unlocked";
 
 function hasPreviewAccess() {
