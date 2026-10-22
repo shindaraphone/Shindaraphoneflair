@@ -6,7 +6,6 @@ import ProtectedAdmin from "./ProtectedAdmin";
 import PrivacyPolicy from "./PrivacyPolicy";
 import TermsOfService from "./TermsOfService";
 import LaunchGate from "./LaunchGate";
-import "./index.css";
 
 // Makes the admin portal installable as its own app ("Add to Home Screen").
 // On /admin pages only, this swaps the page's manifest and icons for the
