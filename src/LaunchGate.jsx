@@ -5,6 +5,39 @@ const LAUNCH_TIME = new Date("2026-12-23T00:00:00+01:00").getTime();
 
 const pad = (n) => String(n).padStart(2, "0");
 
+// Private preview: lets you (only) see the real site before launch.
+//   Unlock: yoursite.com/?preview=PREVIEW_CODE
+//   Lock again: yoursite.com/?preview=off  (or just close the tab)
+// It is stored only in your own browser tab, so customers still see the countdown.
+// CHANGE this code to your own secret word before using it.
+const PREVIEW_CODE = "shindara-preview-2026";
+const PREVIEW_KEY = "shindara-preview-unlocked";
+
+function hasPreviewAccess() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("preview");
+
+    if (code !== null) {
+      if (code === PREVIEW_CODE) sessionStorage.setItem(PREVIEW_KEY, "1");
+      if (code === "off") sessionStorage.removeItem(PREVIEW_KEY);
+
+      // Remove ?preview=... from the address bar
+      params.delete("preview");
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (query ? "?" + query : "") + window.location.hash
+      );
+    }
+
+    return sessionStorage.getItem(PREVIEW_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function getTimeLeft() {
   const diff = LAUNCH_TIME - Date.now();
   if (diff <= 0) return null;
@@ -18,6 +51,7 @@ function getTimeLeft() {
 
 export default function LaunchGate({ children }) {
   const [timeLeft, setTimeLeft] = useState(getTimeLeft());
+  const [previewing] = useState(hasPreviewAccess);
 
   useEffect(() => {
     if (!timeLeft) return;
@@ -31,7 +65,7 @@ export default function LaunchGate({ children }) {
 
   // Launch time reached: show the real website
   const isAdmin = window.location.pathname.startsWith("/admin");
-  if (!timeLeft || isAdmin) return children;
+  if (!timeLeft || isAdmin || previewing) return children;
 
   const boxStyle = {
     background: "#222",
